@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,8 +24,10 @@ public class InterviewController {
 
     @PostMapping
     InterviewResponse create(@Valid @RequestBody CreateInterviewCommand command) {
-        return InterviewResponse.from(service.create(command.vacancyId(), command.candidateName()));
+        return InterviewResponse.from(service.createAndStart(command.jobPositionId(), command.candidateName(), command.clientCompany()));
     }
+
+    @GetMapping("/{id}") InterviewResponse get(@PathVariable UUID id) { return InterviewResponse.from(service.get(id)); }
 
     @PatchMapping("/{id}/start")
     InterviewResponse start(@PathVariable UUID id) { return InterviewResponse.from(service.start(id)); }
@@ -42,10 +45,12 @@ public class InterviewController {
         return InterviewResponse.from(service.registerPdfGeneration(id));
     }
 
-    public record CreateInterviewCommand(@NotNull UUID vacancyId, @NotBlank String candidateName) { }
+    public record CreateInterviewCommand(@NotNull UUID jobPositionId, @NotBlank String candidateName,
+                                         String clientCompany) { }
 
     public record InterviewResponse(UUID id, UUID vacancyId, String candidateName,
-                                    String vacancyTitleSnapshot, List<String> requirementSnapshot,
+                                    String vacancyTitleSnapshot, String senioritySnapshot, String clientCompany,
+                                    List<String> requirementSnapshot,
                                     String interviewerId, InterviewStatus status, Instant startedAt,
                                     Instant completedAt, Instant assessmentFinalizedAt,
                                     String assessmentFinalizedBy, Instant lastPdfGeneratedAt,
@@ -53,7 +58,8 @@ public class InterviewController {
                                     Instant updatedAt, String updatedBy) {
         static InterviewResponse from(Interview interview) {
             return new InterviewResponse(interview.id(), interview.vacancyId(), interview.candidateName(),
-                    interview.vacancyTitleSnapshot(), interview.requirementSnapshot(), interview.interviewerId(),
+                    interview.vacancyTitleSnapshot(), interview.senioritySnapshot(), interview.clientCompany(),
+                    interview.requirementSnapshot(), interview.interviewerId(),
                     interview.status(), interview.startedAt(), interview.completedAt(),
                     interview.assessmentFinalizedAt(), interview.assessmentFinalizedBy(),
                     interview.lastPdfGeneratedAt(), interview.lastPdfGeneratedBy(), interview.createdAt(),

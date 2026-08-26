@@ -34,6 +34,21 @@ public class InterviewService {
         return repository.save(interview);
     }
 
+    @Transactional
+    public Interview createAndStart(UUID vacancyId, String candidateName, String clientCompany) {
+        var vacancy = vacancyRepository.findById(vacancyId)
+                .orElseThrow(() -> new IllegalArgumentException("job position not found"));
+        if (!vacancy.active()) throw new IllegalStateException("inactive job position cannot start an interview");
+        var actor = currentActor.required();
+        var now = Instant.now(clock);
+        var interview = new Interview(vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
+                candidateName, clientCompany, actor.id(), now);
+        interview.start(actor.id(), now);
+        return repository.save(interview);
+    }
+
+    @Transactional(readOnly = true) public Interview get(UUID id) { return required(id); }
+
     @Transactional public Interview start(UUID id) { return mutate(id, Interview::start); }
     @Transactional public Interview complete(UUID id) { return mutate(id, Interview::complete); }
     @Transactional public Interview finalizeAssessment(UUID id) { return mutate(id, Interview::finalizeAssessment); }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -27,7 +28,9 @@ public class JobVacancyController {
         return VacancyResponse.from(service.create(command.title(), command.seniority(), command.description(), command.requirements()));
     }
 
-    @GetMapping List<VacancyResponse> list() { return service.list().stream().map(VacancyResponse::from).toList(); }
+    @GetMapping List<VacancyResponse> list(@RequestParam(required = false) Boolean active) {
+        return service.list(active).stream().map(VacancyResponse::from).toList();
+    }
     @GetMapping("/{id}") VacancyResponse get(@PathVariable UUID id) { return VacancyResponse.from(service.get(id)); }
 
     @PutMapping("/{id}")

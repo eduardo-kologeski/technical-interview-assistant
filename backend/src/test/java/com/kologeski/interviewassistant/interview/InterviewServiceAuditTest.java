@@ -11,11 +11,51 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class InterviewServiceAuditTest {
+    @Test
+    void createsStartedInterviewFromActiveJobPositionAndAuthenticatedUser() {
+        var interviewRepository = mock(InterviewRepository.class);
+        var vacancyRepository = mock(JobVacancyRepository.class);
+        when(interviewRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var vacancy = new JobVacancy("Backend Java", "Pleno", "", List.of("Java", "SQL"),
+                "creator", Instant.EPOCH);
+        when(vacancyRepository.findById(vacancy.id())).thenReturn(Optional.of(vacancy));
+        var service = new InterviewService(interviewRepository, vacancyRepository,
+                new MutableActor("authcore-user-42"), new MutableClock(Instant.parse("2026-08-26T12:00:00Z")));
+
+        var interview = service.createAndStart(vacancy.id(), "João", "Empresa X");
+
+        assertThat(interview.status()).isEqualTo(InterviewStatus.IN_PROGRESS);
+        assertThat(interview.interviewerId()).isEqualTo("authcore-user-42");
+        assertThat(interview.createdBy()).isEqualTo("authcore-user-42");
+        assertThat(interview.senioritySnapshot()).isEqualTo("Pleno");
+        assertThat(interview.requirementSnapshot()).containsExactly("Java", "SQL");
+        assertThat(interview.clientCompany()).isEqualTo("Empresa X");
+    }
+
+    @Test
+    void rejectsMissingOrInactiveJobPosition() {
+        var interviewRepository = mock(InterviewRepository.class);
+        var vacancyRepository = mock(JobVacancyRepository.class);
+        var actor = new MutableActor("user");
+        var clock = new MutableClock(Instant.EPOCH);
+        var service = new InterviewService(interviewRepository, vacancyRepository, actor, clock);
+
+        assertThatThrownBy(() -> service.createAndStart(java.util.UUID.randomUUID(), "Candidato", ""))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        var inactive = new JobVacancy("QA", List.of("Cypress"), "creator", Instant.EPOCH);
+        inactive.deactivate("creator", Instant.EPOCH.plusSeconds(1));
+        when(vacancyRepository.findById(inactive.id())).thenReturn(Optional.of(inactive));
+        assertThatThrownBy(() -> service.createAndStart(inactive.id(), "Candidato", ""))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
     @Test
     void capturesRequirementSnapshotAndAuditsInterviewLifecycle() {
         var interviewRepository = mock(InterviewRepository.class);

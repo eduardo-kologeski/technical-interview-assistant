@@ -24,6 +24,8 @@ public class Interview extends AuditableEntity {
     @Column(name = "vacancy_id", nullable = false, updatable = false) private UUID vacancyId;
     @Column(name = "candidate_name", nullable = false) private String candidateName;
     @Column(name = "vacancy_title_snapshot", nullable = false, updatable = false) private String vacancyTitleSnapshot;
+    @Column(name = "seniority_snapshot", nullable = false, updatable = false) private String senioritySnapshot;
+    @Column(name = "client_company") private String clientCompany;
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "interview_requirement_snapshots", joinColumns = @JoinColumn(name = "interview_id"))
     @Column(name = "requirement_name", nullable = false)
@@ -41,9 +43,16 @@ public class Interview extends AuditableEntity {
 
     public Interview(UUID vacancyId, String vacancyTitle, List<String> requirementSnapshot,
                      String candidateName, String actorId, Instant now) {
+        this(vacancyId, vacancyTitle, "Não informada", requirementSnapshot, candidateName, "", actorId, now);
+    }
+
+    public Interview(UUID vacancyId, String vacancyTitle, String seniority, List<String> requirementSnapshot,
+                     String candidateName, String clientCompany, String actorId, Instant now) {
         this.id = UUID.randomUUID();
         this.vacancyId = vacancyId;
         this.vacancyTitleSnapshot = requiredText(vacancyTitle, "vacancyTitle");
+        this.senioritySnapshot = requiredText(seniority, "seniority");
+        this.clientCompany = clientCompany == null ? "" : clientCompany.trim();
         this.requirementSnapshot = new ArrayList<>(requirementSnapshot == null ? List.of() : requirementSnapshot);
         this.candidateName = requiredText(candidateName, "candidateName");
         this.status = InterviewStatus.CREATED;
@@ -87,6 +96,8 @@ public class Interview extends AuditableEntity {
     public UUID vacancyId() { return vacancyId; }
     public String candidateName() { return candidateName; }
     public String vacancyTitleSnapshot() { return vacancyTitleSnapshot; }
+    public String senioritySnapshot() { return senioritySnapshot; }
+    public String clientCompany() { return clientCompany; }
     public List<String> requirementSnapshot() { return List.copyOf(requirementSnapshot); }
     public String interviewerId() { return interviewerId; }
     public InterviewStatus status() { return status; }

@@ -31,6 +31,9 @@ public class JobVacancyService {
     }
 
     @Transactional(readOnly = true) public List<JobVacancy> list() { return repository.findAll(); }
+    @Transactional(readOnly = true) public List<JobVacancy> list(Boolean active) {
+        return repository.findAll().stream().filter(item -> active == null || item.active() == active).toList();
+    }
     @Transactional(readOnly = true) public JobVacancy get(UUID id) { return required(id); }
 
     @Transactional
