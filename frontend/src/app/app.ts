@@ -60,25 +60,56 @@ export class App {
   async exportPdf() {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-    const left = 18;
-    const width = 174;
-    let y = 18;
-    const ensureSpace = (needed: number) => { if (y + needed > 280) { pdf.addPage(); y = 18; } };
-    const heading = (title: string) => { ensureSpace(15); pdf.setFillColor(22, 93, 122); pdf.rect(left, y, width, 8, 'F'); pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.text(title.toUpperCase(), left + 3, y + 5.5); pdf.setTextColor(35, 48, 58); y += 13; };
-    const paragraph = (text: string) => { const lines = pdf.splitTextToSize(text || 'Não informado.', width); ensureSpace(lines.length * 5 + 4); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.text(lines, left, y); y += lines.length * 5 + 4; };
+    const left = 16, width = 178, rightColumn = 116;
+    let y = 16;
+    const border = () => { pdf.setDrawColor(125); pdf.setLineWidth(0.25); };
+    const ensureSpace = (needed: number) => { if (y + needed > 280) { pdf.addPage(); y = 16; } };
+    const textLines = (text: string, maxWidth = width - 8) => pdf.splitTextToSize(text.trim() || 'Não informado.', maxWidth);
+    const section = (title: string) => {
+      ensureSpace(14); border(); pdf.setFillColor(190, 190, 190); pdf.rect(left, y, width, 8, 'FD');
+      pdf.setTextColor(15); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11); pdf.text(title, left + 2, y + 5.5); y += 8;
+    };
+    const paragraphBox = (text: string, minimumHeight = 18) => {
+      const lines = textLines(text); const height = Math.max(minimumHeight, lines.length * 4.3 + 8); ensureSpace(height);
+      border(); pdf.setTextColor(20); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.rect(left, y, width, height); pdf.text(lines, left + 4, y + 6); y += height;
+    };
+    const listText = (text: string) => text.split('\n').map(item => item.trim()).filter(Boolean).map(item => `- ${item.replace(/^[-+]\s*/, '')}`).join('\n');
 
-    pdf.setTextColor(22, 93, 122); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(19); pdf.text('PARECER TÉCNICO', left, y); y += 8;
-    pdf.setDrawColor(39, 141, 131); pdf.setLineWidth(0.7); pdf.line(left, y, left + width, y); y += 9;
-    pdf.setTextColor(35, 48, 58); pdf.setFontSize(10);
-    const details = [`Candidato: ${this.candidate()}`, `Vaga: ${this.role() || 'Não informada'}`, `Senioridade: ${this.seniority()}`, `Empresa: ${this.company() || 'Não informada'}`, `Entrevistador: ${this.interviewer() || 'Não informado'}`, `Data: ${new Date().toLocaleDateString('pt-BR')}`];
-    details.forEach(line => { pdf.setFont('helvetica', line.startsWith('Candidato') ? 'bold' : 'normal'); pdf.text(line, left, y); y += 5.5; }); y += 3;
-    heading('Resumo técnico'); paragraph(this.finalAssessment());
-    heading('Competências avaliadas');
-    this.skills().forEach(skill => { ensureSpace(12); pdf.setFont('helvetica', 'bold'); pdf.text(`${skill.name}  ${skill.skipped ? 'N/A' : skill.score === null ? 'Não avaliado' : `${skill.score}/5`}`, left, y); pdf.setFont('helvetica', 'normal'); const comment = pdf.splitTextToSize(skill.comment || 'Sem comentário.', width - 4); pdf.text(comment, left + 4, y + 4.5); y += comment.length * 4.5 + 7; });
-    heading('Resultado'); paragraph(`Média ponderada: ${this.average()} / 5\nRecomendação: ${this.recommendation()}`);
-    heading('Pontos fortes'); paragraph(this.strengths());
-    heading('Pontos de atenção'); paragraph(this.concerns());
-    const pages = pdf.getNumberOfPages(); for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.setFontSize(8); pdf.setTextColor(120); pdf.text(`Technical Interview Assistant · Página ${page} de ${pages}`, 105, 291, { align: 'center' }); }
+    border(); pdf.setFillColor(180, 180, 180); pdf.rect(left, y, width, 11, 'FD');
+    pdf.setTextColor(0); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.text('Parecer Técnico Seletivo', 105, y + 7.5, { align: 'center' }); y += 11;
+
+    const row = (leftLabel: string, leftValue: string, rightLabel: string, rightValue: string) => {
+      border(); pdf.rect(left, y, rightColumn - left, 8); pdf.rect(rightColumn, y, left + width - rightColumn, 8);
+      pdf.setFontSize(8.5); pdf.setFont('helvetica', 'bold'); pdf.text(leftLabel, left + 1.5, y + 5.3); pdf.text(rightLabel, rightColumn + 1.5, y + 5.3);
+      pdf.setFont('helvetica', 'normal'); pdf.text(leftValue, left + 40, y + 5.3); pdf.text(rightValue, rightColumn + 26, y + 5.3); y += 8;
+    };
+    row('Pessoa Candidata:', this.candidate(), 'Data:', new Date().toLocaleDateString('pt-BR'));
+    row('Pessoa Entrevistadora:', this.interviewer() || 'Não informado', 'Vaga:', this.role() || 'Não informada');
+    row('Senioridade:', this.seniority(), 'Template:', this.template());
+
+    section('Cultura Técnica');
+    paragraphBox(this.finalAssessment(), 30);
+
+    section('Tecnologias e Habilidades');
+    const evaluated = this.skills().map(skill => {
+      const score = skill.skipped ? 'N/A' : skill.score === null ? 'Não avaliado' : `${skill.score}/5`;
+      return `- ${skill.name}: ${score}${skill.comment ? ` - ${skill.comment}` : ''}`;
+    }).join('\n');
+    paragraphBox(evaluated, 28);
+
+    section('Prós');
+    paragraphBox(listText(this.strengths()), 20);
+    section('Contras');
+    paragraphBox(listText(this.concerns()), 20);
+
+    section('Feedback');
+    paragraphBox(this.quickNotes(), 24);
+
+    section('Conclusão: recomenda a contratação? Para qual perfil e com qual senioridade?');
+    paragraphBox(`Recomendação: ${this.recommendation()}\nMédia ponderada: ${this.average()} / 5\nSenioridade avaliada: ${this.seniority()}`, 26);
+
+    const pages = pdf.getNumberOfPages();
+    for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.setFontSize(7.5); pdf.setTextColor(110); pdf.text(`Página ${page} de ${pages}`, 105, 290, { align: 'center' }); }
     pdf.save(`parecer-${this.candidate().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'entrevista'}.pdf`);
   }
 
