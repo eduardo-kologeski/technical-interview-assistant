@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { InterviewPage } from './app';
+
+const App = InterviewPage;
 
 describe('App', () => {
   beforeEach(async () => {

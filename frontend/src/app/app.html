@@ -1,4 +1,4 @@
-<header class="topbar"><div class="brand"><span class="brand-mark">T</span><span>Technical Interview</span></div><nav><button class="nav-link">Entrevistas</button><button class="nav-link">Templates</button><span class="avatar">EC</span></nav></header>
+<header class="topbar"><div class="brand"><span class="brand-mark">T</span><span>Technical Interview</span></div><nav><a class="nav-link" href="/interviews">Entrevistas</a><a class="nav-link" href="/job-positions">Vagas</a><span class="avatar">TI</span></nav></header>
 @if (!started()) {
   <main class="registration-page">
     <section class="registration-intro"><span class="eyebrow">NOVA ENTREVISTA</span><h1>Prepare a entrevista em poucos passos</h1><p>Informe o candidato, escolha o contexto e comece. Você poderá registrar todas as evidências durante a conversa.</p></section>
@@ -9,7 +9,8 @@
       <label>Senioridade<select name="seniority" [ngModel]="seniority()" (ngModelChange)="seniority.set($event)"><option>Estágio</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Especialista</option><option>Tech Lead</option><option>Outro</option></select></label>
       <label>Cliente / empresa<input name="company" [ngModel]="company()" (ngModelChange)="company.set($event)" placeholder="Opcional"></label>
       <div class="authenticated-interviewer"><span>Entrevistador</span><strong>{{ authenticatedUserName() }}</strong><small>Identificado automaticamente pela sessão autenticada.</small></div>
-      <label class="full">Template<select name="template" [ngModel]="template()" (ngModelChange)="template.set($event)"><option>Backend .NET</option><option>Backend Java</option><option>QA Automation</option><option>Personalizada</option></select></label>
+      <label class="full">Vaga<select name="vacancy" [ngModel]="selectedVacancyId()" (ngModelChange)="selectVacancy($event)"><option value="">Selecione uma vaga...</option>@for (vacancy of vacancies(); track vacancy.id) {<option [value]="vacancy.id">{{ vacancy.title }} · {{ vacancy.seniority }}</option>}</select></label>
+      @if (selectedVacancyId()) { <div class="full vacancy-preview"><strong>{{ template() }}</strong><span>Senioridade: {{ seniority() }}</span><small>Requisitos: {{ requirementNames() }}</small></div> }
       <div class="form-actions"><small>Os dados serão salvos automaticamente durante a entrevista.</small><button class="finish" type="submit" [disabled]="!candidate().trim()">Iniciar entrevista →</button></div>
     </form>
   </main>

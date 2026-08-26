@@ -1,15 +1,19 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, HostListener, signal } from '@angular/core';
+import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { EvaluationSource, SkillEvaluationCardComponent } from './skill-evaluation-card.component';
+import { JobPosition, JobPositionService } from './job-position.service';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
 type Skill = { name: string; category: string; weight: number; importance: Importance; expected: number; score: number | null; skipped: boolean; comment: string; source: EvaluationSource };
 type TechnologyType = 'LANGUAGE' | 'FRAMEWORK' | 'OTHER';
 type Technology = { name: string; type: TechnologyType; description?: string; reviewScore?: number | null; notEvaluated?: boolean; source?: EvaluationSource };
 
-@Component({ selector: 'app-root', imports: [CommonModule, FormsModule, SkillEvaluationCardComponent], templateUrl: './app.html', styleUrl: './app.scss' })
-export class App {
+@Component({ selector: 'app-interview-page', imports: [CommonModule, FormsModule, SkillEvaluationCardComponent], templateUrl: './app.html', styleUrl: './app.scss' })
+export class InterviewPage {
+  private readonly jobPositions = inject(JobPositionService);
+  readonly vacancies = signal<JobPosition[]>([]);
+  readonly selectedVacancyId = signal('');
   readonly started = signal(false);
   readonly reviewing = signal(false);
   readonly candidate = signal('');
@@ -49,6 +53,7 @@ export class App {
     { name: 'Docker', category: 'DevOps', weight: 2, importance: 'Desejável', expected: 2, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
   ]);
   readonly evaluated = computed(() => this.skills().filter(s => s.score !== null || s.skipped).length);
+  readonly requirementNames = computed(() => this.skills().map(skill => skill.name).join(' · '));
   readonly progress = computed(() => Math.round(this.evaluated() / this.skills().length * 100));
   readonly average = computed(() => { const scored = this.skills().filter(s => s.score !== null && !s.skipped); const weights = scored.reduce((sum, s) => sum + s.weight, 0); return weights ? (scored.reduce((sum, s) => sum + s.score! * s.weight, 0) / weights).toFixed(1) : '—'; });
   readonly formattedTime = computed(() => `${String(Math.floor(this.seconds() / 60)).padStart(2, '0')}:${String(this.seconds() % 60).padStart(2, '0')}`);
@@ -66,6 +71,19 @@ export class App {
   });
   private timer?: ReturnType<typeof setInterval>;
   private saveTimer?: ReturnType<typeof setTimeout>;
+
+  constructor() { this.jobPositions.list().subscribe(items => this.vacancies.set(items.filter(item => item.active))); }
+
+  selectVacancy(id: string) {
+    this.selectedVacancyId.set(id);
+    const vacancy = this.vacancies().find(item => item.id === id);
+    if (!vacancy) return;
+    this.template.set(vacancy.title);
+    this.role.set(vacancy.title);
+    this.seniority.set(vacancy.seniority);
+    this.skills.set(vacancy.requirements.map(name => ({ name, category: 'Requisito', weight: 3,
+      importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' })));
+  }
 
   startInterview() {
     if (!this.candidate().trim()) return;
