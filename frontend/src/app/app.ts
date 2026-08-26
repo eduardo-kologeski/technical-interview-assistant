@@ -15,7 +15,7 @@ export class App {
   readonly candidate = signal('');
   readonly role = signal('');
   readonly company = signal('');
-  readonly interviewer = signal('');
+  readonly authenticatedUserName = signal('Usuário autenticado');
   readonly seniority = signal('Pleno');
   readonly template = signal('Backend .NET');
   readonly recommendation = signal('Sem recomendação');
@@ -111,7 +111,7 @@ export class App {
       pdf.setFont('helvetica', 'normal'); pdf.text(leftValue, left + 40, y + 5.3); pdf.text(rightValue, rightColumn + 26, y + 5.3); y += 8;
     };
     row('Pessoa Candidata:', this.candidate(), 'Data:', new Date().toLocaleDateString('pt-BR'));
-    row('Pessoa Entrevistadora:', this.interviewer() || 'Não informado', 'Vaga:', this.role() || 'Não informada');
+    row('Pessoa Entrevistadora:', this.authenticatedUserName(), 'Vaga:', this.role() || 'Não informada');
     row('Senioridade:', this.seniority(), 'Template:', this.template());
 
     section('Cultura Técnica');

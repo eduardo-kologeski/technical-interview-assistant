@@ -8,14 +8,14 @@
       <label>Vaga<input name="role" [ngModel]="role()" (ngModelChange)="role.set($event)" placeholder="Ex.: Desenvolvedor Backend"></label>
       <label>Senioridade<select name="seniority" [ngModel]="seniority()" (ngModelChange)="seniority.set($event)"><option>Estágio</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Especialista</option><option>Tech Lead</option><option>Outro</option></select></label>
       <label>Cliente / empresa<input name="company" [ngModel]="company()" (ngModelChange)="company.set($event)" placeholder="Opcional"></label>
-      <label>Entrevistador<input name="interviewer" [ngModel]="interviewer()" (ngModelChange)="interviewer.set($event)" placeholder="Seu nome"></label>
+      <div class="authenticated-interviewer"><span>Entrevistador</span><strong>{{ authenticatedUserName() }}</strong><small>Identificado automaticamente pela sessão autenticada.</small></div>
       <label class="full">Template<select name="template" [ngModel]="template()" (ngModelChange)="template.set($event)"><option>Backend .NET</option><option>Backend Java</option><option>QA Automation</option><option>Personalizada</option></select></label>
       <div class="form-actions"><small>Os dados serão salvos automaticamente durante a entrevista.</small><button class="finish" type="submit" [disabled]="!candidate().trim()">Iniciar entrevista →</button></div>
     </form>
   </main>
 } @else if (!reviewing()) {
 <main class="interview-page">
-  <section class="interview-header"><div><span class="eyebrow">ENTREVISTA EM ANDAMENTO</span><h1>{{ candidate() }}</h1><p>{{ role() || 'Vaga não informada' }} · {{ company() || 'Empresa não informada' }}</p></div><div class="session-actions"><span class="save" [class.saving]="saveState() === 'Salvando...'">● {{ saveState() }}</span><button class="timer" (click)="toggleTimer()">{{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}</button><button class="finish" (click)="finishInterview()">Finalizar entrevista</button></div></section>
+  <section class="interview-header"><div><span class="eyebrow">ENTREVISTA EM ANDAMENTO</span><h1>{{ candidate() }}</h1><p>{{ role() || 'Vaga não informada' }} · {{ company() || 'Empresa não informada' }} · Entrevistador: {{ authenticatedUserName() }}</p></div><div class="session-actions"><span class="save" [class.saving]="saveState() === 'Salvando...'">● {{ saveState() }}</span><button class="timer" (click)="toggleTimer()">{{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}</button><button class="finish" (click)="finishInterview()">Finalizar entrevista</button></div></section>
   <section class="progress-row"><div class="progress-label"><span>Progresso da avaliação</span><strong>{{ evaluated() }} de {{ skills().length }} competências</strong></div><div class="progress-track"><span [style.width.%]="progress()"></span></div></section>
   <div class="workspace"><section class="skills-panel">
     <div class="column-heading"><div><span class="eyebrow">AVALIAÇÃO TÉCNICA</span><h2>Requisitos da vaga</h2></div><span>{{ skills().length }} competências</span></div>

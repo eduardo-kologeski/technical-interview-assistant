@@ -21,6 +21,8 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Prepare a entrevista');
     expect((compiled.querySelector('input[name="candidate"]') as HTMLInputElement).value).toBe('');
+    expect(compiled.querySelector('input[name="interviewer"]')).toBeNull();
+    expect(compiled.querySelector('.authenticated-interviewer')?.textContent).toContain('Usuário autenticado');
     expect(compiled.querySelectorAll('.skill-card')).toHaveLength(0);
   });
 
