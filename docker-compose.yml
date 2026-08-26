@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: interview_assistant
+      POSTGRES_USER: interview_app
+      POSTGRES_PASSWORD: interview_app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U interview_app -d interview_assistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/interview_assistant
+      DATABASE_USER: interview_app
+      DATABASE_PASSWORD: interview_app
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+
