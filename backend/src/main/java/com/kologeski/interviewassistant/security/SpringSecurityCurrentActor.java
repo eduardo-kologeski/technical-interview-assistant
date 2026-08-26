@@ -5,6 +5,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import com.kologeski.interviewassistant.user.UserPrincipal;
 
 @Component
 public final class SpringSecurityCurrentActor implements CurrentActor {
@@ -15,8 +16,8 @@ public final class SpringSecurityCurrentActor implements CurrentActor {
                 || authentication instanceof AnonymousAuthenticationToken) {
             throw new IllegalStateException("authenticated user is required");
         }
-        if (authentication.getPrincipal() instanceof AuthCoreJwtFilter.AuthCorePrincipal principal) {
-            return new AuthenticatedActor(principal.userId(), principal.displayName());
+        if (authentication.getPrincipal() instanceof UserPrincipal principal) {
+            return new AuthenticatedActor(String.valueOf(principal.user().getId()), principal.user().getName());
         }
         String id = authentication.getName();
         return new AuthenticatedActor(id, id);
