@@ -15,11 +15,12 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render the active interview', async () => {
+  it('should render an empty candidate registration', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Emiliano da Silveira');
-    expect(compiled.querySelectorAll('.skill-card')).toHaveLength(6);
+    expect(compiled.querySelector('h1')?.textContent).toContain('Prepare a entrevista');
+    expect((compiled.querySelector('input[name="candidate"]') as HTMLInputElement).value).toBe('');
+    expect(compiled.querySelectorAll('.skill-card')).toHaveLength(0);
   });
 });

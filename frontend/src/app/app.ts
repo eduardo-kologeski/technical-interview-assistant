@@ -7,18 +7,23 @@ type Skill = { name: string; category: string; weight: number; importance: Impor
 
 @Component({ selector: 'app-root', imports: [CommonModule, FormsModule], templateUrl: './app.html', styleUrl: './app.scss' })
 export class App {
-  readonly candidate = signal('Emiliano da Silveira');
-  readonly role = signal('Desenvolvedor Fullstack Pleno');
+  readonly started = signal(false);
+  readonly candidate = signal('');
+  readonly role = signal('');
+  readonly company = signal('');
+  readonly interviewer = signal('');
+  readonly seniority = signal('Pleno');
+  readonly template = signal('Backend .NET');
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);
   readonly running = signal(false);
   readonly saveState = signal<'Salvo' | 'Salvando...'>('Salvo');
-  readonly quickNotes = signal('Boa comunicação e experiência em contextos financeiros.');
+  readonly quickNotes = signal('');
   readonly skills = signal<Skill[]>([
-    { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: 3, skipped: false, comment: 'Experiência recente em APIs e soluções backend.' },
-    { name: 'APIs REST', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: 4, skipped: false, comment: 'Boa compreensão de arquitetura e documentação.' },
-    { name: 'SQL', category: 'Dados', weight: 4, importance: 'Obrigatória', expected: 3, score: 4, skipped: false, comment: 'Experiência com SQL Server e PostgreSQL.' },
-    { name: 'Angular', category: 'Frontend', weight: 3, importance: 'Desejável', expected: 3, score: 4, skipped: false, comment: 'Boa base de frontend e TypeScript.' },
+    { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '' },
+    { name: 'APIs REST', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '' },
+    { name: 'SQL', category: 'Dados', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '' },
+    { name: 'Angular', category: 'Frontend', weight: 3, importance: 'Desejável', expected: 3, score: null, skipped: false, comment: '' },
     { name: 'Testes automatizados', category: 'Qualidade', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '' },
     { name: 'Docker', category: 'DevOps', weight: 2, importance: 'Desejável', expected: 2, score: null, skipped: false, comment: '' },
   ]);
@@ -28,6 +33,15 @@ export class App {
   readonly formattedTime = computed(() => `${String(Math.floor(this.seconds() / 60)).padStart(2, '0')}:${String(this.seconds() % 60).padStart(2, '0')}`);
   private timer?: ReturnType<typeof setInterval>;
   private saveTimer?: ReturnType<typeof setTimeout>;
+
+  startInterview() {
+    if (!this.candidate().trim()) return;
+    this.candidate.set(this.candidate().trim());
+    this.started.set(true);
+    this.seconds.set(0);
+    this.running.set(true);
+    this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000);
+  }
 
   setScore(index: number, score: number) { this.patchSkill(index, { score, skipped: false }); }
   setNotEvaluated(index: number) { this.patchSkill(index, { score: null, skipped: true }); }
