@@ -91,8 +91,9 @@ describe('App', () => {
       expect.arrayContaining(['C#', '.NET', 'SQL', 'Angular']),
     );
     expect(app.visibleQuickTechnologySuggestions()).toEqual(
-      expect.arrayContaining(['Java', 'PHP', 'React', 'Laravel']),
+      expect.arrayContaining(['Java', 'PHP', 'React']),
     );
+    expect(app.visibleQuickTechnologySuggestions()).toHaveLength(8);
   });
 
   it('keeps duplicate complementary data available for review but removes it from reports', () => {
@@ -291,21 +292,41 @@ describe('App', () => {
     expect(app.skills()).toHaveLength(3);
   });
 
-  it('renders each interview concept once without the obsolete summary sidebar', () => {
+  it('renders the support panel during the interview without exposing feedback fields', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
     seedSkills(app);
     app.started.set(true);
     fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent || '';
 
     expect(text).not.toContain('RESUMO ATUAL');
-    expect(text.match(/Experiências complementares/g) || []).toHaveLength(1);
-    expect(text.match(/Habilidades comportamentais/g) || []).toHaveLength(1);
-    expect(text.match(/ANOTAÇÕES DA ENTREVISTA/g) || []).toHaveLength(1);
-    expect(text.match(/Pontos fortes/g) || []).toHaveLength(1);
-    expect(text.match(/Pontos de atenção/g) || []).toHaveLength(1);
-    expect(fixture.nativeElement.querySelector('aside')).toBeNull();
+    expect(element.querySelector('aside.support-panel')).not.toBeNull();
+    expect(element.querySelectorAll('input[placeholder="Pesquisar tecnologia..."]')).toHaveLength(
+      1,
+    );
+    expect(element.querySelectorAll('.support-notes textarea')).toHaveLength(1);
+    expect(text).not.toContain('Pontos fortes');
+    expect(text).not.toContain('Pontos de atenção');
+    expect(text).not.toContain('FEEDBACK');
+  });
+
+  it('shows editable notes and feedback fields only in review', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    seedSkills(app);
+    app.started.set(true);
+    app.reviewing.set(true);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent || '';
+
+    expect(element.querySelector('aside.support-panel')).toBeNull();
+    expect(element.querySelectorAll('.review-notes textarea')).toHaveLength(1);
+    expect(text).toContain('FEEDBACK');
+    expect(text).toContain('Pontos fortes');
+    expect(text).toContain('Pontos de atenção');
   });
 });
 
