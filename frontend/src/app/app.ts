@@ -159,6 +159,10 @@ export class App {
   setScore(index: number, score: number) { this.patchSkill(index, { score, skipped: false }); }
   setNotEvaluated(index: number) { this.patchSkill(index, { score: null, skipped: true }); }
   updateComment(index: number, comment: string) { this.patchSkill(index, { comment }); }
+  appendSkillComment(index: number, suggestion: string) {
+    const current = this.skills()[index].comment.trim();
+    this.updateComment(index, `${current}${current ? ' ' : ''}${suggestion}`);
+  }
   updateNotes(notes: string) { this.quickNotes.set(notes); this.markSaving(); }
   selectTechnology(technology: Technology) {
     if (this.hasTechnology(technology.name)) return;
