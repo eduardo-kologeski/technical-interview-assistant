@@ -1,6 +1,21 @@
 <header class="topbar"><div class="brand"><span class="brand-mark">T</span><span>Technical Interview</span></div><nav><button class="nav-link">Entrevistas</button><button class="nav-link">Templates</button><span class="avatar">EC</span></nav></header>
+@if (!started()) {
+  <main class="registration-page">
+    <section class="registration-intro"><span class="eyebrow">NOVA ENTREVISTA</span><h1>Prepare a entrevista em poucos passos</h1><p>Informe o candidato, escolha o contexto e comece. Você poderá registrar todas as evidências durante a conversa.</p></section>
+    <form class="registration-card" (ngSubmit)="startInterview()">
+      <div class="form-heading"><div class="step">1</div><div><h2>Dados da entrevista</h2><p>Somente o nome do candidato é obrigatório.</p></div></div>
+      <label class="full">Nome do candidato <span>*</span><input name="candidate" [ngModel]="candidate()" (ngModelChange)="candidate.set($event)" placeholder="Ex.: João Silva" required autofocus></label>
+      <label>Vaga<input name="role" [ngModel]="role()" (ngModelChange)="role.set($event)" placeholder="Ex.: Desenvolvedor Backend"></label>
+      <label>Senioridade<select name="seniority" [ngModel]="seniority()" (ngModelChange)="seniority.set($event)"><option>Estágio</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Especialista</option><option>Tech Lead</option><option>Outro</option></select></label>
+      <label>Cliente / empresa<input name="company" [ngModel]="company()" (ngModelChange)="company.set($event)" placeholder="Opcional"></label>
+      <label>Entrevistador<input name="interviewer" [ngModel]="interviewer()" (ngModelChange)="interviewer.set($event)" placeholder="Seu nome"></label>
+      <label class="full">Template<select name="template" [ngModel]="template()" (ngModelChange)="template.set($event)"><option>Backend .NET</option><option>Backend Java</option><option>QA Automation</option><option>Personalizada</option></select></label>
+      <div class="form-actions"><small>Os dados serão salvos automaticamente durante a entrevista.</small><button class="finish" type="submit" [disabled]="!candidate().trim()">Iniciar entrevista →</button></div>
+    </form>
+  </main>
+} @else {
 <main>
-  <section class="interview-header"><div><span class="eyebrow">ENTREVISTA EM ANDAMENTO</span><h1>{{ candidate() }}</h1><p>{{ role() }} · Banrisul</p></div><div class="session-actions"><span class="save" [class.saving]="saveState() === 'Salvando...'">● {{ saveState() }}</span><button class="timer" (click)="toggleTimer()">{{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}</button><button class="finish">Finalizar entrevista</button></div></section>
+  <section class="interview-header"><div><span class="eyebrow">ENTREVISTA EM ANDAMENTO</span><h1>{{ candidate() }}</h1><p>{{ role() || 'Vaga não informada' }} · {{ company() || 'Empresa não informada' }}</p></div><div class="session-actions"><span class="save" [class.saving]="saveState() === 'Salvando...'">● {{ saveState() }}</span><button class="timer" (click)="toggleTimer()">{{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}</button><button class="finish">Finalizar entrevista</button></div></section>
   <section class="progress-row"><div class="progress-label"><span>Progresso da avaliação</span><strong>{{ evaluated() }} de {{ skills().length }} competências</strong></div><div class="progress-track"><span [style.width.%]="progress()"></span></div></section>
   <div class="workspace"><section class="skills-panel">
     @for (skill of skills(); track skill.name; let index = $index) {
@@ -18,3 +33,4 @@
     <section class="shortcut-card"><span class="eyebrow">ATALHOS</span><p><kbd>0–5</kbd> nota <kbd>N</kbd> N/A</p><p><kbd>↑</kbd><kbd>↓</kbd> navegar</p></section>
   </aside></div>
 </main>
+}
