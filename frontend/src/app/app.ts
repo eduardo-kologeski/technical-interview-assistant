@@ -1,13 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, HostListener, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { EvaluationSource, SkillEvaluationCardComponent } from './skill-evaluation-card.component';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
-type Skill = { name: string; category: string; weight: number; importance: Importance; expected: number; score: number | null; skipped: boolean; comment: string };
+type Skill = { name: string; category: string; weight: number; importance: Importance; expected: number; score: number | null; skipped: boolean; comment: string; source: EvaluationSource };
 type TechnologyType = 'LANGUAGE' | 'FRAMEWORK' | 'OTHER';
-type Technology = { name: string; type: TechnologyType; description?: string; reviewScore?: number | null; notEvaluated?: boolean };
+type Technology = { name: string; type: TechnologyType; description?: string; reviewScore?: number | null; notEvaluated?: boolean; source?: EvaluationSource };
 
-@Component({ selector: 'app-root', imports: [CommonModule, FormsModule], templateUrl: './app.html', styleUrl: './app.scss' })
+@Component({ selector: 'app-root', imports: [CommonModule, FormsModule, SkillEvaluationCardComponent], templateUrl: './app.html', styleUrl: './app.scss' })
 export class App {
   readonly started = signal(false);
   readonly reviewing = signal(false);
@@ -34,12 +35,12 @@ export class App {
   readonly saveState = signal<'Salvo' | 'Salvando...'>('Salvo');
   readonly quickNotes = signal('');
   readonly skills = signal<Skill[]>([
-    { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '' },
-    { name: 'APIs REST', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '' },
-    { name: 'SQL', category: 'Dados', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '' },
-    { name: 'Angular', category: 'Frontend', weight: 3, importance: 'Desejável', expected: 3, score: null, skipped: false, comment: '' },
-    { name: 'Testes automatizados', category: 'Qualidade', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '' },
-    { name: 'Docker', category: 'DevOps', weight: 2, importance: 'Desejável', expected: 2, score: null, skipped: false, comment: '' },
+    { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
+    { name: 'APIs REST', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
+    { name: 'SQL', category: 'Dados', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
+    { name: 'Angular', category: 'Frontend', weight: 3, importance: 'Desejável', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
+    { name: 'Testes automatizados', category: 'Qualidade', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
+    { name: 'Docker', category: 'DevOps', weight: 2, importance: 'Desejável', expected: 2, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
   ]);
   readonly evaluated = computed(() => this.skills().filter(s => s.score !== null || s.skipped).length);
   readonly progress = computed(() => Math.round(this.evaluated() / this.skills().length * 100));
@@ -111,7 +112,7 @@ export class App {
     section('Cultura Técnica');
     paragraphBox(this.finalAssessment(), 30);
 
-    section('Tecnologias e Habilidades');
+    section('Requisitos da vaga');
     const evaluated = this.skills().map(skill => {
       const score = skill.skipped ? 'N/A' : skill.score === null ? 'Não avaliado' : `${skill.score}/5`;
       return `- ${skill.name}: ${score}${skill.comment ? ` - ${skill.comment}` : ''}`;
@@ -152,6 +153,16 @@ export class App {
     const parts = [`Foram avaliadas ${scored.length} competências, com média ponderada de ${this.average()} em 5.`];
     if (strong.length) parts.push(`Os melhores resultados registrados foram em ${strong.join(', ')}.`);
     if (attention.length) parts.push(`Os principais pontos de desenvolvimento registrados foram ${attention.join(', ')}.`);
+    const complementary = this.complementaryTechnologiesForReport().filter(item =>
+      item.reviewScore != null || item.notEvaluated || !!item.description?.trim()
+    );
+    if (complementary.length) {
+      const details = complementary.map(item => {
+        const result = item.notEvaluated ? 'N/A' : item.reviewScore == null ? '' : `${item.reviewScore}/5`;
+        return `${item.name}${result ? ` (${result})` : ''}`;
+      });
+      parts.push(`Como experiências tecnológicas complementares, foram registradas: ${details.join(', ')}.`);
+    }
     if (this.quickNotes().trim()) parts.push(`Anotações da entrevista: ${this.quickNotes().trim()}`);
     return parts.join(' ');
   }
@@ -166,7 +177,7 @@ export class App {
   updateNotes(notes: string) { this.quickNotes.set(notes); this.markSaving(); }
   selectTechnology(technology: Technology) {
     if (this.hasTechnology(technology.name)) return;
-    this.selectedTechnologies.update(items => [...items, technology]);
+    this.selectedTechnologies.update(items => [...items, { ...technology, source: 'COMPLEMENTARY_EXPERIENCE' }]);
     this.technologySearch.set('');
     this.markSaving();
   }

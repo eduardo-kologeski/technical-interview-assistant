@@ -38,7 +38,7 @@ describe('App', () => {
     app.technologySearch.set('adonISjs');
     app.addCustomTechnology();
 
-    expect(app.selectedTechnologies()).toEqual([{ name: 'AdonisJS', type: 'OTHER' }]);
+    expect(app.selectedTechnologies()).toEqual([{ name: 'AdonisJS', type: 'OTHER', source: 'COMPLEMENTARY_EXPERIENCE' }]);
     app.removeTechnology('ADONISJS');
     expect(app.selectedTechnologies()).toEqual([]);
   });
@@ -64,6 +64,15 @@ describe('App', () => {
     expect(app.complementaryTechnologiesForReport()[0]).toMatchObject({ name: 'PHP', reviewScore: 5, description: 'Experiência anterior em projetos web.' });
   });
 
+  it('keeps duplicate complementary data available for review but removes it from reports', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.selectSuggestedTechnology('Angular');
+    app.scoreTechnology('Angular', 4);
+
+    expect(app.selectedTechnologies()[0]).toMatchObject({ name: 'Angular', reviewScore: 4, source: 'COMPLEMENTARY_EXPERIENCE' });
+    expect(app.complementaryTechnologiesForReport()).toEqual([]);
+  });
+
   it('should append quick description suggestions during the interview', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.selectSuggestedTechnology('Laravel');
@@ -71,5 +80,18 @@ describe('App', () => {
     app.appendTechnologyDescription('Laravel', 'Utilizou de forma pontual.');
 
     expect(app.selectedTechnologies()[0].description).toBe('Possui experiência recente. Utilizou de forma pontual.');
+  });
+
+  it('mentions only report-eligible complementary evaluations in the assessment draft', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.setScore(0, 4);
+    app.selectSuggestedTechnology('Angular');
+    app.scoreTechnology('Angular', 5);
+    app.selectSuggestedTechnology('PHP');
+    app.scoreTechnology('PHP', 4);
+    app.finishInterview();
+
+    expect(app.finalAssessment()).toContain('PHP (4/5)');
+    expect(app.finalAssessment()).not.toContain('Angular (5/5)');
   });
 });
