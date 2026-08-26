@@ -22,17 +22,27 @@ public class JobVacancyService {
     }
 
     @Transactional
-    public JobVacancy create(String title, List<String> requirements) {
+    public JobVacancy create(String title, String seniority, String description, List<String> requirements) {
         var actor = currentActor.required();
-        return repository.save(new JobVacancy(title, requirements, actor.id(), Instant.now(clock)));
+        return repository.save(new JobVacancy(title, seniority, description, requirements, actor.id(), Instant.now(clock)));
+    }
+    public JobVacancy create(String title, List<String> requirements) {
+        return create(title, "Não informada", "", requirements);
     }
 
+    @Transactional(readOnly = true) public List<JobVacancy> list() { return repository.findAll(); }
+    @Transactional(readOnly = true) public JobVacancy get(UUID id) { return required(id); }
+
     @Transactional
-    public JobVacancy update(UUID id, String title, List<String> requirements) {
+    public JobVacancy update(UUID id, String title, String seniority, String description, List<String> requirements) {
         var vacancy = required(id);
         var actor = currentActor.required();
-        vacancy.update(title, requirements, actor.id(), Instant.now(clock));
+        vacancy.update(title, seniority, description, requirements, actor.id(), Instant.now(clock));
         return repository.save(vacancy);
+    }
+    public JobVacancy update(UUID id, String title, List<String> requirements) {
+        var vacancy = required(id);
+        return update(id, title, vacancy.seniority(), vacancy.description(), requirements);
     }
 
     @Transactional

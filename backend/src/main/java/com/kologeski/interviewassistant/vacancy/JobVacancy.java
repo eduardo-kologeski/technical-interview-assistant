@@ -20,6 +20,8 @@ import java.util.UUID;
 public class JobVacancy extends AuditableEntity {
     @Id private UUID id;
     @Column(nullable = false) private String title;
+    @Column(nullable = false) private String seniority;
+    @Column(columnDefinition = "text") private String description;
     @Column(nullable = false) private boolean active;
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "job_vacancy_requirements", joinColumns = @JoinColumn(name = "vacancy_id"))
@@ -29,17 +31,29 @@ public class JobVacancy extends AuditableEntity {
     protected JobVacancy() { }
 
     public JobVacancy(String title, List<String> requirements, String actorId, Instant now) {
+        this(title, "Não informada", "", requirements, actorId, now);
+    }
+
+    public JobVacancy(String title, String seniority, String description, List<String> requirements, String actorId, Instant now) {
         this.id = UUID.randomUUID();
         this.title = requiredText(title, "title");
+        this.seniority = requiredText(seniority, "seniority");
+        this.description = description == null ? "" : description.trim();
         this.requirements = normalizedRequirements(requirements);
         this.active = true;
         registerCreation(actorId, now);
     }
 
-    public void update(String title, List<String> requirements, String actorId, Instant now) {
+    public void update(String title, String seniority, String description, List<String> requirements, String actorId, Instant now) {
         this.title = requiredText(title, "title");
+        this.seniority = requiredText(seniority, "seniority");
+        this.description = description == null ? "" : description.trim();
         this.requirements = normalizedRequirements(requirements);
         registerUpdate(actorId, now);
+    }
+
+    public void update(String title, List<String> requirements, String actorId, Instant now) {
+        update(title, seniority, description, requirements, actorId, now);
     }
 
     public void deactivate(String actorId, Instant now) {
@@ -55,6 +69,8 @@ public class JobVacancy extends AuditableEntity {
 
     public UUID id() { return id; }
     public String title() { return title; }
+    public String seniority() { return seniority; }
+    public String description() { return description; }
     public boolean active() { return active; }
     public List<String> requirements() { return List.copyOf(requirements); }
 }

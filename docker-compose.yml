@@ -19,8 +19,9 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/interview_assistant
       DATABASE_USER: interview_app
       DATABASE_PASSWORD: interview_app
+      SERVER_PORT: 8081
     ports:
-      - "8080:8080"
+      - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
