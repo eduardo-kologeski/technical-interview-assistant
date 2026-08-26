@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
 type Skill = { name: string; category: string; weight: number; importance: Importance; expected: number; score: number | null; skipped: boolean; comment: string };
 type TechnologyType = 'LANGUAGE' | 'FRAMEWORK' | 'OTHER';
-type Technology = { name: string; type: TechnologyType };
+type Technology = { name: string; type: TechnologyType; description?: string; reviewScore?: number | null; notEvaluated?: boolean };
 
 @Component({ selector: 'app-root', imports: [CommonModule, FormsModule], templateUrl: './app.html', styleUrl: './app.scss' })
 export class App {
@@ -121,7 +121,11 @@ export class App {
     const complementary = this.complementaryTechnologiesForReport();
     if (complementary.length) {
       section('Experiências Complementares');
-      paragraphBox(`A pessoa candidata relatou experiência anterior com ${complementary.map(item => item.name).join(', ')}.`, 18);
+      const complementaryText = complementary.map(item => {
+        const score = item.notEvaluated ? 'N/A' : item.reviewScore == null ? 'Sem nota' : `${item.reviewScore}/5`;
+        return `- ${item.name}: ${score}${item.description?.trim() ? ` - ${item.description.trim()}` : ''}`;
+      }).join('\n');
+      paragraphBox(`A pessoa candidata relatou as experiências abaixo. Estas notas são informativas e não entram na média.\n${complementaryText}`, 22);
     }
 
     section('Prós');
@@ -174,6 +178,12 @@ export class App {
     this.selectedTechnologies.update(items => items.filter(item => this.normalizeTechnology(item.name) !== this.normalizeTechnology(name)));
     this.markSaving();
   }
+  updateTechnologyReview(name: string, patch: Partial<Pick<Technology, 'description' | 'reviewScore' | 'notEvaluated'>>) {
+    this.selectedTechnologies.update(items => items.map(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(name) ? { ...item, ...patch } : item));
+    this.markSaving();
+  }
+  scoreTechnology(name: string, score: number) { this.updateTechnologyReview(name, { reviewScore: score, notEvaluated: false }); }
+  skipTechnologyReview(name: string) { this.updateTechnologyReview(name, { reviewScore: null, notEvaluated: true }); }
   select(index: number) { this.activeIndex.set(index); }
   toggleTimer() { this.running.update(v => !v); if (this.running()) this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000); else clearInterval(this.timer); }
 

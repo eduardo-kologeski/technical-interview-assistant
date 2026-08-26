@@ -51,4 +51,16 @@ describe('App', () => {
     expect(app.selectedTechnologies().map(item => item.name)).toEqual(['Angular', 'PHP']);
     expect(app.complementaryTechnologiesForReport().map(item => item.name)).toEqual(['PHP']);
   });
+
+  it('should review a complementary technology without changing the general score', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.setScore(0, 4);
+    const averageBefore = app.average();
+    app.selectSuggestedTechnology('PHP');
+    app.scoreTechnology('PHP', 5);
+    app.updateTechnologyReview('PHP', { description: 'Experiência anterior em projetos web.' });
+
+    expect(app.average()).toBe(averageBefore);
+    expect(app.complementaryTechnologiesForReport()[0]).toMatchObject({ name: 'PHP', reviewScore: 5, description: 'Experiência anterior em projetos web.' });
+  });
 });
