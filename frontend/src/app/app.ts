@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
 type Skill = { name: string; category: string; weight: number; importance: Importance; expected: number; score: number | null; skipped: boolean; comment: string };
+type TechnologyType = 'LANGUAGE' | 'FRAMEWORK' | 'OTHER';
+type Technology = { name: string; type: TechnologyType };
 
 @Component({ selector: 'app-root', imports: [CommonModule, FormsModule], templateUrl: './app.html', styleUrl: './app.scss' })
 export class App {
@@ -19,6 +21,13 @@ export class App {
   readonly strengths = signal('');
   readonly concerns = signal('');
   readonly finalAssessment = signal('');
+  readonly technologySearch = signal('');
+  readonly selectedTechnologies = signal<Technology[]>([]);
+  readonly technologyCatalog: Technology[] = [
+    ...['Java', 'C#', 'JavaScript', 'TypeScript', 'Python', 'PHP', 'SQL', 'Go', 'Kotlin', 'C', 'C++', 'Ruby', 'Dart', 'Swift', 'Rust', 'Scala', 'PL/SQL', 'T-SQL'].map(name => ({ name, type: 'LANGUAGE' as const })),
+    ...['Spring', 'Spring Boot', '.NET', 'ASP.NET Core', 'Node.js', 'NestJS', 'Express', 'Django', 'Flask', 'FastAPI', 'Laravel', 'Symfony', 'Ruby on Rails', 'Quarkus', 'Micronaut', 'Angular', 'React', 'Vue.js', 'Next.js', 'Nuxt', 'Svelte', 'Flutter', 'React Native', 'Ionic'].map(name => ({ name, type: 'FRAMEWORK' as const })),
+  ];
+  readonly quickTechnologySuggestions = ['Java', 'C#', 'JavaScript', 'TypeScript', 'Python', 'PHP', 'SQL', 'Spring Boot', '.NET', 'Angular', 'React', 'Node.js', 'Laravel'];
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);
   readonly running = signal(false);
@@ -36,6 +45,18 @@ export class App {
   readonly progress = computed(() => Math.round(this.evaluated() / this.skills().length * 100));
   readonly average = computed(() => { const scored = this.skills().filter(s => s.score !== null && !s.skipped); const weights = scored.reduce((sum, s) => sum + s.weight, 0); return weights ? (scored.reduce((sum, s) => sum + s.score! * s.weight, 0) / weights).toFixed(1) : '—'; });
   readonly formattedTime = computed(() => `${String(Math.floor(this.seconds() / 60)).padStart(2, '0')}:${String(this.seconds() % 60).padStart(2, '0')}`);
+  readonly technologyResults = computed(() => {
+    const query = this.normalizeTechnology(this.technologySearch());
+    return query ? this.technologyCatalog.filter(item => this.normalizeTechnology(item.name).includes(query) && !this.hasTechnology(item.name)).slice(0, 8) : [];
+  });
+  readonly canAddCustomTechnology = computed(() => {
+    const value = this.technologySearch().trim();
+    return !!value && !this.technologyCatalog.some(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(value)) && !this.hasTechnology(value);
+  });
+  readonly complementaryTechnologiesForReport = computed(() => {
+    const evaluated = new Set(this.skills().map(skill => this.normalizeTechnology(skill.name)));
+    return this.selectedTechnologies().filter(technology => !evaluated.has(this.normalizeTechnology(technology.name)));
+  });
   private timer?: ReturnType<typeof setInterval>;
   private saveTimer?: ReturnType<typeof setTimeout>;
 
@@ -97,6 +118,12 @@ export class App {
     }).join('\n');
     paragraphBox(evaluated, 28);
 
+    const complementary = this.complementaryTechnologiesForReport();
+    if (complementary.length) {
+      section('Experiências Complementares');
+      paragraphBox(`A pessoa candidata relatou experiência anterior com ${complementary.map(item => item.name).join(', ')}.`, 18);
+    }
+
     section('Prós');
     paragraphBox(listText(this.strengths()), 20);
     section('Contras');
@@ -129,6 +156,24 @@ export class App {
   setNotEvaluated(index: number) { this.patchSkill(index, { score: null, skipped: true }); }
   updateComment(index: number, comment: string) { this.patchSkill(index, { comment }); }
   updateNotes(notes: string) { this.quickNotes.set(notes); this.markSaving(); }
+  selectTechnology(technology: Technology) {
+    if (this.hasTechnology(technology.name)) return;
+    this.selectedTechnologies.update(items => [...items, technology]);
+    this.technologySearch.set('');
+    this.markSaving();
+  }
+  selectSuggestedTechnology(name: string) {
+    const technology = this.technologyCatalog.find(item => item.name === name);
+    if (technology) this.selectTechnology(technology);
+  }
+  addCustomTechnology() {
+    const name = this.technologySearch().trim();
+    if (name && !this.hasTechnology(name)) this.selectTechnology({ name, type: 'OTHER' });
+  }
+  removeTechnology(name: string) {
+    this.selectedTechnologies.update(items => items.filter(item => this.normalizeTechnology(item.name) !== this.normalizeTechnology(name)));
+    this.markSaving();
+  }
   select(index: number) { this.activeIndex.set(index); }
   toggleTimer() { this.running.update(v => !v); if (this.running()) this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000); else clearInterval(this.timer); }
 
@@ -142,4 +187,6 @@ export class App {
   }
   private patchSkill(index: number, patch: Partial<Skill>) { this.skills.update(items => items.map((item, i) => i === index ? { ...item, ...patch } : item)); this.markSaving(); }
   private markSaving() { this.saveState.set('Salvando...'); clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.saveState.set('Salvo'), 450); }
+  private hasTechnology(name: string) { return this.selectedTechnologies().some(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(name)); }
+  private normalizeTechnology(name: string) { return name.trim().toLocaleLowerCase('pt-BR'); }
 }
