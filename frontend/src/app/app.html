@@ -3,15 +3,17 @@
   <main class="registration-page">
     <section class="registration-intro"><span class="eyebrow">NOVA ENTREVISTA</span><h1>Prepare a entrevista em poucos passos</h1><p>Informe o candidato, escolha o contexto e comece. Você poderá registrar todas as evidências durante a conversa.</p></section>
     <form class="registration-card" (ngSubmit)="startInterview()">
-      <div class="form-heading"><div class="step">1</div><div><h2>Dados da entrevista</h2><p>Somente o nome do candidato é obrigatório.</p></div></div>
+      <div class="form-heading"><div class="step">1</div><div><h2>Dados da entrevista</h2><p>Informe o candidato e selecione uma vaga ativa.</p></div></div>
       <label class="full">Nome do candidato <span>*</span><input name="candidate" [ngModel]="candidate()" (ngModelChange)="candidate.set($event)" placeholder="Ex.: João Silva" required autofocus></label>
-      <label>Vaga<input name="role" [ngModel]="role()" (ngModelChange)="role.set($event)" placeholder="Ex.: Desenvolvedor Backend"></label>
-      <label>Senioridade<select name="seniority" [ngModel]="seniority()" (ngModelChange)="seniority.set($event)"><option>Estágio</option><option>Júnior</option><option>Pleno</option><option>Sênior</option><option>Especialista</option><option>Tech Lead</option><option>Outro</option></select></label>
+      <label class="full">Vaga <span>*</span><select name="vacancy" [disabled]="loadingVacancies() || vacanciesError() || !vacancies().length" [ngModel]="selectedVacancyId()" (ngModelChange)="selectVacancy($event)"><option value="">{{ loadingVacancies() ? 'Carregando vagas...' : 'Selecione uma vaga...' }}</option>@for (vacancy of vacancies(); track vacancy.id) {<option [value]="vacancy.id">{{ vacancy.title }}</option>}</select></label>
+      @if (vacanciesError()) { <div class="full load-state error-state">Não foi possível carregar as vagas. <button type="button" (click)="loadVacancies()">Tentar novamente</button></div> }
+      @if (!loadingVacancies() && !vacanciesError() && !vacancies().length) { <div class="full load-state">Nenhuma vaga ativa cadastrada. <a href="/job-positions">Cadastrar vaga</a></div> }
+      <div class="derived-field"><span>Senioridade</span><strong>{{ seniority() || '—' }}</strong></div>
       <label>Cliente / empresa<input name="company" [ngModel]="company()" (ngModelChange)="company.set($event)" placeholder="Opcional"></label>
-      <div class="authenticated-interviewer"><span>Entrevistador</span><strong>{{ authenticatedUserName() }}</strong><small>Identificado automaticamente pela sessão autenticada.</small></div>
-      <label class="full">Vaga<select name="vacancy" [ngModel]="selectedVacancyId()" (ngModelChange)="selectVacancy($event)"><option value="">Selecione uma vaga...</option>@for (vacancy of vacancies(); track vacancy.id) {<option [value]="vacancy.id">{{ vacancy.title }} · {{ vacancy.seniority }}</option>}</select></label>
+      <div class="authenticated-interviewer"><span>Entrevistador</span><strong>{{ loadingUser() ? 'Carregando usuário...' : authenticatedUserName() }}</strong><small>Identificado automaticamente pela sessão autenticada.</small></div>
       @if (selectedVacancyId()) { <div class="full vacancy-preview"><strong>{{ template() }}</strong><span>Senioridade: {{ seniority() }}</span><small>Requisitos: {{ requirementNames() }}</small></div> }
-      <div class="form-actions"><small>Os dados serão salvos automaticamente durante a entrevista.</small><button class="finish" type="submit" [disabled]="!candidate().trim()">Iniciar entrevista →</button></div>
+      @if (formError()) { <p class="full form-error">{{ formError() }}</p> }
+      <div class="form-actions"><small>O backend preservará um snapshot dos requisitos.</small><button class="finish" type="submit" [disabled]="creatingInterview() || !candidate().trim() || !selectedVacancyId() || loadingUser()">{{ creatingInterview() ? 'Iniciando...' : 'Iniciar entrevista →' }}</button></div>
     </form>
   </main>
 } @else if (!reviewing()) {

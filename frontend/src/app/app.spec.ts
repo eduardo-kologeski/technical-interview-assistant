@@ -1,5 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { InterviewPage } from './app';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 
 const App = InterviewPage;
 
@@ -7,6 +10,7 @@ describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     })
       .compileComponents();
   });
@@ -24,7 +28,7 @@ describe('App', () => {
     expect(compiled.querySelector('h1')?.textContent).toContain('Prepare a entrevista');
     expect((compiled.querySelector('input[name="candidate"]') as HTMLInputElement).value).toBe('');
     expect(compiled.querySelector('input[name="interviewer"]')).toBeNull();
-    expect(compiled.querySelector('.authenticated-interviewer')?.textContent).toContain('Usuário autenticado');
+    expect(compiled.querySelector('.authenticated-interviewer')?.textContent).toContain('Carregando usuário');
     expect(compiled.querySelectorAll('.skill-card')).toHaveLength(0);
   });
 
@@ -49,6 +53,7 @@ describe('App', () => {
 
   it('should only deduplicate evaluated technologies in the report', () => {
     const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
     app.selectSuggestedTechnology('Angular');
     app.selectSuggestedTechnology('PHP');
 
@@ -58,6 +63,7 @@ describe('App', () => {
 
   it('should review a complementary technology without changing the general score', () => {
     const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
     app.setScore(0, 4);
     const averageBefore = app.average();
     app.selectSuggestedTechnology('PHP');
@@ -70,6 +76,7 @@ describe('App', () => {
 
   it('should hide job requirements and compound requirement aliases from quick suggestions', () => {
     const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
 
     expect(app.visibleQuickTechnologySuggestions()).not.toEqual(expect.arrayContaining(['C#', '.NET', 'SQL', 'Angular']));
     expect(app.visibleQuickTechnologySuggestions()).toEqual(expect.arrayContaining(['Java', 'PHP', 'React', 'Laravel']));
@@ -77,6 +84,7 @@ describe('App', () => {
 
   it('keeps duplicate complementary data available for review but removes it from reports', () => {
     const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
     app.selectSuggestedTechnology('Angular');
     app.scoreTechnology('Angular', 4);
 
@@ -93,8 +101,32 @@ describe('App', () => {
     expect(app.selectedTechnologies()[0].description).toBe('Possui experiência recente. Utilizou de forma pontual.');
   });
 
+  it('loads only active job positions and derives seniority and requirements', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('http://localhost:8080/api/users/me').flush({ id: 7, name: 'Eduardo', email: 'eduardo@example.com' });
+    http.expectOne(request => request.url === 'http://localhost:8081/api/job-positions' && request.params.get('active') === 'true').flush([
+      { id: 'job-1', title: 'Backend Java', seniority: 'Pleno', description: '', requirements: ['Java', 'SQL'], active: true, createdAt: '', createdBy: '7' }
+    ]);
+    app.selectVacancy('job-1');
+    expect(app.seniority()).toBe('Pleno');
+    expect(app.requirementNames()).toBe('Java · SQL');
+    expect(app.authenticatedUserName()).toBe('Eduardo');
+  });
+
+  it('does not use fallback vacancies when the backend fails', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    const http = TestBed.inject(HttpTestingController);
+    http.match('http://localhost:8080/api/users/me')[0]?.flush({ id: 7, name: 'Eduardo', email: 'eduardo@example.com' });
+    http.expectOne(request => request.url === 'http://localhost:8081/api/job-positions').flush('error', { status: 500, statusText: 'Server Error' });
+    expect(app.vacancies()).toEqual([]);
+    expect(app.vacanciesError()).toBe(true);
+  });
+
   it('mentions only report-eligible complementary evaluations in the assessment draft', () => {
     const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
     app.setScore(0, 4);
     app.selectSuggestedTechnology('Angular');
     app.scoreTechnology('Angular', 5);
@@ -126,3 +158,11 @@ describe('App', () => {
     expect(app.feedbackForPdf()).toBe('Pontos fracos e de atenção\n- Necessita aprofundamento');
   });
 });
+
+function seedSkills(app: InterviewPage) {
+  app.skills.set([
+    { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
+    { name: 'SQL', category: 'Dados', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
+    { name: 'Angular', category: 'Frontend', weight: 3, importance: 'Desejável', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' }
+  ]);
+}

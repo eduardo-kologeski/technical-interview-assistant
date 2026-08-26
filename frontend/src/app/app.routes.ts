@@ -12,6 +12,7 @@ export const routes: Routes = [
   { path: '', component: ShellComponent, canActivate: [authGuard], children: [
     { path: 'dashboard', component: DashboardComponent },
     { path: 'job-positions', component: JobPositionsComponent },
+    { path: 'interviews/:id', component: InterviewPage },
     { path: 'interviews', component: InterviewPage },
     { path: '', pathMatch: 'full', redirectTo: 'dashboard' }
   ]},

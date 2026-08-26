@@ -4,7 +4,7 @@ export interface JobPosition { id: string; title: string; seniority: string; des
 export type JobPositionInput = Pick<JobPosition, 'title'|'seniority'|'description'|'requirements'>;
 @Injectable({providedIn:'root'}) export class JobPositionService {
   private http=inject(HttpClient); private url='http://localhost:8081/api/job-positions';
-  list(){return this.http.get<JobPosition[]>(this.url)} create(value:JobPositionInput){return this.http.post<JobPosition>(this.url,value)}
+  list(active?:boolean){return this.http.get<JobPosition[]>(this.url,{params:active===undefined?{}:{active}})} get(id:string){return this.http.get<JobPosition>(`${this.url}/${id}`)} create(value:JobPositionInput){return this.http.post<JobPosition>(this.url,value)}
   update(id:string,value:JobPositionInput){return this.http.put<JobPosition>(`${this.url}/${id}`,value)}
   deactivate(id:string){return this.http.patch<JobPosition>(`${this.url}/${id}/deactivate`,{})}
 }

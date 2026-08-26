@@ -3,6 +3,9 @@ import { Component, computed, HostListener, inject, signal } from '@angular/core
 import { FormsModule } from '@angular/forms';
 import { EvaluationSource, SkillEvaluationCardComponent } from './skill-evaluation-card.component';
 import { JobPosition, JobPositionService } from './job-position.service';
+import { InterviewService } from './interview.service';
+import { AuthService } from './auth.service';
+import { ActivatedRoute, Router } from '@angular/router';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
 type Skill = { name: string; category: string; weight: number; importance: Importance; expected: number; score: number | null; skipped: boolean; comment: string; source: EvaluationSource };
@@ -12,16 +15,25 @@ type Technology = { name: string; type: TechnologyType; description?: string; re
 @Component({ selector: 'app-interview-page', imports: [CommonModule, FormsModule, SkillEvaluationCardComponent], templateUrl: './app.html', styleUrl: './app.scss' })
 export class InterviewPage {
   private readonly jobPositions = inject(JobPositionService);
+  private readonly interviews = inject(InterviewService);
+  private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   readonly vacancies = signal<JobPosition[]>([]);
+  readonly loadingVacancies = signal(true);
+  readonly vacanciesError = signal(false);
+  readonly formError = signal('');
+  readonly creatingInterview = signal(false);
   readonly selectedVacancyId = signal('');
   readonly started = signal(false);
   readonly reviewing = signal(false);
   readonly candidate = signal('');
   readonly role = signal('');
   readonly company = signal('');
-  readonly authenticatedUserName = signal('Usuário autenticado');
-  readonly seniority = signal('Pleno');
-  readonly template = signal('Backend .NET');
+  readonly authenticatedUserName = computed(() => this.auth.user()?.name || '');
+  readonly loadingUser = computed(() => !this.auth.user());
+  readonly seniority = signal('');
+  readonly template = signal('');
   readonly recommendation = signal('Sem recomendação');
   readonly strengths = signal('');
   readonly concerns = signal('');
@@ -44,14 +56,7 @@ export class InterviewPage {
   readonly running = signal(false);
   readonly saveState = signal<'Salvo' | 'Salvando...'>('Salvo');
   readonly quickNotes = signal('');
-  readonly skills = signal<Skill[]>([
-    { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
-    { name: 'APIs REST', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
-    { name: 'SQL', category: 'Dados', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
-    { name: 'Angular', category: 'Frontend', weight: 3, importance: 'Desejável', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
-    { name: 'Testes automatizados', category: 'Qualidade', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
-    { name: 'Docker', category: 'DevOps', weight: 2, importance: 'Desejável', expected: 2, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' },
-  ]);
+  readonly skills = signal<Skill[]>([]);
   readonly evaluated = computed(() => this.skills().filter(s => s.score !== null || s.skipped).length);
   readonly requirementNames = computed(() => this.skills().map(skill => skill.name).join(' · '));
   readonly progress = computed(() => Math.round(this.evaluated() / this.skills().length * 100));
@@ -72,7 +77,19 @@ export class InterviewPage {
   private timer?: ReturnType<typeof setInterval>;
   private saveTimer?: ReturnType<typeof setTimeout>;
 
-  constructor() { this.jobPositions.list().subscribe(items => this.vacancies.set(items.filter(item => item.active))); }
+  constructor() {
+    if (!this.auth.user()) this.auth.loadUser().subscribe({ error: () => this.router.navigateByUrl('/auth/login') });
+    const interviewId = this.route.snapshot.paramMap.get('id');
+    if (interviewId) this.loadInterview(interviewId); else this.loadVacancies();
+  }
+
+  loadVacancies() {
+    this.loadingVacancies.set(true); this.vacanciesError.set(false);
+    this.jobPositions.list(true).subscribe({
+      next: items => { this.vacancies.set(items.filter(item => item.active)); this.loadingVacancies.set(false); },
+      error: () => { this.vacancies.set([]); this.vacanciesError.set(true); this.loadingVacancies.set(false); }
+    });
+  }
 
   selectVacancy(id: string) {
     this.selectedVacancyId.set(id);
@@ -81,18 +98,34 @@ export class InterviewPage {
     this.template.set(vacancy.title);
     this.role.set(vacancy.title);
     this.seniority.set(vacancy.seniority);
-    this.skills.set(vacancy.requirements.map(name => ({ name, category: 'Requisito', weight: 3,
-      importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' })));
+    this.skills.set(this.requirementSkills(vacancy.requirements));
   }
 
   startInterview() {
-    if (!this.candidate().trim()) return;
-    this.candidate.set(this.candidate().trim());
-    this.started.set(true);
-    this.seconds.set(0);
-    this.running.set(true);
-    this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000);
+    this.formError.set('');
+    if (!this.candidate().trim()) { this.formError.set('Informe o nome do candidato.'); return; }
+    if (!this.selectedVacancyId()) { this.formError.set('Selecione uma vaga antes de iniciar a entrevista.'); return; }
+    if (!this.auth.user()) { this.formError.set('Não foi possível identificar o entrevistador.'); return; }
+    this.creatingInterview.set(true);
+    this.interviews.create(this.candidate().trim(), this.selectedVacancyId(), this.company().trim()).subscribe({
+      next: interview => this.router.navigate(['/interviews', interview.id]),
+      error: () => { this.creatingInterview.set(false); this.formError.set('Não foi possível iniciar a entrevista. Tente novamente.'); }
+    });
   }
+
+  private loadInterview(id: string) {
+    this.interviews.get(id).subscribe({ next: interview => {
+      this.candidate.set(interview.candidateName); this.role.set(interview.vacancyTitleSnapshot);
+      this.template.set(interview.vacancyTitleSnapshot); this.seniority.set(interview.senioritySnapshot);
+      this.company.set(interview.clientCompany || ''); this.selectedVacancyId.set(interview.vacancyId);
+      this.skills.set(this.requirementSkills(interview.requirementSnapshot)); this.started.set(true);
+      this.seconds.set(interview.startedAt ? Math.max(0, Math.floor((Date.now() - new Date(interview.startedAt).getTime()) / 1000)) : 0);
+      this.running.set(interview.status === 'IN_PROGRESS'); if (this.running()) this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000);
+    }, error: () => { this.formError.set('Não foi possível carregar a entrevista.'); } });
+  }
+
+  private requirementSkills(requirements: string[]): Skill[] { return requirements.map(name => ({ name, category: 'Requisito', weight: 3,
+    importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '', source: 'JOB_REQUIREMENT' })); }
 
   finishInterview() {
     clearInterval(this.timer);
