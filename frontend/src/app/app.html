@@ -13,9 +13,9 @@
       <div class="form-actions"><small>Os dados serão salvos automaticamente durante a entrevista.</small><button class="finish" type="submit" [disabled]="!candidate().trim()">Iniciar entrevista →</button></div>
     </form>
   </main>
-} @else {
+} @else if (!reviewing()) {
 <main>
-  <section class="interview-header"><div><span class="eyebrow">ENTREVISTA EM ANDAMENTO</span><h1>{{ candidate() }}</h1><p>{{ role() || 'Vaga não informada' }} · {{ company() || 'Empresa não informada' }}</p></div><div class="session-actions"><span class="save" [class.saving]="saveState() === 'Salvando...'">● {{ saveState() }}</span><button class="timer" (click)="toggleTimer()">{{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}</button><button class="finish">Finalizar entrevista</button></div></section>
+  <section class="interview-header"><div><span class="eyebrow">ENTREVISTA EM ANDAMENTO</span><h1>{{ candidate() }}</h1><p>{{ role() || 'Vaga não informada' }} · {{ company() || 'Empresa não informada' }}</p></div><div class="session-actions"><span class="save" [class.saving]="saveState() === 'Salvando...'">● {{ saveState() }}</span><button class="timer" (click)="toggleTimer()">{{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}</button><button class="finish" (click)="finishInterview()">Finalizar entrevista</button></div></section>
   <section class="progress-row"><div class="progress-label"><span>Progresso da avaliação</span><strong>{{ evaluated() }} de {{ skills().length }} competências</strong></div><div class="progress-track"><span [style.width.%]="progress()"></span></div></section>
   <div class="workspace"><section class="skills-panel">
     @for (skill of skills(); track skill.name; let index = $index) {
@@ -33,4 +33,13 @@
     <section class="shortcut-card"><span class="eyebrow">ATALHOS</span><p><kbd>0–5</kbd> nota <kbd>N</kbd> N/A</p><p><kbd>↑</kbd><kbd>↓</kbd> navegar</p></section>
   </aside></div>
 </main>
+} @else {
+  <main class="review-page">
+    <section class="review-header"><div><span class="eyebrow">REVISÃO DO PARECER</span><h1>{{ candidate() }}</h1><p>Revise o conteúdo antes de exportar. A recomendação sempre pertence ao entrevistador.</p></div><div class="session-actions"><button class="timer" (click)="backToInterview()">← Voltar à entrevista</button><button class="finish" (click)="exportPdf()">Exportar PDF</button></div></section>
+    <div class="review-grid"><section class="assessment-card">
+      <h2>Parecer técnico</h2><label>Resumo técnico editável<textarea rows="8" [ngModel]="finalAssessment()" (ngModelChange)="finalAssessment.set($event)"></textarea></label>
+      <div class="review-fields"><label>Pontos fortes<textarea rows="5" [ngModel]="strengths()" (ngModelChange)="strengths.set($event)" placeholder="Um ponto por linha"></textarea></label><label>Pontos de atenção<textarea rows="5" [ngModel]="concerns()" (ngModelChange)="concerns.set($event)" placeholder="Um ponto por linha"></textarea></label></div>
+      <label>Recomendação<select [ngModel]="recommendation()" (ngModelChange)="recommendation.set($event)"><option>Sem recomendação</option><option>Fortemente recomendado</option><option>Recomendado</option><option>Recomendado com ressalvas</option><option>Não recomendado</option></select></label>
+    </section><aside><section class="summary-card"><span class="eyebrow">RESULTADO</span><div class="score"><strong>{{ average() }}</strong><span>/ 5</span></div><p>Média ponderada</p>@for (skill of skills(); track skill.name) { <div class="result-skill"><span>{{ skill.name }}</span><strong>{{ skill.skipped ? 'N/A' : skill.score === null ? '—' : skill.score + '/5' }}</strong></div> }</section><button class="pdf-cta" (click)="exportPdf()"><strong>Exportar parecer em PDF</strong><span>Documento A4 pronto para compartilhar</span></button></aside></div>
+  </main>
 }
