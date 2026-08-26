@@ -401,45 +401,7 @@ export class InterviewPage {
     paragraphBox(this.technicalCultureForPdf(), 30);
 
     section('Tecnologias e Habilidades');
-    const tableHeader = () => {
-      ensureSpace(8);
-      border();
-      pdf.setFillColor(225, 225, 225);
-      pdf.rect(left, y, width, 8, 'FD');
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8.5);
-      pdf.text('Categoria', left + 2, y + 5.3);
-      pdf.text('Item', left + 52, y + 5.3);
-      pdf.text('Avaliação', left + 145, y + 5.3);
-      y += 8;
-    };
-    const groupRow = (label: string) => {
-      ensureSpace(7);
-      border();
-      pdf.setFillColor(242, 242, 242);
-      pdf.rect(left, y, width, 7, 'FD');
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
-      pdf.text(label, left + 2, y + 4.8);
-      y += 7;
-    };
-    const itemRow = (item: string, evaluation: string) => {
-      ensureSpace(7);
-      border();
-      pdf.rect(left, y, width, 7);
-      pdf.line(left + 50, y, left + 50, y + 7);
-      pdf.line(left + 143, y, left + 143, y + 7);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      pdf.text(item, left + 52, y + 4.8);
-      pdf.text(evaluation, left + 145, y + 4.8);
-      y += 7;
-    };
-    tableHeader();
-    this.technologiesAndSkillsForPdf().forEach((group) => {
-      groupRow(group.category);
-      group.items.forEach((item) => itemRow(item.name, item.evaluation));
-    });
+    paragraphBox(this.technologiesAndSkillsTextForPdf(), 24);
 
     section('Feedback');
     paragraphBox(this.feedbackForPdf(), 24);
@@ -541,6 +503,24 @@ export class InterviewPage {
       { category: 'EXPERIÊNCIAS COMPLEMENTARES', items: complementary },
       { category: 'HABILIDADES COMPORTAMENTAIS', items: behavioral },
     ];
+  }
+
+  technologiesAndSkillsTextForPdf() {
+    const labels: Record<string, string> = {
+      'REQUISITOS DA VAGA': 'Requisitos da vaga:',
+      'EXPERIÊNCIAS COMPLEMENTARES': 'Experiências complementares:',
+      'HABILIDADES COMPORTAMENTAIS': 'Habilidades comportamentais:',
+    };
+
+    return this.technologiesAndSkillsForPdf()
+      .filter((group) => group.items.length)
+      .map((group) => {
+        const items = group.items.map((item) =>
+          item.evaluation === '-' ? item.name : `${item.name}: ${item.evaluation}`,
+        );
+        return `${labels[group.category]}\n${items.join('\n')}`;
+      })
+      .join('\n\n');
   }
 
   private formatList(text: string) {

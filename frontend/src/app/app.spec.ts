@@ -256,6 +256,29 @@ describe('App', () => {
     expect(app.feedbackForPdf()).not.toContain('sistemas bancários');
   });
 
+  it('renders technologies and skills as concise text without table labels or the word nota', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.skills.set([
+      {
+        name: 'Java',
+        category: 'Backend',
+        weight: 5,
+        importance: 'Obrigatória',
+        expected: 4,
+        score: 5,
+        skipped: false,
+        comment: '',
+        source: 'JOB_REQUIREMENT',
+      },
+    ]);
+
+    const text = app.technologiesAndSkillsTextForPdf();
+    expect(text).toBe('Requisitos da vaga:\nJava: 5/5');
+    expect(text.toLowerCase()).not.toContain('nota');
+    expect(text).not.toContain('Categoria');
+    expect(text).not.toContain('Avaliação');
+  });
+
   it('records behavioral skills without creating scored evaluations', () => {
     const app = TestBed.createComponent(App).componentInstance;
     seedSkills(app);
