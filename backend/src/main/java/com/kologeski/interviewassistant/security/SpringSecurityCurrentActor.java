@@ -15,6 +15,9 @@ public final class SpringSecurityCurrentActor implements CurrentActor {
                 || authentication instanceof AnonymousAuthenticationToken) {
             throw new IllegalStateException("authenticated user is required");
         }
+        if (authentication.getPrincipal() instanceof AuthCoreJwtFilter.AuthCorePrincipal principal) {
+            return new AuthenticatedActor(principal.userId(), principal.displayName());
+        }
         String id = authentication.getName();
         return new AuthenticatedActor(id, id);
     }
