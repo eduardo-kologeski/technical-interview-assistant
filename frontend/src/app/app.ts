@@ -101,7 +101,6 @@ export class App {
       const lines = textLines(text); const height = Math.max(minimumHeight, lines.length * 4.3 + 8); ensureSpace(height);
       border(); pdf.setTextColor(20); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.rect(left, y, width, height); pdf.text(lines, left + 4, y + 6); y += height;
     };
-    const listText = (text: string) => text.split('\n').map(item => item.trim()).filter(Boolean).map(item => `- ${item.replace(/^[-+]\s*/, '')}`).join('\n');
 
     border(); pdf.setFillColor(180, 180, 180); pdf.rect(left, y, width, 11, 'FD');
     pdf.setTextColor(0); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.text('Parecer Técnico Seletivo', 105, y + 7.5, { align: 'center' }); y += 11;
@@ -135,13 +134,8 @@ export class App {
       paragraphBox(`A pessoa candidata relatou as experiências abaixo. Estas notas são informativas e não entram na média.\n${complementaryText}`, 22);
     }
 
-    section('Prós');
-    paragraphBox(listText(this.strengths()), 20);
-    section('Contras');
-    paragraphBox(listText(this.concerns()), 20);
-
     section('Feedback');
-    paragraphBox(this.quickNotes(), 24);
+    paragraphBox(this.feedbackForPdf(), 24);
 
     section('Conclusão: recomenda a contratação? Para qual perfil e com qual senioridade?');
     paragraphBox(`Recomendação: ${this.recommendation()}\nMédia ponderada: ${this.average()} / 5\nSenioridade avaliada: ${this.seniority()}`, 26);
@@ -171,6 +165,21 @@ export class App {
     }
     if (this.quickNotes().trim()) parts.push(`Anotações da entrevista: ${this.quickNotes().trim()}`);
     return parts.join(' ');
+  }
+
+  feedbackForPdf() {
+    const blocks: string[] = [];
+    const strengths = this.formatList(this.strengths());
+    const concerns = this.formatList(this.concerns());
+    if (strengths) blocks.push(`Pontos fortes\n${strengths}`);
+    if (concerns) blocks.push(`Pontos fracos e de atenção\n${concerns}`);
+    if (this.quickNotes().trim()) blocks.push(`Feedback do entrevistador\n${this.quickNotes().trim()}`);
+    return blocks.join('\n\n') || 'Nenhum feedback registrado.';
+  }
+
+  private formatList(text: string) {
+    return text.split('\n').map(item => item.trim()).filter(Boolean)
+      .map(item => `- ${item.replace(/^[-+]\s*/, '')}`).join('\n');
   }
 
   setScore(index: number, score: number) { this.patchSkill(index, { score, skipped: false }); }

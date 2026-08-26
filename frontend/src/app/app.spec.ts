@@ -101,4 +101,24 @@ describe('App', () => {
     expect(app.finalAssessment()).toContain('PHP (4/5)');
     expect(app.finalAssessment()).not.toContain('Angular (5/5)');
   });
+
+  it('consolidates strengths, concerns and interviewer notes into one PDF feedback block', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.strengths.set('Boa comunicação\nDomínio técnico');
+    app.concerns.set('Pouca experiência em cloud');
+    app.quickNotes.set('Recomendo aprofundar arquitetura.');
+
+    expect(app.feedbackForPdf()).toBe(
+      'Pontos fortes\n- Boa comunicação\n- Domínio técnico\n\n' +
+      'Pontos fracos e de atenção\n- Pouca experiência em cloud\n\n' +
+      'Feedback do entrevistador\nRecomendo aprofundar arquitetura.'
+    );
+  });
+
+  it('does not create empty subsections in PDF feedback', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.concerns.set('Necessita aprofundamento');
+
+    expect(app.feedbackForPdf()).toBe('Pontos fracos e de atenção\n- Necessita aprofundamento');
+  });
 });
