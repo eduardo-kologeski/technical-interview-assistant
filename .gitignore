@@ -11,6 +11,7 @@ Thumbs.db
 
 # Java
 backend/target/
+backend/data/
 *.class
 
 # Angular / Node
