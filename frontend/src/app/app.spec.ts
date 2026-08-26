@@ -125,7 +125,7 @@ describe('App', () => {
     const app = fixture.componentInstance;
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('http://localhost:8080/api/users/me')
+      .expectOne('http://localhost:8081/api/users/me')
       .flush({ id: 7, name: 'Eduardo', email: 'eduardo@example.com' });
     http
       .expectOne(
@@ -155,7 +155,7 @@ describe('App', () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
     http
-      .match('http://localhost:8080/api/users/me')[0]
+      .match('http://localhost:8081/api/users/me')[0]
       ?.flush({ id: 7, name: 'Eduardo', email: 'eduardo@example.com' });
     http
       .expectOne((request) => request.url === 'http://localhost:8081/api/job-positions')
