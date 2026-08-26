@@ -64,6 +64,13 @@ describe('App', () => {
     expect(app.complementaryTechnologiesForReport()[0]).toMatchObject({ name: 'PHP', reviewScore: 5, description: 'Experiência anterior em projetos web.' });
   });
 
+  it('should hide job requirements and compound requirement aliases from quick suggestions', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+
+    expect(app.visibleQuickTechnologySuggestions()).not.toEqual(expect.arrayContaining(['C#', '.NET', 'SQL', 'Angular']));
+    expect(app.visibleQuickTechnologySuggestions()).toEqual(expect.arrayContaining(['Java', 'PHP', 'React', 'Laravel']));
+  });
+
   it('keeps duplicate complementary data available for review but removes it from reports', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.selectSuggestedTechnology('Angular');

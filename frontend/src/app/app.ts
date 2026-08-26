@@ -29,6 +29,12 @@ export class App {
     ...['Spring', 'Spring Boot', '.NET', 'ASP.NET Core', 'Node.js', 'NestJS', 'Express', 'Django', 'Flask', 'FastAPI', 'Laravel', 'Symfony', 'Ruby on Rails', 'Quarkus', 'Micronaut', 'Angular', 'React', 'Vue.js', 'Next.js', 'Nuxt', 'Svelte', 'Flutter', 'React Native', 'Ionic'].map(name => ({ name, type: 'FRAMEWORK' as const })),
   ];
   readonly quickTechnologySuggestions = ['Java', 'C#', 'JavaScript', 'TypeScript', 'Python', 'PHP', 'SQL', 'Spring Boot', '.NET', 'Angular', 'React', 'Node.js', 'Laravel'];
+  readonly visibleQuickTechnologySuggestions = computed(() => {
+    const requirements = new Set(this.skills().flatMap(skill =>
+      [skill.name, ...skill.name.split('/')].map(name => this.normalizeTechnology(name))
+    ));
+    return this.quickTechnologySuggestions.filter(name => !requirements.has(this.normalizeTechnology(name)));
+  });
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);
   readonly running = signal(false);
