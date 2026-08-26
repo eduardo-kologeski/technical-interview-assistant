@@ -23,4 +23,32 @@ describe('App', () => {
     expect((compiled.querySelector('input[name="candidate"]') as HTMLInputElement).value).toBe('');
     expect(compiled.querySelectorAll('.skill-card')).toHaveLength(0);
   });
+
+  it('should search languages and frameworks with partial case-insensitive text', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.technologySearch.set('JAVA');
+
+    expect(app.technologyResults().map(item => item.name)).toEqual(expect.arrayContaining(['Java', 'JavaScript']));
+  });
+
+  it('should add a custom technology once and allow removing it', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.technologySearch.set('AdonisJS');
+    app.addCustomTechnology();
+    app.technologySearch.set('adonISjs');
+    app.addCustomTechnology();
+
+    expect(app.selectedTechnologies()).toEqual([{ name: 'AdonisJS', type: 'OTHER' }]);
+    app.removeTechnology('ADONISJS');
+    expect(app.selectedTechnologies()).toEqual([]);
+  });
+
+  it('should only deduplicate evaluated technologies in the report', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.selectSuggestedTechnology('Angular');
+    app.selectSuggestedTechnology('PHP');
+
+    expect(app.selectedTechnologies().map(item => item.name)).toEqual(['Angular', 'PHP']);
+    expect(app.complementaryTechnologiesForReport().map(item => item.name)).toEqual(['PHP']);
+  });
 });
