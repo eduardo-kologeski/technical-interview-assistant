@@ -133,7 +133,7 @@ h1 {
 }
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 330px);
   gap: 24px;
   align-items: start;
 }
@@ -259,6 +259,71 @@ aside {
   display: grid;
   gap: 14px;
 }
+.support-panel {
+  top: 16px;
+  gap: 10px;
+}
+.support-panel .support-card {
+  padding: 14px;
+}
+.support-card h2 {
+  margin: 3px 0 10px;
+  color: #27403f;
+  font-size: 16px;
+}
+.support-card .technology-search input {
+  min-height: 38px;
+  padding: 9px 10px;
+}
+.support-card .suggestion-label {
+  margin: 9px 0 5px;
+}
+.compact-suggestions,
+.compact-selected {
+  gap: 5px;
+}
+.compact-suggestions button,
+.compact-selected button {
+  min-height: 28px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+}
+.support-results {
+  margin-top: 6px;
+}
+.support-message {
+  margin: 9px 0 0;
+  padding: 7px 8px;
+  border-radius: 6px;
+  background: #e8f5f2;
+  color: #176b66;
+  font-size: 10px;
+  line-height: 1.35;
+}
+.support-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.support-card-heading small {
+  color: #72817f;
+  font-size: 9px;
+}
+.support-notes textarea {
+  min-height: 118px;
+  max-height: 260px;
+  margin-top: 8px;
+}
+.empty-complementary {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed #cbdad8;
+  border-radius: 8px;
+  color: #6d7b7a;
+  background: #f8fbfa;
+  font-size: 12px;
+}
 aside section {
   padding: 20px;
 }
@@ -293,11 +358,12 @@ aside section {
 .stat strong.attention {
   color: #c56031;
 }
-@media (max-width: 900px) {
+@media (max-width: 1080px) {
   .workspace {
     grid-template-columns: 1fr;
   }
-  aside {
+  aside,
+  .support-panel {
     position: static;
   }
   .interview-header {

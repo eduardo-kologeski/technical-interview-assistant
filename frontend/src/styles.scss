@@ -158,19 +158,6 @@ body {
 .vacancy-preview small {
   font-size: 11px;
 }
-.behavioral-section {
-  display: grid;
-  gap: 12px;
-  margin-top: 28px;
-  padding: 22px;
-  border: 1px solid #d7e0e4;
-  border-radius: 10px;
-  background: #fff;
-}
-.behavioral-section h2 {
-  margin: 4px 0 !important;
-  font-size: 22px !important;
-}
 .behavioral-review {
   padding: 15px;
   border: 1px solid #d7e0e4;
@@ -673,8 +660,6 @@ body {
   }
 }
 
-.interview-notes,
-.interview-feedback,
 .review-notes {
   margin-top: 28px;
   padding: 22px;
@@ -682,8 +667,10 @@ body {
   border-radius: 10px;
   background: #fff;
 }
-.interview-notes > div { display:flex; justify-content:space-between; align-items:center; }
-.interview-notes small,
-.interview-feedback small,
-.review-fields small { display:block; margin-top:4px; color:#7b878f; font-size:10px; font-weight:400; }
-.interview-feedback h2 { margin:5px 0 18px; }
+.review-fields small {
+  display: block;
+  margin-top: 4px;
+  color: #7b878f;
+  font-size: 10px;
+  font-weight: 400;
+}

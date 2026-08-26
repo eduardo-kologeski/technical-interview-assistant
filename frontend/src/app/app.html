@@ -156,48 +156,11 @@
           <div class="complementary-section-heading">
             <div>
               <span class="eyebrow">TECNOLOGIAS E HABILIDADES</span>
-              <h2>Experiências complementares</h2>
-              <p>
-                Adicione e avalie tecnologias e conhecimentos técnicos sem transformá-los em
-                requisitos da vaga.
-              </p>
+              <h2>Experiências complementares avaliadas</h2>
+              <p>Avaliações adicionadas pelo painel de apoio, sem impacto no score da vaga.</p>
             </div>
             @if (selectedTechnologies().length) {
               <span>{{ selectedTechnologies().length }} adicionadas</span>
-            }
-          </div>
-          <div class="technology-card inline-technology-selector">
-            <div class="technology-search">
-              <input
-                [ngModel]="technologySearch()"
-                (ngModelChange)="technologySearch.set($event)"
-                (keydown.enter)="addCustomTechnology(); $event.preventDefault()"
-                placeholder="Pesquisar ou adicionar tecnologia..."
-              />
-            </div>
-            @if (technologySearch()) {
-              <div class="technology-results">
-                @for (technology of technologyResults(); track technology.name) {
-                  <button (click)="selectTechnology(technology)">{{ technology.name }}</button>
-                }
-                @if (canAddCustomTechnology()) {
-                  <button class="custom-tech" (click)="addCustomTechnology()">
-                    + Adicionar “{{ technologySearch().trim() }}”
-                  </button>
-                }
-              </div>
-            } @else {
-              <small class="suggestion-label">Sugestões</small>
-              <div class="technology-suggestions">
-                @for (name of visibleQuickTechnologySuggestions(); track name) {
-                  <button
-                    (click)="selectSuggestedTechnology(name)"
-                    [disabled]="selectedTechnologies().some((item) => item.name === name)"
-                  >
-                    + {{ name }}
-                  </button>
-                }
-              </div>
             }
           </div>
           @for (technology of selectedTechnologies(); track technology.name) {
@@ -216,73 +179,84 @@
               (remove)="removeTechnology(technology.name)"
             />
           }
+          @if (!selectedTechnologies().length) {
+            <p class="empty-complementary">Adicione uma tecnologia pelo painel de apoio.</p>
+          }
         </section>
-        <section class="behavioral-section">
-          <div class="complementary-section-heading">
-            <div>
-              <span class="eyebrow">PERFIL COMPLEMENTAR</span>
-              <h2>Habilidades comportamentais</h2>
-              <p>Registre características observadas sem nota, peso ou impacto no score.</p>
-            </div>
+      </section>
+      <aside class="support-panel" aria-label="Painel de apoio da entrevista">
+        <section class="support-card complementary-support">
+          <span class="eyebrow">EXPERIÊNCIAS COMPLEMENTARES</span>
+          <h2>Adicionar tecnologia</h2>
+          <div class="technology-search">
+            <input
+              [ngModel]="technologySearch()"
+              (ngModelChange)="technologySearch.set($event)"
+              (keydown.enter)="addCustomTechnology(); $event.preventDefault()"
+              placeholder="Pesquisar tecnologia..."
+            />
           </div>
+          @if (technologySearch()) {
+            <div class="technology-results support-results">
+              @for (technology of technologyResults(); track technology.name) {
+                <button (click)="selectTechnology(technology)">{{ technology.name }}</button>
+              }
+              @if (canAddCustomTechnology()) {
+                <button class="custom-tech" (click)="addCustomTechnology()">
+                  + Adicionar “{{ technologySearch().trim() }}”
+                </button>
+              }
+            </div>
+          } @else {
+            <small class="suggestion-label">Sugestões</small>
+            <div class="technology-suggestions compact-suggestions">
+              @for (name of visibleQuickTechnologySuggestions(); track name) {
+                <button (click)="selectSuggestedTechnology(name)">{{ name }}</button>
+              }
+            </div>
+          }
+          @if (lastSupportMessage()) {
+            <p class="support-message" role="status">{{ lastSupportMessage() }}</p>
+          }
+        </section>
+        <section class="support-card behavioral-support">
+          <span class="eyebrow">HABILIDADES COMPORTAMENTAIS</span>
+          <h2>Registrar habilidade</h2>
           <div class="technology-search">
             <input
               [ngModel]="behavioralSearch()"
               (ngModelChange)="behavioralSearch.set($event)"
               (keydown.enter)="addBehavioralSkill(); $event.preventDefault()"
-              placeholder="Pesquisar ou adicionar habilidade..."
+              placeholder="Pesquisar habilidade..."
             />
           </div>
           <small class="suggestion-label">Sugestões</small>
-          <div class="technology-suggestions">
+          <div class="technology-suggestions compact-suggestions">
             @for (name of behavioralResults(); track name) {
-              <button (click)="addBehavioralSkill(name)">+ {{ name }}</button>
+              <button (click)="addBehavioralSkill(name)">{{ name }}</button>
             }
           </div>
           @if (selectedBehavioralSkills().length) {
             <small class="suggestion-label">Selecionadas</small>
-            <div class="selected-technologies">
+            <div class="selected-technologies compact-selected">
               @for (name of selectedBehavioralSkills(); track name) {
                 <button (click)="removeBehavioralSkill(name)">{{ name }} <span>×</span></button>
               }
             </div>
           }
         </section>
-        <section class="interview-notes">
-          <div>
-            <span class="eyebrow">ANOTAÇÕES DA ENTREVISTA</span><small>salvamento automático</small>
+        <section class="support-card support-notes">
+          <div class="support-card-heading">
+            <span class="eyebrow">ANOTAÇÕES</span><small>autosave</small>
           </div>
           <textarea
-            rows="7"
+            rows="6"
             [ngModel]="quickNotes()"
             (ngModelChange)="updateNotes($event)"
-            placeholder="Registre observações gerais da entrevista..."
+            placeholder="Registre observações da entrevista..."
           ></textarea>
         </section>
-        <section class="interview-feedback">
-          <div>
-            <span class="eyebrow">FEEDBACK</span>
-          <h2>Dados para o parecer</h2>
-          </div>
-          <div class="review-fields">
-            <label
-              >Pontos fortes<small>Será exibido na seção “Feedback” do parecer.</small
-              ><textarea
-                rows="5"
-                [ngModel]="strengths()"
-                (ngModelChange)="strengths.set($event)"
-              ></textarea></label
-            ><label
-              >Pontos de atenção<small>Será exibido na seção “Feedback” do parecer.</small
-              ><textarea
-                rows="5"
-                [ngModel]="concerns()"
-                (ngModelChange)="concerns.set($event)"
-              ></textarea>
-            </label>
-          </div>
-        </section>
-      </section>
+      </aside>
     </div>
   </main>
 } @else {
@@ -404,6 +378,7 @@
             (ngModelChange)="finalAssessment.set($event)"
           ></textarea>
         </label>
+        <span class="eyebrow review-feedback-heading">FEEDBACK</span>
         <div class="review-fields">
           <label
             >Pontos fortes<small>Será exibido em “Feedback” no parecer.</small

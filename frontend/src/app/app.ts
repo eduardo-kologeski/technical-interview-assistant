@@ -63,6 +63,7 @@ export class InterviewPage {
   readonly technologySearch = signal('');
   readonly selectedTechnologies = signal<Technology[]>([]);
   readonly behavioralSearch = signal('');
+  readonly lastSupportMessage = signal('');
   readonly selectedBehavioralSkills = signal<string[]>([]);
   readonly behavioralCatalog = [
     'Comunicação',
@@ -153,9 +154,11 @@ export class InterviewPage {
         [skill.name, ...skill.name.split('/')].map((name) => this.normalizeTechnology(name)),
       ),
     );
-    return this.quickTechnologySuggestions.filter(
-      (name) => !requirements.has(this.normalizeTechnology(name)),
-    );
+    return this.quickTechnologySuggestions
+      .filter(
+        (name) => !requirements.has(this.normalizeTechnology(name)) && !this.hasTechnology(name),
+      )
+      .slice(0, 8);
   });
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);
@@ -556,6 +559,7 @@ export class InterviewPage {
       { ...technology, source: 'COMPLEMENTARY_EXPERIENCE' },
     ]);
     this.technologySearch.set('');
+    this.lastSupportMessage.set(`${technology.name} adicionada às experiências complementares.`);
     this.markSaving();
   }
   selectSuggestedTechnology(name: string) {
