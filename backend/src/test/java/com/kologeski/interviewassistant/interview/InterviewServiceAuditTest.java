@@ -26,13 +26,13 @@ class InterviewServiceAuditTest {
                 "creator", Instant.EPOCH);
         when(vacancyRepository.findById(vacancy.id())).thenReturn(Optional.of(vacancy));
         var service = new InterviewService(interviewRepository, vacancyRepository,
-                new MutableActor("authcore-user-42"), new MutableClock(Instant.parse("2026-08-26T12:00:00Z")));
+                new MutableActor("local-user-42"), new MutableClock(Instant.parse("2026-08-26T12:00:00Z")));
 
         var interview = service.createAndStart(vacancy.id(), "João", "Empresa X");
 
         assertThat(interview.status()).isEqualTo(InterviewStatus.IN_PROGRESS);
-        assertThat(interview.interviewerId()).isEqualTo("authcore-user-42");
-        assertThat(interview.createdBy()).isEqualTo("authcore-user-42");
+        assertThat(interview.interviewerId()).isEqualTo("local-user-42");
+        assertThat(interview.createdBy()).isEqualTo("local-user-42");
         assertThat(interview.senioritySnapshot()).isEqualTo("Pleno");
         assertThat(interview.requirementSnapshot()).containsExactly("Java", "SQL");
         assertThat(interview.clientCompany()).isEqualTo("Empresa X");

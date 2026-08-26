@@ -17,18 +17,18 @@ class SecurityConfigurationTest {
 
     @Test
     void unauthenticatedUserCannotAccessApplication() throws Exception {
-        mvc.perform(get("/actuator/health")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/job-positions")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void authenticatedUserAccessDoesNotDependOnRole() throws Exception {
-        mvc.perform(get("/actuator/health").with(user("ordinary-user-a").authorities()))
+        mvc.perform(get("/api/job-positions").with(user("ordinary-user-a").authorities()))
                 .andExpect(status().isOk());
     }
 
     @Test
     void anotherAuthenticatedUserHasTheSameAccessWithoutAuthorities() throws Exception {
-        mvc.perform(get("/actuator/health").with(user("ordinary-user-b").authorities()))
+        mvc.perform(get("/api/job-positions").with(user("ordinary-user-b").authorities()))
                 .andExpect(status().isOk());
     }
 }
