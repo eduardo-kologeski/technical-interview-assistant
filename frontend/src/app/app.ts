@@ -40,6 +40,13 @@ export class InterviewPage {
   readonly finalAssessment = signal('');
   readonly technologySearch = signal('');
   readonly selectedTechnologies = signal<Technology[]>([]);
+  readonly behavioralSearch = signal('');
+  readonly selectedBehavioralSkills = signal<string[]>([]);
+  readonly behavioralCatalog = ['Comunicação', 'Trabalho em equipe', 'Proatividade', 'Autonomia', 'Organização', 'Adaptabilidade', 'Capacidade analítica', 'Resolução de problemas', 'Colaboração', 'Clareza na comunicação'];
+  readonly behavioralResults = computed(() => {
+    const query = this.normalizeTechnology(this.behavioralSearch());
+    return this.behavioralCatalog.filter(item => this.normalizeTechnology(item).includes(query) && !this.hasBehavioralSkill(item)).slice(0, 8);
+  });
   readonly technologyCatalog: Technology[] = [
     ...['Java', 'C#', 'JavaScript', 'TypeScript', 'Python', 'PHP', 'SQL', 'Go', 'Kotlin', 'C', 'C++', 'Ruby', 'Dart', 'Swift', 'Rust', 'Scala', 'PL/SQL', 'T-SQL'].map(name => ({ name, type: 'LANGUAGE' as const })),
     ...['Spring', 'Spring Boot', '.NET', 'ASP.NET Core', 'Node.js', 'NestJS', 'Express', 'Django', 'Flask', 'FastAPI', 'Laravel', 'Symfony', 'Ruby on Rails', 'Quarkus', 'Micronaut', 'Angular', 'React', 'Vue.js', 'Next.js', 'Nuxt', 'Svelte', 'Flutter', 'React Native', 'Ionic'].map(name => ({ name, type: 'FRAMEWORK' as const })),
@@ -168,22 +175,23 @@ export class InterviewPage {
     section('Cultura Técnica');
     paragraphBox(this.finalAssessment(), 30);
 
-    section('Requisitos da vaga');
+    section('Tecnologias e Habilidades');
     const evaluated = this.skills().map(skill => {
       const score = skill.skipped ? 'N/A' : skill.score === null ? 'Não avaliado' : `${skill.score}/5`;
       return `- ${skill.name}: ${score}${skill.comment ? ` - ${skill.comment}` : ''}`;
     }).join('\n');
-    paragraphBox(evaluated, 28);
+    const technologyBlocks = [`REQUISITOS DA VAGA\n${evaluated}`];
 
     const complementary = this.complementaryTechnologiesForReport();
     if (complementary.length) {
-      section('Experiências Complementares');
       const complementaryText = complementary.map(item => {
         const score = item.notEvaluated ? 'N/A' : item.reviewScore == null ? 'Sem nota' : `${item.reviewScore}/5`;
         return `- ${item.name}: ${score}${item.description?.trim() ? ` - ${item.description.trim()}` : ''}`;
       }).join('\n');
-      paragraphBox(`A pessoa candidata relatou as experiências abaixo. Estas notas são informativas e não entram na média.\n${complementaryText}`, 22);
+      technologyBlocks.push(`EXPERIÊNCIAS COMPLEMENTARES\n${complementaryText}\nAs avaliações complementares não entram na média principal.`);
     }
+    if (this.selectedBehavioralSkills().length) technologyBlocks.push(`HABILIDADES COMPORTAMENTAIS\n${this.selectedBehavioralSkills().map(item => `- ${item}: -`).join('\n')}`);
+    paragraphBox(technologyBlocks.join('\n\n'), 28);
 
     section('Feedback');
     paragraphBox(this.feedbackForPdf(), 24);
@@ -214,6 +222,7 @@ export class InterviewPage {
       });
       parts.push(`Como experiências tecnológicas complementares, foram registradas: ${details.join(', ')}.`);
     }
+    if (this.selectedBehavioralSkills().length) parts.push(`Como habilidades comportamentais, foram registradas: ${this.selectedBehavioralSkills().join(', ')}.`);
     if (this.quickNotes().trim()) parts.push(`Anotações da entrevista: ${this.quickNotes().trim()}`);
     return parts.join(' ');
   }
@@ -270,6 +279,16 @@ export class InterviewPage {
     const current = technology?.description?.trim() || '';
     this.updateTechnologyReview(name, { description: `${current}${current ? ' ' : ''}${suggestion}` });
   }
+  addBehavioralSkill(name = this.behavioralSearch()) {
+    const value = name.trim();
+    if (value && !this.hasBehavioralSkill(value)) this.selectedBehavioralSkills.update(items => [...items, value]);
+    this.behavioralSearch.set(''); this.markSaving();
+  }
+  removeBehavioralSkill(name: string) {
+    this.selectedBehavioralSkills.update(items => items.filter(item => this.normalizeTechnology(item) !== this.normalizeTechnology(name)));
+    this.markSaving();
+  }
+  hasBehavioralSkill(name: string) { return this.selectedBehavioralSkills().some(item => this.normalizeTechnology(item) === this.normalizeTechnology(name)); }
   select(index: number) { this.activeIndex.set(index); }
   toggleTimer() { this.running.update(v => !v); if (this.running()) this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000); else clearInterval(this.timer); }
 

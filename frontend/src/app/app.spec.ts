@@ -157,6 +157,18 @@ describe('App', () => {
 
     expect(app.feedbackForPdf()).toBe('Pontos fracos e de atenção\n- Necessita aprofundamento');
   });
+
+  it('records behavioral skills without creating scored evaluations', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
+    const averageBefore = app.average();
+    app.addBehavioralSkill('Comunicação');
+    app.addBehavioralSkill('Proatividade');
+
+    expect(app.selectedBehavioralSkills()).toEqual(['Comunicação', 'Proatividade']);
+    expect(app.average()).toBe(averageBefore);
+    expect(app.skills()).toHaveLength(3);
+  });
 });
 
 function seedSkills(app: InterviewPage) {
