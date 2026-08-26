@@ -63,4 +63,13 @@ describe('App', () => {
     expect(app.average()).toBe(averageBefore);
     expect(app.complementaryTechnologiesForReport()[0]).toMatchObject({ name: 'PHP', reviewScore: 5, description: 'Experiência anterior em projetos web.' });
   });
+
+  it('should append quick description suggestions during the interview', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.selectSuggestedTechnology('Laravel');
+    app.appendTechnologyDescription('Laravel', 'Possui experiência recente.');
+    app.appendTechnologyDescription('Laravel', 'Utilizou de forma pontual.');
+
+    expect(app.selectedTechnologies()[0].description).toBe('Possui experiência recente. Utilizou de forma pontual.');
+  });
 });

@@ -184,6 +184,11 @@ export class App {
   }
   scoreTechnology(name: string, score: number) { this.updateTechnologyReview(name, { reviewScore: score, notEvaluated: false }); }
   skipTechnologyReview(name: string) { this.updateTechnologyReview(name, { reviewScore: null, notEvaluated: true }); }
+  appendTechnologyDescription(name: string, suggestion: string) {
+    const technology = this.selectedTechnologies().find(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(name));
+    const current = technology?.description?.trim() || '';
+    this.updateTechnologyReview(name, { description: `${current}${current ? ' ' : ''}${suggestion}` });
+  }
   select(index: number) { this.activeIndex.set(index); }
   toggleTimer() { this.running.update(v => !v); if (this.running()) this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000); else clearInterval(this.timer); }
 
