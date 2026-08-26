@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: technical-interview-assistant
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/interview_assistant}
+    username: ${DATABASE_USER:interview_app}
+    password: ${DATABASE_PASSWORD:interview_app}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
