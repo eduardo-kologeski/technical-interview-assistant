@@ -11,13 +11,26 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: ${SERVER_PORT:8080}
+  shutdown: graceful
 
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
   endpoints:
     web:
       exposure:
         include: health,info
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: ${APP_VERSION:dev}
 
