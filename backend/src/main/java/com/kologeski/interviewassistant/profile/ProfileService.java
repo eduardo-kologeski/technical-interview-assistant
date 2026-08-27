@@ -24,7 +24,7 @@ public class ProfileService {
 
     @Transactional(readOnly = true)
     public ProfileSnapshot profile(User user) {
-        return snapshot(user);
+        return snapshot(user, false);
     }
 
     @Transactional
@@ -34,7 +34,7 @@ public class ProfileService {
             throw new IllegalStateException("Este e-mail já está em uso.");
         user.updateProfile(name.trim(), normalizedEmail, Instant.now(clock));
         users.save(user);
-        return snapshot(user);
+        return snapshot(user, false);
     }
 
     @Transactional
@@ -65,18 +65,18 @@ public class ProfileService {
     }
 
     @Transactional
-    public AvailabilitySnapshot addAvailability(User user, DayOfWeek day, LocalTime start, LocalTime end) {
-        validatePeriod(user, null, day, start, end);
+    public AvailabilitySnapshot addAvailability(User user, LocalDate date, LocalTime start, LocalTime end) {
+        validatePeriod(user, null, date, start, end);
         return AvailabilitySnapshot.from(availability.save(new InterviewAvailability(
-                user, day, start, end, Instant.now(clock))));
+                user, date, start, end, Instant.now(clock))));
     }
 
     @Transactional
-    public AvailabilitySnapshot updateAvailability(User user, Long id, DayOfWeek day,
+    public AvailabilitySnapshot updateAvailability(User user, Long id, LocalDate date,
                                                    LocalTime start, LocalTime end) {
         InterviewAvailability slot = availability(user, id);
-        validatePeriod(user, id, day, start, end);
-        slot.update(day, start, end, Instant.now(clock));
+        validatePeriod(user, id, date, start, end);
+        slot.update(date, start, end, Instant.now(clock));
         return AvailabilitySnapshot.from(availability.save(slot));
     }
 
@@ -86,28 +86,39 @@ public class ProfileService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProfileSnapshot> allProfessionalProfiles() {
-        return users.findAll().stream().map(this::snapshot).toList();
+    public List<AvailabilitySnapshot> availability(User user, LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) throw new IllegalStateException("O período final deve ser posterior ao inicial.");
+        return availability.findByUserIdAndAvailabilityDateBetweenOrderByAvailabilityDateAscStartTimeAsc(
+                        user.getId(), from, to).stream()
+                .map(AvailabilitySnapshot::from).toList();
     }
 
-    private ProfileSnapshot snapshot(User user) {
+    @Transactional(readOnly = true)
+    public List<ProfileSnapshot> allProfessionalProfiles() {
+        return users.findAll().stream().map(user -> snapshot(user, true)).toList();
+    }
+
+    private ProfileSnapshot snapshot(User user, boolean includeAvailability) {
         return new ProfileSnapshot(user.getId(), user.getName(), user.getEmail(),
                 skills.findByUserIdOrderByNameAsc(user.getId()).stream().map(SkillSnapshot::from).toList(),
-                availability.findByUserIdOrderByDayOfWeekAscStartTimeAsc(user.getId()).stream()
-                        .map(AvailabilitySnapshot::from)
-                        .sorted(Comparator.comparingInt((AvailabilitySnapshot slot) -> slot.dayOfWeek().getValue())
-                                .thenComparing(AvailabilitySnapshot::startTime))
-                        .toList());
+                includeAvailability
+                        ? availability.findByUserIdOrderByAvailabilityDateAscStartTimeAsc(user.getId()).stream()
+                                .map(AvailabilitySnapshot::from).toList()
+                        : List.of());
     }
 
-    private void validatePeriod(User user, Long ignoredId, DayOfWeek day, LocalTime start, LocalTime end) {
+    private void validatePeriod(User user, Long ignoredId, LocalDate date, LocalTime start, LocalTime end) {
         if (!end.isAfter(start)) throw new IllegalStateException("O horário final deve ser posterior ao inicial.");
-        boolean overlaps = availability.findByUserIdOrderByDayOfWeekAscStartTimeAsc(user.getId()).stream()
+        LocalDate today = LocalDate.now(clock);
+        if (date.isBefore(today) || (date.equals(today) && !start.isAfter(LocalTime.now(clock))))
+            throw new IllegalStateException("Não é possível cadastrar disponibilidade em data ou horário passado.");
+        boolean overlaps = availability
+                .findByUserIdAndAvailabilityDateBetweenOrderByAvailabilityDateAscStartTimeAsc(
+                        user.getId(), date, date).stream()
                 .filter(slot -> ignoredId == null || !slot.getId().equals(ignoredId))
-                .filter(slot -> slot.getDayOfWeek() == day)
                 .anyMatch(slot -> start.isBefore(slot.getEndTime()) && end.isAfter(slot.getStartTime()));
         if (overlaps) throw new IllegalStateException(
-                "Este horário se sobrepõe a uma disponibilidade já cadastrada.");
+                "Este horário se sobrepõe a uma disponibilidade já cadastrada para esta data.");
     }
 
     private UserTechnicalSkill skill(User user, Long id) {
@@ -137,9 +148,9 @@ public class ProfileService {
             return new SkillSnapshot(skill.getId(), skill.getName(), skill.getProficiencyLevel());
         }
     }
-    public record AvailabilitySnapshot(Long id, DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime) {
+    public record AvailabilitySnapshot(Long id, LocalDate availabilityDate, LocalTime startTime, LocalTime endTime) {
         static AvailabilitySnapshot from(InterviewAvailability value) {
-            return new AvailabilitySnapshot(value.getId(), value.getDayOfWeek(), value.getStartTime(), value.getEndTime());
+            return new AvailabilitySnapshot(value.getId(), value.getAvailabilityDate(), value.getStartTime(), value.getEndTime());
         }
     }
 }

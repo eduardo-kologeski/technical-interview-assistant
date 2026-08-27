@@ -12,9 +12,8 @@ public class InterviewAvailability {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
-    @Enumerated(EnumType.STRING)
-    @Column(name = "day_of_week", nullable = false, length = 12)
-    private DayOfWeek dayOfWeek;
+    @Column(name = "availability_date", nullable = false)
+    private LocalDate availabilityDate;
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
     @Column(name = "end_time", nullable = false)
@@ -26,14 +25,14 @@ public class InterviewAvailability {
 
     protected InterviewAvailability() { }
 
-    InterviewAvailability(User user, DayOfWeek day, LocalTime start, LocalTime end, Instant now) {
+    InterviewAvailability(User user, LocalDate date, LocalTime start, LocalTime end, Instant now) {
         this.user = user;
-        update(day, start, end, now);
+        update(date, start, end, now);
         this.createdAt = now;
     }
 
-    void update(DayOfWeek day, LocalTime start, LocalTime end, Instant now) {
-        this.dayOfWeek = day;
+    void update(LocalDate date, LocalTime start, LocalTime end, Instant now) {
+        this.availabilityDate = date;
         this.startTime = start;
         this.endTime = end;
         this.updatedAt = now;
@@ -41,7 +40,7 @@ public class InterviewAvailability {
 
     public Long getId() { return id; }
     public User getUser() { return user; }
-    public DayOfWeek getDayOfWeek() { return dayOfWeek; }
+    public LocalDate getAvailabilityDate() { return availabilityDate; }
     public LocalTime getStartTime() { return startTime; }
     public LocalTime getEndTime() { return endTime; }
     public Instant getCreatedAt() { return createdAt; }

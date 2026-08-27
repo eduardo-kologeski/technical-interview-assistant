@@ -4,6 +4,7 @@ import com.kologeski.interviewassistant.user.UserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.time.*;
@@ -49,21 +50,23 @@ public class ProfileController {
     }
 
     @GetMapping("/availability")
-    Object availability(@AuthenticationPrincipal UserPrincipal principal) {
-        return service.profile(principal.user()).availability();
+    Object availability(@AuthenticationPrincipal UserPrincipal principal,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return service.availability(principal.user(), from, to);
     }
 
     @PostMapping("/availability") @ResponseStatus(HttpStatus.CREATED)
     ProfileService.AvailabilitySnapshot addAvailability(@AuthenticationPrincipal UserPrincipal principal,
                                                         @Valid @RequestBody AvailabilityCommand command) {
-        return service.addAvailability(principal.user(), command.dayOfWeek(), command.startTime(), command.endTime());
+        return service.addAvailability(principal.user(), command.date(), command.startTime(), command.endTime());
     }
 
     @PutMapping("/availability/{id}")
     ProfileService.AvailabilitySnapshot updateAvailability(@AuthenticationPrincipal UserPrincipal principal,
                                                            @PathVariable Long id,
                                                            @Valid @RequestBody AvailabilityCommand command) {
-        return service.updateAvailability(principal.user(), id, command.dayOfWeek(), command.startTime(), command.endTime());
+        return service.updateAvailability(principal.user(), id, command.date(), command.startTime(), command.endTime());
     }
 
     @DeleteMapping("/availability/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -75,6 +78,6 @@ public class ProfileController {
                                  @NotBlank @Email @Size(max = 180) String email) { }
     public record SkillCommand(@NotBlank @Size(max = 120) String name,
                                @NotNull ProficiencyLevel proficiencyLevel) { }
-    public record AvailabilityCommand(@NotNull DayOfWeek dayOfWeek, @NotNull LocalTime startTime,
+    public record AvailabilityCommand(@NotNull LocalDate date, @NotNull LocalTime startTime,
                                       @NotNull LocalTime endTime) { }
 }
