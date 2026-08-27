@@ -6,6 +6,10 @@ Aplicação para conduzir entrevistas técnicas, registrar avaliações com rapi
 
 O projeto está em construção. O desenho do produto, a arquitetura, o domínio e o backlog estão em [`docs/architecture.md`](docs/architecture.md).
 
+## Produção
+
+O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production Readiness](docs/production-readiness.md) e o [runbook de deployment, backup e rollback](docs/deployment.md) antes de utilizar dados reais.
+
 ## Princípios
 
 - experiência desktop-first e uso eficiente por teclado;
