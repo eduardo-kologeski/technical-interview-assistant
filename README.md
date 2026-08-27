@@ -12,7 +12,7 @@ Angular -> Spring Boot -> PostgreSQL
 
 O backend contém módulos internos para autenticação, usuários, vagas, entrevistas, avaliações e auditoria. O projeto não depende do AuthCore em runtime. Consulte [`docs/modular-monolith.md`](docs/modular-monolith.md).
 
-Usuários autenticados também podem manter conhecimentos e disponibilidade semanal e consultar a aderência transparente entre perfis e vagas. Consulte [`docs/interviewer-profile.md`](docs/interviewer-profile.md).
+Usuários autenticados também podem manter conhecimentos e disponibilidades em datas específicas, navegando por semana, e consultar a aderência transparente entre perfis e vagas. Consulte [`docs/interviewer-profile.md`](docs/interviewer-profile.md).
 
 ### Execução
 
