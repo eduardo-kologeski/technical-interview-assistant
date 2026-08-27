@@ -6,7 +6,7 @@ import { Directive, ElementRef, HostListener, inject } from '@angular/core';
 export class OpenNativePickerDirective {
   private readonly input = inject<ElementRef<HTMLInputElement>>(ElementRef).nativeElement;
 
-  @HostListener('click')
+  @HostListener('pointerdown')
   openPicker() {
     if (this.input.disabled || this.input.readOnly || !this.input.showPicker) return;
     try {

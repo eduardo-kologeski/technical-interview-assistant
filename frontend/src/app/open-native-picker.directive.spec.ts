@@ -17,11 +17,26 @@ describe('OpenNativePickerDirective', () => {
     Object.defineProperty(inputs[0], 'showPicker', { value: datePicker });
     Object.defineProperty(inputs[1], 'showPicker', { value: timePicker });
 
-    inputs[0].click();
-    inputs[1].click();
-    inputs[2].click();
+    inputs[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    inputs[1].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    inputs[2].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 
     expect(datePicker).toHaveBeenCalledOnce();
     expect(timePicker).toHaveBeenCalledOnce();
+  });
+
+  it('keeps keyboard input available without opening the picker', () => {
+    const fixture = TestBed.createComponent(PickerHostComponent);
+    const input = fixture.nativeElement.querySelector('input[type="date"]') as HTMLInputElement;
+    const picker = vi.fn();
+    Object.defineProperty(input, 'showPicker', { value: picker });
+
+    input.focus();
+    input.value = '2026-09-01';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: '1', bubbles: true }));
+
+    expect(input.value).toBe('2026-09-01');
+    expect(picker).not.toHaveBeenCalled();
   });
 });
