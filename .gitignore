@@ -11,6 +11,7 @@ Thumbs.db
 
 # Java
 backend/target/
+backend/data/
 *.class
 
 # Angular / Node
@@ -18,6 +19,9 @@ frontend/node_modules/
 frontend/dist/
 frontend/.angular/
 *.log
+
+# Local runtime artifacts that may contain candidate data
+tmp/
 
 # Generated documents
 *.pdf
