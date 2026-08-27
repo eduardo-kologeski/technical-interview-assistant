@@ -91,9 +91,36 @@ describe('App', () => {
       expect.arrayContaining(['C#', '.NET', 'SQL', 'Angular']),
     );
     expect(app.visibleQuickTechnologySuggestions()).toEqual(
-      expect.arrayContaining(['Java', 'PHP', 'React']),
+      expect.arrayContaining(['Java', 'PHP']),
     );
-    expect(app.visibleQuickTechnologySuggestions()).toHaveLength(8);
+    expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
+  });
+
+  it('expands and collapses compact technical and behavioral suggestions', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+
+    expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
+    expect(app.visibleBehavioralSuggestions()).toHaveLength(4);
+
+    app.technologySuggestionsExpanded.set(true);
+    app.behavioralSuggestionsExpanded.set(true);
+    expect(app.visibleQuickTechnologySuggestions().length).toBeGreaterThan(6);
+    expect(app.visibleBehavioralSuggestions().length).toBeGreaterThan(6);
+
+    app.technologySuggestionsExpanded.set(false);
+    app.behavioralSuggestionsExpanded.set(false);
+    expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
+    expect(app.visibleBehavioralSuggestions()).toHaveLength(4);
+  });
+
+  it('removes selected technologies and behavioral skills from support suggestions', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+
+    app.selectSuggestedTechnology('Java');
+    app.addBehavioralSkill('Comunicação');
+
+    expect(app.availableQuickTechnologySuggestions()).not.toContain('Java');
+    expect(app.availableBehavioralSuggestions()).not.toContain('Comunicação');
   });
 
   it('keeps duplicate complementary data available for review but removes it from reports', () => {
@@ -302,11 +329,26 @@ describe('App', () => {
     const text = element.textContent || '';
 
     expect(text).not.toContain('RESUMO ATUAL');
+    expect(element.querySelector('.topbar')).toBeNull();
     expect(element.querySelector('aside.support-panel')).not.toBeNull();
     expect(element.querySelectorAll('input[placeholder="Pesquisar tecnologia..."]')).toHaveLength(
       1,
     );
     expect(element.querySelectorAll('.support-notes textarea')).toHaveLength(1);
+    expect(element.querySelector('.support-notes textarea')?.getAttribute('rows')).toBe('3');
+    const sections = Array.from(element.querySelectorAll('.support-panel > .support-card'));
+    expect(sections.map((section) => section.classList[1])).toEqual([
+      'support-notes',
+      'complementary-support',
+      'behavioral-support',
+    ]);
+    expect(
+      element.querySelectorAll('.complementary-support .compact-suggestions button'),
+    ).toHaveLength(6);
+    expect(
+      element.querySelectorAll('.behavioral-support .compact-suggestions button'),
+    ).toHaveLength(4);
+    expect(text).toContain('Ver mais');
     expect(text).not.toContain('Pontos fortes');
     expect(text).not.toContain('Pontos de atenção');
     expect(text).not.toContain('FEEDBACK');
