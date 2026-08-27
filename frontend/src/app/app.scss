@@ -371,3 +371,22 @@ aside section {
     width: 100%;
   }
 }
+
+input[type='date']::selection,
+input[type='time']::selection,
+input[type='datetime-local']::selection,
+input[type='date']::-webkit-datetime-edit-day-field:focus,
+input[type='date']::-webkit-datetime-edit-month-field:focus,
+input[type='date']::-webkit-datetime-edit-year-field:focus,
+input[type='time']::-webkit-datetime-edit-hour-field:focus,
+input[type='time']::-webkit-datetime-edit-minute-field:focus,
+input[type='time']::-webkit-datetime-edit-second-field:focus,
+input[type='time']::-webkit-datetime-edit-ampm-field:focus,
+input[type='datetime-local']::-webkit-datetime-edit-day-field:focus,
+input[type='datetime-local']::-webkit-datetime-edit-month-field:focus,
+input[type='datetime-local']::-webkit-datetime-edit-year-field:focus,
+input[type='datetime-local']::-webkit-datetime-edit-hour-field:focus,
+input[type='datetime-local']::-webkit-datetime-edit-minute-field:focus {
+  color: inherit;
+  background: transparent;
+}

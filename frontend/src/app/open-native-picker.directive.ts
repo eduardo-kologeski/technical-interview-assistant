@@ -9,9 +9,7 @@ export class OpenNativePickerDirective {
   @HostListener('pointerdown')
   openPicker() {
     if (this.input.disabled || this.input.readOnly || !this.input.showPicker) return;
-    // The first mouse click focuses the field so the user can type immediately.
-    // A subsequent click on the already focused field opens the native picker.
-    if (document.activeElement !== this.input) return;
+    this.input.focus({ preventScroll: true });
     try {
       this.input.showPicker();
     } catch {

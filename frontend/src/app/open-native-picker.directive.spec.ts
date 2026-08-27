@@ -17,9 +17,7 @@ describe('OpenNativePickerDirective', () => {
     Object.defineProperty(inputs[0], 'showPicker', { value: datePicker });
     Object.defineProperty(inputs[1], 'showPicker', { value: timePicker });
 
-    inputs[0].focus();
     inputs[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-    inputs[1].focus();
     inputs[1].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     inputs[2].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
 
@@ -42,7 +40,7 @@ describe('OpenNativePickerDirective', () => {
     expect(picker).not.toHaveBeenCalled();
   });
 
-  it('allows typing after the field receives focus from a mouse click', () => {
+  it('opens on the first mouse click and still allows typing', () => {
     const fixture = TestBed.createComponent(PickerHostComponent);
     const input = fixture.nativeElement.querySelector('input[type="time"]') as HTMLInputElement;
     const picker = vi.fn();
@@ -54,6 +52,6 @@ describe('OpenNativePickerDirective', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(input.value).toBe('15:30');
-    expect(picker).not.toHaveBeenCalled();
+    expect(picker).toHaveBeenCalledOnce();
   });
 });
