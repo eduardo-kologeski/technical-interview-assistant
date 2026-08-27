@@ -9,7 +9,7 @@ export interface TechnicalSkill {
 }
 export interface Availability {
   id: number;
-  dayOfWeek: string;
+  availabilityDate: string;
   startTime: string;
   endTime: string;
 }
@@ -62,16 +62,21 @@ export class ProfileService {
   removeSkill(id: number) {
     return this.http.delete<void>(`${this.profileUrl}/technical-skills/${id}`);
   }
-  addAvailability(dayOfWeek: string, startTime: string, endTime: string) {
+  getAvailability(from: string, to: string) {
+    return this.http.get<Availability[]>(`${this.profileUrl}/availability`, {
+      params: { from, to },
+    });
+  }
+  addAvailability(date: string, startTime: string, endTime: string) {
     return this.http.post<Availability>(`${this.profileUrl}/availability`, {
-      dayOfWeek,
+      date,
       startTime,
       endTime,
     });
   }
-  updateAvailability(id: number, dayOfWeek: string, startTime: string, endTime: string) {
+  updateAvailability(id: number, date: string, startTime: string, endTime: string) {
     return this.http.put<Availability>(`${this.profileUrl}/availability/${id}`, {
-      dayOfWeek,
+      date,
       startTime,
       endTime,
     });
@@ -82,7 +87,7 @@ export class ProfileService {
   searchInterviewers(filters: {
     vacancyId?: string;
     technology?: string;
-    day?: string;
+    date?: string;
     time?: string;
   }) {
     let params = new HttpParams();

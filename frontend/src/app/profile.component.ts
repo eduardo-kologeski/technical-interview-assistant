@@ -96,57 +96,66 @@ import {
           <div class="section-title">
             <div>
               <p>DISPONIBILIDADE PARA ENTREVISTAS</p>
-              <h2>Disponibilidade semanal</h2>
-              <span>Cadastre os períodos em que você normalmente pode participar.</span>
+              <h2>Horários por semana</h2>
+              <span>Informe datas e horários concretos para as próximas entrevistas.</span>
             </div>
           </div>
-          <div class="availability-form">
+          <div class="week-navigation">
+            <button class="secondary" (click)="currentWeek()">Semana atual</button>
+            <div>
+              <button class="icon" aria-label="Semana anterior" (click)="changeWeek(-1)">‹</button
+              ><strong>{{ weekLabel() }}</strong
+              ><button class="icon" aria-label="Próxima semana" (click)="changeWeek(1)">›</button>
+            </div>
             <label
-              >Dia da semana<select [(ngModel)]="day">
-                <option value="MONDAY">Segunda-feira</option>
-                <option value="TUESDAY">Terça-feira</option>
-                <option value="WEDNESDAY">Quarta-feira</option>
-                <option value="THURSDAY">Quinta-feira</option>
-                <option value="FRIDAY">Sexta-feira</option>
-                <option value="SATURDAY">Sábado</option>
-                <option value="SUNDAY">Domingo</option>
-              </select></label
-            ><label>Horário inicial<input type="time" [(ngModel)]="startTime" /></label
-            ><label>Horário final<input type="time" [(ngModel)]="endTime" /></label
-            ><button (click)="saveAvailability()">
-              {{ editingAvailabilityId ? 'Atualizar' : 'Adicionar horário' }}
-            </button>
-            @if (editingAvailabilityId) {
-              <button class="secondary" (click)="cancelAvailabilityEdit()">Cancelar</button>
-            }
+              >Ir para data<input
+                type="date"
+                [ngModel]="selectedWeekDate"
+                (ngModelChange)="goToDate($event)"
+            /></label>
           </div>
           @if (error()) {
             <p class="error">{{ error() }}</p>
           }
-          @if (profile().availability.length) {
-            <div class="days">
-              @for (group of availabilityGroups(); track group.day) {
-                <article>
-                  <h3>{{ dayLabel(group.day) }}</h3>
+          <div class="week-days">
+            @for (dayItem of weekDays(); track dayItem.date) {
+              <article [class.past]="dayItem.past">
+                <header>
                   <div>
-                    @for (slot of group.slots; track slot.id) {
-                      <span class="slot"
-                        ><b>{{ timeLabel(slot.startTime) }} — {{ timeLabel(slot.endTime) }}</b
-                        ><button (click)="editAvailability(slot)">Editar</button
-                        ><button class="remove" (click)="removeAvailability(slot)">
-                          Remover
-                        </button></span
-                      >
-                    }
+                    <strong>{{ dayItem.day }}</strong
+                    ><span>{{ dayItem.label }}</span>
                   </div>
-                </article>
-              }
-            </div>
-          } @else {
-            <div class="empty">
-              Informe quando você costuma estar disponível para entrevistas técnicas.
-            </div>
-          }
+                  @if (!dayItem.past) {
+                    <button class="add-time" (click)="openAvailability(dayItem.date)">
+                      + Horário
+                    </button>
+                  }
+                </header>
+                <div class="day-slots">
+                  @for (slot of slotsFor(dayItem.date); track slot.id) {
+                    <span class="slot"
+                      ><b>{{ timeLabel(slot.startTime) }} — {{ timeLabel(slot.endTime) }}</b
+                      ><button (click)="editAvailability(slot)">Editar</button
+                      ><button class="remove" (click)="removeAvailability(slot)">
+                        Remover
+                      </button></span
+                    >
+                  } @empty {
+                    <small>Nenhum horário cadastrado</small>
+                  }
+                </div>
+                @if (editingDate === dayItem.date) {
+                  <div class="inline-time-form">
+                    <label>Início<input type="time" [(ngModel)]="startTime" /></label
+                    ><label>Fim<input type="time" [(ngModel)]="endTime" /></label
+                    ><button (click)="saveAvailability()">
+                      {{ editingAvailabilityId ? 'Atualizar' : 'Adicionar' }}</button
+                    ><button class="secondary" (click)="cancelAvailabilityEdit()">Cancelar</button>
+                  </div>
+                }
+              </article>
+            }
+          </div>
         </section>
       }
     </section>
@@ -197,7 +206,7 @@ import {
       }
       .section-title button,
       .skill-add button,
-      .availability-form button {
+      .week-navigation > button {
         padding: 10px 14px;
         border: 0;
         border-radius: 8px;
@@ -206,8 +215,7 @@ import {
         font-weight: 800;
       }
       .personal-grid,
-      .skill-add,
-      .availability-form {
+      .skill-add {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 14px;
@@ -215,10 +223,6 @@ import {
       }
       .skill-add {
         grid-template-columns: 1fr 170px auto;
-        align-items: end;
-      }
-      .availability-form {
-        grid-template-columns: 1.3fr 1fr 1fr auto auto;
         align-items: end;
       }
       .card label {
@@ -281,31 +285,109 @@ import {
         color: #6c7b84;
         background: #fafcfd;
       }
-      .days {
+      .week-navigation {
         display: grid;
-        gap: 12px;
+        grid-template-columns: auto 1fr auto;
+        align-items: end;
+        gap: 14px;
         margin-top: 20px;
       }
-      .days article {
-        display: grid;
-        grid-template-columns: 180px 1fr;
-        gap: 15px;
-        padding: 14px;
-        border-top: 1px solid #e5eaed;
-      }
-      .days h3 {
-        margin: 4px 0;
-        font-size: 13px;
-        letter-spacing: 0.06em;
-      }
-      .slot {
+      .week-navigation > div {
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-bottom: 7px;
+        justify-content: center;
+        gap: 14px;
       }
-      .slot b {
-        min-width: 125px;
+      .week-navigation .icon {
+        width: 34px;
+        height: 34px;
+        border: 1px solid #ccd7dc;
+        border-radius: 50%;
+        background: #fff;
+        color: #176b66;
+        font-size: 22px;
+      }
+      .week-days {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .week-days article {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+        min-height: 145px;
+        padding: 12px;
+        border: 1px solid #e0e7eb;
+        border-radius: 9px;
+        background: #fbfcfc;
+      }
+      .week-days article.past {
+        opacity: 0.65;
+      }
+      .week-days article > header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .week-days article > header div {
+        display: grid;
+        gap: 2px;
+      }
+      .week-days article > header strong {
+        font-size: 12px;
+        letter-spacing: 0.07em;
+      }
+      .week-days article > header span {
+        color: #6d7b84;
+        font-size: 11px;
+      }
+      .add-time {
+        border: 0;
+        background: transparent;
+        color: #176b66;
+        font-size: 11px;
+        font-weight: 800;
+      }
+      .day-slots {
+        display: grid;
+        gap: 6px;
+      }
+      .day-slots small {
+        color: #7b878e;
+      }
+      .inline-time-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        padding-top: 8px;
+        border-top: 1px solid #e2e8eb;
+      }
+      .inline-time-form button {
+        padding: 7px;
+        border: 0;
+        border-radius: 6px;
+        background: #165d7a;
+        color: #fff;
+        font-weight: 750;
+      }
+      .inline-time-form label {
+        font-size: 10px;
+      }
+      .inline-time-form input {
+        padding: 7px;
+      }
+      .slot {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 7px;
+        border-radius: 6px;
+        background: #eef5f5;
+        font-size: 10px;
       }
       .slot button {
         border: 0;
@@ -328,14 +410,20 @@ import {
           padding: 25px 14px;
         }
         .personal-grid,
-        .skill-add,
-        .availability-form {
+        .skill-add {
           grid-template-columns: 1fr;
         }
         .skill-list article {
           grid-template-columns: 1fr;
         }
-        .days article {
+        .week-navigation {
+          grid-template-columns: 1fr;
+          align-items: start;
+        }
+        .week-navigation > div {
+          justify-content: flex-start;
+        }
+        .week-days {
           grid-template-columns: 1fr;
         }
         .section-title {
@@ -361,7 +449,9 @@ export class ProfileComponent {
   email = '';
   skillSearch = '';
   newLevel: ProficiencyLevel = 'INTERMEDIATE';
-  day = 'MONDAY';
+  readonly weekStart = signal(this.isoDate(this.startOfWeek(new Date())));
+  selectedWeekDate = this.weekStart();
+  editingDate = '';
   startTime = '14:00';
   endTime = '17:00';
   editingAvailabilityId: number | null = null;
@@ -398,12 +488,20 @@ export class ProfileComponent {
     'Testes E2E',
     'CI/CD',
   ];
-  readonly availabilityGroups = computed(() => {
-    const slots = this.profile().availability;
-    return [...new Set(slots.map((s) => s.dayOfWeek))].map((day) => ({
-      day,
-      slots: slots.filter((s) => s.dayOfWeek === day),
-    }));
+  readonly weekDays = computed(() => {
+    const start = this.localDate(this.weekStart());
+    const today = this.isoDate(new Date());
+    return Array.from({ length: 5 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const iso = this.isoDate(date);
+      return {
+        date: iso,
+        day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
+        label: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        past: iso < today,
+      };
+    });
   });
   constructor() {
     this.load();
@@ -415,6 +513,7 @@ export class ProfileComponent {
         this.name = p.name;
         this.email = p.email;
         this.loading.set(false);
+        this.loadAvailabilityWeek();
       },
       error: () => {
         this.error.set('Não foi possível carregar o perfil.');
@@ -499,21 +598,26 @@ export class ProfileComponent {
     const request = this.editingAvailabilityId
       ? this.service.updateAvailability(
           this.editingAvailabilityId,
-          this.day,
+          this.editingDate,
           this.startTime,
           this.endTime,
         )
-      : this.service.addAvailability(this.day, this.startTime, this.endTime);
+      : this.service.addAvailability(this.editingDate, this.startTime, this.endTime);
     request.subscribe({
       next: (slot) => {
         this.profile.update((p) => ({
           ...p,
           availability: [...p.availability.filter((item) => item.id !== slot.id), slot].sort(
             (a, b) =>
-              a.dayOfWeek.localeCompare(b.dayOfWeek) || a.startTime.localeCompare(b.startTime),
+              a.availabilityDate.localeCompare(b.availabilityDate) ||
+              a.startTime.localeCompare(b.startTime),
           ),
         }));
-        this.cancelAvailabilityEdit();
+        if (this.editingAvailabilityId) this.cancelAvailabilityEdit();
+        else {
+          this.startTime = '14:00';
+          this.endTime = '17:00';
+        }
         this.error.set('');
       },
       error: (e) => this.error.set(e.error?.detail || 'Não foi possível adicionar o horário.'),
@@ -521,13 +625,13 @@ export class ProfileComponent {
   }
   editAvailability(slot: Availability) {
     this.editingAvailabilityId = slot.id;
-    this.day = slot.dayOfWeek;
+    this.editingDate = slot.availabilityDate;
     this.startTime = slot.startTime;
     this.endTime = slot.endTime;
   }
   cancelAvailabilityEdit() {
     this.editingAvailabilityId = null;
-    this.day = 'MONDAY';
+    this.editingDate = '';
     this.startTime = '14:00';
     this.endTime = '17:00';
   }
@@ -539,20 +643,65 @@ export class ProfileComponent {
       })),
     );
   }
-  dayLabel(day: string) {
-    return (
-      (
-        {
-          MONDAY: 'SEGUNDA-FEIRA',
-          TUESDAY: 'TERÇA-FEIRA',
-          WEDNESDAY: 'QUARTA-FEIRA',
-          THURSDAY: 'QUINTA-FEIRA',
-          FRIDAY: 'SEXTA-FEIRA',
-          SATURDAY: 'SÁBADO',
-          SUNDAY: 'DOMINGO',
-        } as Record<string, string>
-      )[day] || day
-    );
+  slotsFor(date: string) {
+    return this.profile().availability.filter((slot) => slot.availabilityDate === date);
+  }
+  openAvailability(date: string) {
+    this.editingDate = date;
+    this.editingAvailabilityId = null;
+    this.startTime = '14:00';
+    this.endTime = '17:00';
+  }
+  loadAvailabilityWeek() {
+    const from = this.weekStart();
+    const end = this.localDate(from);
+    end.setDate(end.getDate() + 6);
+    this.service
+      .getAvailability(from, this.isoDate(end))
+      .subscribe((slots) => this.profile.update((p) => ({ ...p, availability: slots })));
+  }
+  changeWeek(offset: number) {
+    const date = this.localDate(this.weekStart());
+    date.setDate(date.getDate() + offset * 7);
+    this.weekStart.set(this.isoDate(date));
+    this.selectedWeekDate = this.weekStart();
+    this.cancelAvailabilityEdit();
+    this.loadAvailabilityWeek();
+  }
+  currentWeek() {
+    this.weekStart.set(this.isoDate(this.startOfWeek(new Date())));
+    this.selectedWeekDate = this.weekStart();
+    this.cancelAvailabilityEdit();
+    this.loadAvailabilityWeek();
+  }
+  goToDate(value: string) {
+    if (!value) return;
+    this.weekStart.set(this.isoDate(this.startOfWeek(this.localDate(value))));
+    this.selectedWeekDate = value;
+    this.cancelAvailabilityEdit();
+    this.loadAvailabilityWeek();
+  }
+  weekLabel() {
+    const start = this.localDate(this.weekStart());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return `${start.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).toUpperCase()} — ${end.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).toUpperCase()}`;
+  }
+  private startOfWeek(date: Date) {
+    const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = copy.getDay() || 7;
+    copy.setDate(copy.getDate() - day + 1);
+    return copy;
+  }
+  private localDate(value: string) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  private isoDate(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
   timeLabel(time: string) {
     return time.slice(0, 5);
