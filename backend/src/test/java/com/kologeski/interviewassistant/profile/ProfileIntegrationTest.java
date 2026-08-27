@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.*;
+import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -59,19 +60,29 @@ class ProfileIntegrationTest {
 
     @Test void managesMultiplePeriodsAndRejectsInvalidOrOverlappingAvailability() throws Exception {
         String token = register("João", "availability@example.com");
-        addSlot(token, "MONDAY", "09:00", "11:00").andExpect(status().isCreated());
-        addSlot(token, "MONDAY", "14:00", "16:00").andExpect(status().isCreated());
-        addSlot(token, "MONDAY", "15:00", "17:00").andExpect(status().isConflict());
-        addSlot(token, "TUESDAY", "14:00", "12:00").andExpect(status().isConflict());
-        mvc.perform(get("/api/profile/availability").header("Authorization", bearer(token)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        LocalDate firstDate = LocalDate.now().plusDays(7);
+        LocalDate otherWeek = firstDate.plusWeeks(1);
+        addSlot(token, firstDate, "13:00", "14:00").andExpect(status().isCreated());
+        addSlot(token, firstDate, "08:00", "09:00").andExpect(status().isCreated());
+        addSlot(token, firstDate, "09:00", "10:00").andExpect(status().isCreated());
+        addSlot(token, firstDate, "08:30", "10:00").andExpect(status().isConflict());
+        addSlot(token, firstDate, "14:00", "14:00").andExpect(status().isConflict());
+        addSlot(token, otherWeek, "14:00", "16:00").andExpect(status().isCreated());
+        addSlot(token, LocalDate.now().minusDays(1), "09:00", "10:00").andExpect(status().isConflict());
+        mvc.perform(get("/api/profile/availability").header("Authorization", bearer(token))
+                        .param("from", firstDate.toString()).param("to", firstDate.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].startTime").value("08:00:00"))
+                .andExpect(jsonPath("$[1].startTime").value("09:00:00"))
+                .andExpect(jsonPath("$[2].startTime").value("13:00:00"));
     }
 
     @Test void searchesByVacancyTechnologyAndAvailabilityWithoutExposingSensitiveData() throws Exception {
         String joao = register("João", "joao.search@example.com");
         addSkill(joao, "Java", "ADVANCED").andExpect(status().isCreated());
         addSkill(joao, "Spring Boot", "ADVANCED").andExpect(status().isCreated());
-        addSlot(joao, "WEDNESDAY", "14:00", "17:00").andExpect(status().isCreated());
+        LocalDate interviewDate = LocalDate.now().plusDays(5);
+        addSlot(joao, interviewDate, "14:00", "17:00").andExpect(status().isCreated());
         String maria = register("Maria", "maria.search@example.com");
         addSkill(maria, "Java", "INTERMEDIATE").andExpect(status().isCreated());
 
@@ -88,7 +99,7 @@ class ProfileIntegrationTest {
                 .andExpect(jsonPath("$[0].requirementCount").value(3))
                 .andExpect(jsonPath("$[0].passwordHash").doesNotExist());
         mvc.perform(get("/api/interviewers").header("Authorization", bearer(joao))
-                        .param("technology", "JAVA").param("day", "WEDNESDAY").param("time", "15:00"))
+                        .param("technology", "JAVA").param("date", interviewDate.toString()).param("time", "15:00"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].name").value("João"));
     }
@@ -104,11 +115,11 @@ class ProfileIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"%s\",\"proficiencyLevel\":\"%s\"}".formatted(name, level)));
     }
-    private ResultActions addSlot(String token, String day, String start, String end) throws Exception {
+    private ResultActions addSlot(String token, LocalDate date, String start, String end) throws Exception {
         return mvc.perform(post("/api/profile/availability").header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"dayOfWeek\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\"}"
-                        .formatted(day, start, end)));
+                .content("{\"date\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\"}"
+                        .formatted(date, start, end)));
     }
     private JsonNode body(MvcResult result) throws Exception {
         return json.readTree(result.getResponse().getContentAsString());

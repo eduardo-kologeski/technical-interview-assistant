@@ -33,17 +33,22 @@ describe('ProfileService', () => {
     request.flush({});
   });
 
-  it('manages skills and recurring availability without sending a user id', () => {
+  it('manages date-based availability without sending a user id', () => {
     service.addSkill('Playwright', 'ADVANCED').subscribe();
     const skill = http.expectOne('http://localhost:8081/api/profile/technical-skills');
     expect(skill.request.body).toEqual({ name: 'Playwright', proficiencyLevel: 'ADVANCED' });
     expect(skill.request.body.userId).toBeUndefined();
     skill.flush({});
 
-    service.addAvailability('WEDNESDAY', '14:00', '17:00').subscribe();
+    service.getAvailability('2026-09-01', '2026-09-07').subscribe();
+    http
+      .expectOne('http://localhost:8081/api/profile/availability?from=2026-09-01&to=2026-09-07')
+      .flush([]);
+
+    service.addAvailability('2026-09-01', '14:00', '17:00').subscribe();
     const slot = http.expectOne('http://localhost:8081/api/profile/availability');
     expect(slot.request.body).toEqual({
-      dayOfWeek: 'WEDNESDAY',
+      date: '2026-09-01',
       startTime: '14:00',
       endTime: '17:00',
     });
@@ -56,14 +61,14 @@ describe('ProfileService', () => {
       .searchInterviewers({
         vacancyId: 'vacancy-1',
         technology: 'Java',
-        day: 'WEDNESDAY',
+        date: '2026-09-01',
         time: '14:00',
       })
       .subscribe();
     const request = http.expectOne((req) => req.url === 'http://localhost:8081/api/interviewers');
     expect(request.request.params.get('vacancyId')).toBe('vacancy-1');
     expect(request.request.params.get('technology')).toBe('Java');
-    expect(request.request.params.get('day')).toBe('WEDNESDAY');
+    expect(request.request.params.get('date')).toBe('2026-09-01');
     expect(request.request.params.get('time')).toBe('14:00');
     request.flush([]);
   });
