@@ -22,6 +22,14 @@ describe('App', () => {
     expect(compiled.querySelector('h1')?.textContent).toContain('Prepare a entrevista');
     expect((compiled.querySelector('input[name="candidate"]') as HTMLInputElement).value).toBe('');
     expect(compiled.querySelectorAll('.skill-card')).toHaveLength(0);
+    expect(compiled.textContent).toContain('os dados permanecem somente nesta aba');
+  });
+
+  it('never claims that in-memory interview data was saved', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.updateNotes('Anotação ainda não persistida');
+
+    expect(app.saveState()).toBe('Não salvo — somente nesta aba');
   });
 
   it('should search languages and frameworks with partial case-insensitive text', () => {
