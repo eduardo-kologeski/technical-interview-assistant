@@ -12,46 +12,6 @@ textarea {
 button {
   cursor: pointer;
 }
-.topbar {
-  height: 64px;
-  padding: 0 5vw;
-  background: #fff;
-  border-bottom: 1px solid #e4e9ef;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.brand,
-nav {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  font-weight: 700;
-}
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  background: #165d7a;
-  border-radius: 9px;
-}
-.nav-link {
-  border: 0;
-  background: transparent;
-  color: #53616e;
-}
-.avatar {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  background: #e4f0f3;
-  color: #165d7a;
-  border-radius: 50%;
-  font-size: 12px;
-}
 main {
   max-width: 1320px;
   margin: auto;
@@ -261,31 +221,35 @@ aside {
 }
 .support-panel {
   top: 16px;
-  gap: 10px;
+  max-height: calc(100vh - 32px);
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .support-panel .support-card {
-  padding: 14px;
+  padding: 8px;
 }
 .support-card h2 {
-  margin: 3px 0 10px;
+  margin: 1px 0 6px;
   color: #27403f;
   font-size: 16px;
 }
 .support-card .technology-search input {
-  min-height: 38px;
-  padding: 9px 10px;
+  min-height: 34px;
+  margin-top: 6px;
+  padding: 7px 9px;
 }
 .support-card .suggestion-label {
-  margin: 9px 0 5px;
+  margin: 6px 0 3px;
 }
 .compact-suggestions,
 .compact-selected {
-  gap: 5px;
+  gap: 4px;
 }
 .compact-suggestions button,
 .compact-selected button {
   min-height: 28px;
-  padding: 4px 7px;
+  padding: 3px 7px;
   border-radius: 999px;
   font-size: 10px;
 }
@@ -293,8 +257,8 @@ aside {
   margin-top: 6px;
 }
 .support-message {
-  margin: 9px 0 0;
-  padding: 7px 8px;
+  margin: 6px 0 0;
+  padding: 5px 7px;
   border-radius: 6px;
   background: #e8f5f2;
   color: #176b66;
@@ -311,9 +275,22 @@ aside {
   font-size: 9px;
 }
 .support-notes textarea {
-  min-height: 118px;
+  height: 72px;
+  min-height: 68px;
   max-height: 260px;
-  margin-top: 8px;
+  margin-top: 4px;
+  resize: vertical;
+}
+.suggestion-toggle {
+  display: block;
+  margin: 5px 0 0 auto;
+  padding: 3px 1px;
+  border: 0;
+  background: transparent;
+  color: #176b66;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
 }
 .empty-complementary {
   margin: 0;
@@ -365,6 +342,8 @@ aside section {
   aside,
   .support-panel {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
   .interview-header {
     align-items: start;

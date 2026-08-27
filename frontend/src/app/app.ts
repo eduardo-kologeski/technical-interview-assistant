@@ -64,6 +64,8 @@ export class InterviewPage {
   readonly selectedTechnologies = signal<Technology[]>([]);
   readonly behavioralSearch = signal('');
   readonly lastSupportMessage = signal('');
+  readonly technologySuggestionsExpanded = signal(false);
+  readonly behavioralSuggestionsExpanded = signal(false);
   readonly selectedBehavioralSkills = signal<string[]>([]);
   readonly behavioralCatalog = [
     'Comunicação',
@@ -84,6 +86,14 @@ export class InterviewPage {
         (item) => this.normalizeTechnology(item).includes(query) && !this.hasBehavioralSkill(item),
       )
       .slice(0, 8);
+  });
+  readonly availableBehavioralSuggestions = computed(() =>
+    this.behavioralCatalog.filter((item) => !this.hasBehavioralSkill(item)),
+  );
+  readonly visibleBehavioralSuggestions = computed(() => {
+    if (this.behavioralSearch().trim()) return this.behavioralResults();
+    const suggestions = this.availableBehavioralSuggestions();
+    return this.behavioralSuggestionsExpanded() ? suggestions : suggestions.slice(0, 4);
   });
   readonly technologyCatalog: Technology[] = [
     ...[
@@ -148,17 +158,19 @@ export class InterviewPage {
     'Node.js',
     'Laravel',
   ];
-  readonly visibleQuickTechnologySuggestions = computed(() => {
+  readonly availableQuickTechnologySuggestions = computed(() => {
     const requirements = new Set(
       this.skills().flatMap((skill) =>
         [skill.name, ...skill.name.split('/')].map((name) => this.normalizeTechnology(name)),
       ),
     );
-    return this.quickTechnologySuggestions
-      .filter(
-        (name) => !requirements.has(this.normalizeTechnology(name)) && !this.hasTechnology(name),
-      )
-      .slice(0, 8);
+    return this.quickTechnologySuggestions.filter(
+      (name) => !requirements.has(this.normalizeTechnology(name)) && !this.hasTechnology(name),
+    );
+  });
+  readonly visibleQuickTechnologySuggestions = computed(() => {
+    const suggestions = this.availableQuickTechnologySuggestions();
+    return this.technologySuggestionsExpanded() ? suggestions : suggestions.slice(0, 6);
   });
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);

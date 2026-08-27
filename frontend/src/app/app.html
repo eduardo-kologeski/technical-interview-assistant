@@ -1,10 +1,3 @@
-<header class="topbar">
-  <div class="brand"><span class="brand-mark">T</span><span>Technical Interview</span></div>
-  <nav>
-    <a class="nav-link" href="/interviews">Entrevistas</a
-    ><a class="nav-link" href="/job-positions">Vagas</a><span class="avatar">TI</span>
-  </nav>
-</header>
 @if (!started()) {
   <main class="registration-page">
     <section class="registration-intro">
@@ -185,9 +178,19 @@
         </section>
       </section>
       <aside class="support-panel" aria-label="Painel de apoio da entrevista">
+        <section class="support-card support-notes">
+          <div class="support-card-heading">
+            <span class="eyebrow">ANOTAÇÕES DA ENTREVISTA</span><small>autosave</small>
+          </div>
+          <textarea
+            rows="3"
+            [ngModel]="quickNotes()"
+            (ngModelChange)="updateNotes($event)"
+            placeholder="Registre observações da entrevista..."
+          ></textarea>
+        </section>
         <section class="support-card complementary-support">
           <span class="eyebrow">EXPERIÊNCIAS COMPLEMENTARES</span>
-          <h2>Adicionar tecnologia</h2>
           <div class="technology-search">
             <input
               [ngModel]="technologySearch()"
@@ -214,6 +217,16 @@
                 <button (click)="selectSuggestedTechnology(name)">{{ name }}</button>
               }
             </div>
+            @if (availableQuickTechnologySuggestions().length > 6) {
+              <button
+                type="button"
+                class="suggestion-toggle"
+                [attr.aria-expanded]="technologySuggestionsExpanded()"
+                (click)="technologySuggestionsExpanded.update((expanded) => !expanded)"
+              >
+                {{ technologySuggestionsExpanded() ? 'Ver menos' : 'Ver mais' }}
+              </button>
+            }
           }
           @if (lastSupportMessage()) {
             <p class="support-message" role="status">{{ lastSupportMessage() }}</p>
@@ -221,7 +234,6 @@
         </section>
         <section class="support-card behavioral-support">
           <span class="eyebrow">HABILIDADES COMPORTAMENTAIS</span>
-          <h2>Registrar habilidade</h2>
           <div class="technology-search">
             <input
               [ngModel]="behavioralSearch()"
@@ -232,10 +244,20 @@
           </div>
           <small class="suggestion-label">Sugestões</small>
           <div class="technology-suggestions compact-suggestions">
-            @for (name of behavioralResults(); track name) {
+            @for (name of visibleBehavioralSuggestions(); track name) {
               <button (click)="addBehavioralSkill(name)">{{ name }}</button>
             }
           </div>
+          @if (!behavioralSearch() && availableBehavioralSuggestions().length > 4) {
+            <button
+              type="button"
+              class="suggestion-toggle"
+              [attr.aria-expanded]="behavioralSuggestionsExpanded()"
+              (click)="behavioralSuggestionsExpanded.update((expanded) => !expanded)"
+            >
+              {{ behavioralSuggestionsExpanded() ? 'Ver menos' : 'Ver mais' }}
+            </button>
+          }
           @if (selectedBehavioralSkills().length) {
             <small class="suggestion-label">Selecionadas</small>
             <div class="selected-technologies compact-selected">
@@ -244,17 +266,6 @@
               }
             </div>
           }
-        </section>
-        <section class="support-card support-notes">
-          <div class="support-card-heading">
-            <span class="eyebrow">ANOTAÇÕES</span><small>autosave</small>
-          </div>
-          <textarea
-            rows="6"
-            [ngModel]="quickNotes()"
-            (ngModelChange)="updateNotes($event)"
-            placeholder="Registre observações da entrevista..."
-          ></textarea>
         </section>
       </aside>
     </div>
