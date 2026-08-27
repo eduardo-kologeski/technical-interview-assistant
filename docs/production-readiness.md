@@ -144,7 +144,7 @@ Executados na baseline auditada:
 
 - `backend/mvnw -B verify`: **4 testes aprovados**.
 - `npm ci`: instalação reproduzível concluída.
-- `npm test -- --watch=false`: **7 testes aprovados**.
+- `npm test -- --watch=false`: **8 testes aprovados** após incluir a proteção contra falso autosave.
 - `npm run build`: aprovado, com alerta de budget CSS e dependências CommonJS do gerador PDF.
 - `npm audit --omit=dev --json`: **0 vulnerabilidades conhecidas em 18 dependências de produção** na data da auditoria.
 - Docker/Compose: **não verificado**, pois o runtime Docker não está instalado neste host.
@@ -152,7 +152,29 @@ Executados na baseline auditada:
 - PostgreSQL/Flyway real: **não verificado**.
 - E2E, restore, carga, acessibilidade e browsers: **não verificados**.
 
+Validação visual no navegador local:
+
+- 1024×768: sem overflow horizontal;
+- 600×800: layout estreito sem overflow horizontal;
+- o ambiente de navegador disponível limitou a largura efetiva a 1280 px, portanto 1366×768, 1440×900 e 1920×1080 permanecem **não verificados nas dimensões exatas**;
+- o aviso “Não salvo — somente nesta aba” foi confirmado durante uma entrevista sintética.
+
 Os testes atuais validam score e renderização básica. Não existem testes de auth, persistência, snapshot, auditoria, autosave real, PostgreSQL, E2E ou falhas operacionais na baseline.
+
+## Mitigações seguras aplicadas nesta auditoria
+
+Estas mudanças reduzem risco imediato, mas **não encerram os P0 funcionais nem alteram o NO-GO**:
+
+- removido o falso estado “Salvo”; a UI agora informa que o conteúdo não foi persistido;
+- bancos H2 locais e renderizações temporárias de PDF foram incluídos no `.gitignore` sem apagar os arquivos existentes;
+- criado profile `prod` que exige variáveis de banco, mantém `ddl-auto=validate` e Flyway habilitado;
+- inicialização com profile `prod` e sem variáveis foi testada e falhou, como esperado;
+- configurados graceful shutdown, health probes sem detalhes e versão via `APP_VERSION`;
+- frontend container alterado para Nginx non-root e porta 8080;
+- adicionados CSP, `nosniff`, Referrer Policy, anti-framing e Permissions Policy no Nginx;
+- criado runbook de deploy, backup, restore, smoke test e rollback.
+
+O Nginx/Compose alterado não pôde ser executado neste host por ausência de Docker e precisa ser validado no CI ou homologação antes do merge.
 
 ## Plano recomendado
 
