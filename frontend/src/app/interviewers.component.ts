@@ -2,10 +2,11 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { JobPosition, JobPositionService } from './job-position.service';
 import { InterviewerResult, ProfileService, ProficiencyLevel } from './profile.service';
+import { OpenNativePickerDirective } from './open-native-picker.directive';
 
 @Component({
   selector: 'app-interviewers',
-  imports: [FormsModule],
+  imports: [FormsModule, OpenNativePickerDirective],
   template: `
     <section class="page">
       <header>
