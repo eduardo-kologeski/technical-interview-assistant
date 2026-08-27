@@ -53,4 +53,25 @@ describe('ProfileComponent date-based availability', () => {
     expect(component.slotsFor(date)[0].startTime).toBe('08:00:00');
     expect(component.editingDate).toBe(date);
   });
+
+  it('clears an availability error when the form is cancelled', () => {
+    const fixture = TestBed.createComponent(ProfileComponent);
+    const component = fixture.componentInstance;
+    http.expectOne('http://localhost:8081/api/profile').flush({
+      id: 1, name: 'João', email: 'joao@example.com', technicalSkills: [], availability: [],
+    });
+    http.expectOne(req => req.url === 'http://localhost:8081/api/profile/availability').flush([]);
+    component.openAvailability(component.weekDays()[0].date);
+    component.saveAvailability();
+    http.expectOne('http://localhost:8081/api/profile/availability').flush(
+      { detail: 'Não é possível cadastrar disponibilidade em data ou horário passado.' },
+      { status: 409, statusText: 'Conflict' },
+    );
+    expect(component.error()).toContain('data ou horário passado');
+
+    component.cancelAvailabilityEdit();
+
+    expect(component.error()).toBe('');
+    expect(component.editingDate).toBe('');
+  });
 });

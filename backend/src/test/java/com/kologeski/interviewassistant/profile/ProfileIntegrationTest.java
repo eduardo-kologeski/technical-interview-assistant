@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.*;
-import java.time.LocalDate;
+import java.time.*;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -22,6 +22,7 @@ class ProfileIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired UserTechnicalSkillRepository skills;
     @Autowired InterviewAvailabilityRepository availability;
+    @Autowired Clock clock;
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach void clean() {
@@ -75,6 +76,10 @@ class ProfileIntegrationTest {
                 .andExpect(jsonPath("$[0].startTime").value("08:00:00"))
                 .andExpect(jsonPath("$[1].startTime").value("09:00:00"))
                 .andExpect(jsonPath("$[2].startTime").value("13:00:00"));
+    }
+
+    @Test void availabilityValidationUsesTheConfiguredLocalTimeZone() {
+        Assertions.assertEquals(ZoneId.of("America/Sao_Paulo"), clock.getZone());
     }
 
     @Test void searchesByVacancyTechnologyAndAvailabilityWithoutExposingSensitiveData() throws Exception {

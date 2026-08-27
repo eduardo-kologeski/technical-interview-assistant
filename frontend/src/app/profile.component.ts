@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { OpenNativePickerDirective } from './open-native-picker.directive';
 import {
   Availability,
   Profile,
@@ -10,7 +11,7 @@ import {
 
 @Component({
   selector: 'app-profile',
-  imports: [FormsModule],
+  imports: [FormsModule, OpenNativePickerDirective],
   template: `
     <section class="page">
       <header>
@@ -624,12 +625,14 @@ export class ProfileComponent {
     });
   }
   editAvailability(slot: Availability) {
+    this.error.set('');
     this.editingAvailabilityId = slot.id;
     this.editingDate = slot.availabilityDate;
     this.startTime = slot.startTime;
     this.endTime = slot.endTime;
   }
   cancelAvailabilityEdit() {
+    this.error.set('');
     this.editingAvailabilityId = null;
     this.editingDate = '';
     this.startTime = '14:00';
@@ -647,6 +650,7 @@ export class ProfileComponent {
     return this.profile().availability.filter((slot) => slot.availabilityDate === date);
   }
   openAvailability(date: string) {
+    this.error.set('');
     this.editingDate = date;
     this.editingAvailabilityId = null;
     this.startTime = '14:00';
