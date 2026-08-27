@@ -16,8 +16,8 @@ public class InterviewerController {
     List<InterviewerSearchService.InterviewerResult> search(
             @RequestParam(required = false) UUID vacancyId,
             @RequestParam(required = false) String technology,
-            @RequestParam(required = false) DayOfWeek day,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime time) {
-        return service.search(vacancyId, technology, day, time);
+        return service.search(vacancyId, technology, date, time);
     }
 }

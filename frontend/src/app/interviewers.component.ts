@@ -26,15 +26,7 @@ import { InterviewerResult, ProfileService, ProficiencyLevel } from './profile.s
             [(ngModel)]="technology"
             (keyup.enter)="search()"
             placeholder="Ex.: Java ou Playwright" /></label
-        ><label
-          >Dia<select [(ngModel)]="day" (ngModelChange)="search()">
-            <option value="">Qualquer dia</option>
-            <option value="MONDAY">Segunda-feira</option>
-            <option value="TUESDAY">Terça-feira</option>
-            <option value="WEDNESDAY">Quarta-feira</option>
-            <option value="THURSDAY">Quinta-feira</option>
-            <option value="FRIDAY">Sexta-feira</option>
-          </select></label
+        ><label>Data<input type="date" [(ngModel)]="date" (ngModelChange)="search()" /></label
         ><label>Horário<input type="time" [(ngModel)]="time" /></label
         ><button (click)="search()">Buscar</button>
       </section>
@@ -60,7 +52,7 @@ import { InterviewerResult, ProfileService, ProficiencyLevel } from './profile.s
                     relacionados</strong
                   >
                 } @else {
-                  <span>Perfil técnico e disponibilidade semanal</span>
+                  <span>Perfil técnico e próximas disponibilidades</span>
                 }
               </div>
               @if (person.requirementCount) {
@@ -93,12 +85,12 @@ import { InterviewerResult, ProfileService, ProficiencyLevel } from './profile.s
               <p class="muted">Nenhum conhecimento técnico cadastrado.</p>
             }
             <div class="availability">
-              <strong>Disponibilidade</strong>
+              <strong>Próximas disponibilidades</strong>
               @if (person.availability.length) {
                 <div>
                   @for (slot of person.availability; track slot.id) {
                     <span
-                      >{{ dayShort(slot.dayOfWeek) }} {{ timeLabel(slot.startTime) }}–{{
+                      >{{ dateLabel(slot.availabilityDate) }} {{ timeLabel(slot.startTime) }}–{{
                         timeLabel(slot.endTime)
                       }}</span
                     >
@@ -323,7 +315,7 @@ export class InterviewersComponent {
   readonly interviewers = signal<InterviewerResult[]>([]);
   vacancyId = '';
   technology = '';
-  day = '';
+  date = '';
   time = '';
   constructor() {
     this.positions.list(true).subscribe((items) => this.vacancies.set(items));
@@ -337,7 +329,7 @@ export class InterviewersComponent {
       .searchInterviewers({
         vacancyId: this.vacancyId,
         technology: this.technology.trim(),
-        day: this.day,
+        date: this.date,
         time: this.time,
       })
       .subscribe((items) => this.interviewers.set(items));
@@ -351,20 +343,11 @@ export class InterviewersComponent {
           ? 'Básico'
           : '';
   }
-  dayShort(day: string) {
-    return (
-      (
-        {
-          MONDAY: 'Seg',
-          TUESDAY: 'Ter',
-          WEDNESDAY: 'Qua',
-          THURSDAY: 'Qui',
-          FRIDAY: 'Sex',
-          SATURDAY: 'Sáb',
-          SUNDAY: 'Dom',
-        } as Record<string, string>
-      )[day] || day
-    );
+  dateLabel(value: string) {
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const weekday = date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)}, ${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
   }
   timeLabel(time: string) {
     return time.slice(0, 5);

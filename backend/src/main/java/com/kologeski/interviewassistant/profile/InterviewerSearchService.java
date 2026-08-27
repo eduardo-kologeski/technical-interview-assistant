@@ -10,31 +10,31 @@ import java.util.*;
 public class InterviewerSearchService {
     private final ProfileService profiles;
     private final JobVacancyService vacancies;
+    private final Clock clock;
 
-    public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies) {
+    public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies, Clock clock) {
         this.profiles = profiles;
         this.vacancies = vacancies;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
-    public List<InterviewerResult> search(UUID vacancyId, String technology, DayOfWeek day, LocalTime time) {
+    public List<InterviewerResult> search(UUID vacancyId, String technology, LocalDate date, LocalTime time) {
         List<String> requirements = vacancyId == null ? List.of() : vacancies.get(vacancyId).requirements();
         String technologyFilter = technology == null ? "" : ProfileService.normalize(technology);
         return profiles.allProfessionalProfiles().stream()
-                .map(profile -> result(profile, requirements))
+                .map(profile -> result(profile, requirements, date))
                 .filter(result -> technologyFilter.isBlank() || result.allSkills().stream()
                         .anyMatch(skill -> ProfileService.normalize(skill.name()).equals(technologyFilter)))
-                .filter(result -> day == null || result.availability().stream()
-                        .anyMatch(slot -> slot.dayOfWeek() == day && contains(slot, time)))
-                .filter(result -> day != null || time == null || result.availability().stream()
-                        .anyMatch(slot -> contains(slot, time)))
+                .filter(result -> date == null || !result.availability().isEmpty())
+                .filter(result -> time == null || result.availability().stream().anyMatch(slot -> contains(slot, time)))
                 .sorted(Comparator.comparingInt(InterviewerResult::matchedCount).reversed()
                         .thenComparing(Comparator.comparingInt(InterviewerResult::proficiencyWeight).reversed())
                         .thenComparing(InterviewerResult::name))
                 .toList();
     }
 
-    private InterviewerResult result(ProfileService.ProfileSnapshot profile, List<String> requirements) {
+    private InterviewerResult result(ProfileService.ProfileSnapshot profile, List<String> requirements, LocalDate date) {
         Map<String, ProfileService.SkillSnapshot> byName = new HashMap<>();
         profile.technicalSkills().forEach(skill -> byName.put(ProfileService.normalize(skill.name()), skill));
         List<RequirementMatch> matches = requirements.stream().map(requirement -> {
@@ -45,8 +45,13 @@ public class InterviewerSearchService {
         int matched = (int) matches.stream().filter(RequirementMatch::matched).count();
         int proficiencyWeight = matches.stream().map(RequirementMatch::proficiencyLevel)
                 .filter(Objects::nonNull).mapToInt(Enum::ordinal).sum();
+        List<ProfileService.AvailabilitySnapshot> relevantAvailability = profile.availability().stream()
+                .filter(slot -> !slot.availabilityDate().isBefore(LocalDate.now(clock)))
+                .filter(slot -> date == null || slot.availabilityDate().equals(date))
+                .limit(date == null ? 8 : Integer.MAX_VALUE)
+                .toList();
         return new InterviewerResult(profile.id(), profile.name(), profile.technicalSkills(),
-                profile.availability(), requirements, matches, matched, requirements.size(), proficiencyWeight);
+                relevantAvailability, requirements, matches, matched, requirements.size(), proficiencyWeight);
     }
 
     private static boolean contains(ProfileService.AvailabilitySnapshot slot, LocalTime time) {
