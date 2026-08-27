@@ -35,4 +35,10 @@ public class User {
     public String getPasswordHash() { return passwordHash; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public void updateProfile(String name, String email, Instant now) {
+        this.name = name;
+        this.email = email;
+        this.updatedAt = now;
+    }
 }
