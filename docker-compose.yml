@@ -57,9 +57,10 @@ services:
       test:
         [
           "CMD",
+          "busybox",
           "wget",
+          "--spider",
           "--quiet",
-          "--output-document=-",
           "http://localhost:8080/",
         ]
       interval: 15s
