@@ -7,11 +7,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.kologeski.interviewassistant.auth.AuthenticationService;
+import com.kologeski.interviewassistant.interview.InterviewService;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
     @ExceptionHandler(AuthenticationService.DuplicateEmailException.class)
     ProblemDetail duplicateEmail(AuthenticationService.DuplicateEmailException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(InterviewService.StaleInterviewException.class)
+    ProblemDetail staleInterview(InterviewService.StaleInterviewException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     }
 

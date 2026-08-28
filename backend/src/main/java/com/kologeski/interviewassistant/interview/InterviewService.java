@@ -62,6 +62,16 @@ public class InterviewService {
         return repository.save(interview);
     }
 
+    @Transactional
+    public Interview saveAssessment(UUID id, long expectedVersion, String assessmentData) {
+        var interview = required(id);
+        if (interview.version() != expectedVersion)
+            throw new StaleInterviewException();
+        var actor = currentActor.required();
+        interview.saveAssessment(assessmentData, actor.id(), Instant.now(clock));
+        return repository.saveAndFlush(interview);
+    }
+
     private Interview mutate(UUID id, AuditMutation operation) {
         var interview = required(id);
         var actor = currentActor.required();
@@ -76,5 +86,11 @@ public class InterviewService {
     @FunctionalInterface
     private interface AuditMutation {
         void apply(Interview interview, String actorId, Instant occurredAt);
+    }
+
+    public static final class StaleInterviewException extends RuntimeException {
+        public StaleInterviewException() {
+            super("Este registro foi alterado por outro usuário. Recarregue os dados.");
+        }
     }
 }

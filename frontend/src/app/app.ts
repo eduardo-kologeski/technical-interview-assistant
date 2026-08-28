@@ -6,6 +6,7 @@ import { JobPosition, JobPositionService } from './job-position.service';
 import { InterviewService } from './interview.service';
 import { AuthService } from './auth.service';
 import { ActivatedRoute, Router } from '@angular/router';
+import { EMPTY, Subject, catchError, concatMap, debounceTime, tap } from 'rxjs';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
 type Skill = {
@@ -27,6 +28,16 @@ type Technology = {
   reviewScore?: number | null;
   notEvaluated?: boolean;
   source?: EvaluationSource;
+};
+type InterviewAssessment = {
+  requiredSkills: Skill[];
+  complementaryTechnologies: Technology[];
+  behavioralSkills: string[];
+  interviewNotes: string;
+  strengths: string;
+  concerns: string;
+  recommendation: string;
+  finalAssessment: string;
 };
 
 @Component({
@@ -175,7 +186,7 @@ export class InterviewPage {
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);
   readonly running = signal(false);
-  readonly saveState = signal<'Não salvo — somente nesta aba'>('Não salvo — somente nesta aba');
+  readonly saveState = signal<'Salvando...' | 'Salvo' | 'Falha ao salvar' | 'Não salvo — somente nesta aba'>('Não salvo — somente nesta aba');
   readonly quickNotes = signal('');
   readonly skills = signal<Skill[]>([]);
   readonly evaluated = computed(
@@ -226,8 +237,32 @@ export class InterviewPage {
     );
   });
   private timer?: ReturnType<typeof setInterval>;
+  private readonly interviewId = signal('');
+  private readonly assessmentVersion = signal(0);
+  private readonly autosave = new Subject<InterviewAssessment>();
+  private failedAssessment?: InterviewAssessment;
 
   constructor() {
+    this.autosave.pipe(
+      debounceTime(500),
+      concatMap((assessment) => {
+        const id = this.interviewId();
+        if (!id) return EMPTY;
+        this.saveState.set('Salvando...');
+        return this.interviews.saveAssessment(id, this.assessmentVersion(), JSON.stringify(assessment)).pipe(
+          tap((saved) => {
+            this.assessmentVersion.set(saved.version);
+            this.failedAssessment = undefined;
+            this.saveState.set('Salvo');
+          }),
+          catchError(() => {
+            this.failedAssessment = assessment;
+            this.saveState.set('Falha ao salvar');
+            return EMPTY;
+          }),
+        );
+      }),
+    ).subscribe();
     if (!this.auth.user())
       this.auth.loadUser().subscribe({ error: () => this.router.navigateByUrl('/auth/login') });
     const interviewId = this.route.snapshot.paramMap.get('id');
@@ -290,6 +325,8 @@ export class InterviewPage {
   private loadInterview(id: string) {
     this.interviews.get(id).subscribe({
       next: (interview) => {
+        this.interviewId.set(interview.id);
+        this.assessmentVersion.set(interview.version || 0);
         this.candidate.set(interview.candidateName);
         this.role.set(interview.vacancyTitleSnapshot);
         this.template.set(interview.vacancyTitleSnapshot);
@@ -297,6 +334,7 @@ export class InterviewPage {
         this.company.set(interview.clientCompany || '');
         this.selectedVacancyId.set(interview.vacancyId);
         this.skills.set(this.requirementSkills(interview.requirementSnapshot));
+        this.restoreAssessment(interview.assessmentData);
         this.started.set(true);
         this.seconds.set(
           interview.startedAt
@@ -304,6 +342,7 @@ export class InterviewPage {
             : 0,
         );
         this.running.set(interview.status === 'IN_PROGRESS');
+        this.saveState.set('Salvo');
         if (this.running()) this.timer = setInterval(() => this.seconds.update((v) => v + 1), 1000);
       },
       error: () => {
@@ -331,6 +370,7 @@ export class InterviewPage {
     this.running.set(false);
     this.finalAssessment.set(this.buildAssessmentDraft());
     this.reviewing.set(true);
+    this.markSaving();
   }
 
   backToInterview() {
@@ -660,7 +700,63 @@ export class InterviewPage {
     this.markSaving();
   }
   private markSaving() {
-    this.saveState.set('Não salvo — somente nesta aba');
+    if (!this.interviewId()) {
+      this.saveState.set('Não salvo — somente nesta aba');
+      return;
+    }
+    this.saveState.set('Salvando...');
+    this.autosave.next(this.assessmentSnapshot());
+  }
+  updateFinalAssessment(value: string) {
+    this.finalAssessment.set(value);
+    this.markSaving();
+  }
+  updateStrengths(value: string) {
+    this.strengths.set(value);
+    this.markSaving();
+  }
+  updateConcerns(value: string) {
+    this.concerns.set(value);
+    this.markSaving();
+  }
+  updateRecommendation(value: string) {
+    this.recommendation.set(value);
+    this.markSaving();
+  }
+  retryAutosave() {
+    if (!this.failedAssessment) return;
+    this.saveState.set('Salvando...');
+    this.autosave.next(this.failedAssessment);
+  }
+  private assessmentSnapshot(): InterviewAssessment {
+    return {
+      requiredSkills: this.skills(),
+      complementaryTechnologies: this.selectedTechnologies(),
+      behavioralSkills: this.selectedBehavioralSkills(),
+      interviewNotes: this.quickNotes(),
+      strengths: this.strengths(),
+      concerns: this.concerns(),
+      recommendation: this.recommendation(),
+      finalAssessment: this.finalAssessment(),
+    };
+  }
+  private restoreAssessment(serialized: string | null | undefined) {
+    if (!serialized || serialized === '{}') return;
+    try {
+      const assessment = JSON.parse(serialized) as Partial<InterviewAssessment>;
+      if (Array.isArray(assessment.requiredSkills)) this.skills.set(assessment.requiredSkills);
+      if (Array.isArray(assessment.complementaryTechnologies))
+        this.selectedTechnologies.set(assessment.complementaryTechnologies);
+      if (Array.isArray(assessment.behavioralSkills))
+        this.selectedBehavioralSkills.set(assessment.behavioralSkills);
+      this.quickNotes.set(assessment.interviewNotes || '');
+      this.strengths.set(assessment.strengths || '');
+      this.concerns.set(assessment.concerns || '');
+      this.recommendation.set(assessment.recommendation || 'Sem recomendação');
+      this.finalAssessment.set(assessment.finalAssessment || '');
+    } catch {
+      this.formError.set('Os dados salvos da entrevista estão inválidos. Recarregue a página.');
+    }
   }
   private hasTechnology(name: string) {
     return this.selectedTechnologies().some(

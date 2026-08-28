@@ -11,6 +11,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -38,6 +39,11 @@ public class Interview extends AuditableEntity {
     @Column(name = "assessment_finalized_by") private String assessmentFinalizedBy;
     @Column(name = "last_pdf_generated_at") private Instant lastPdfGeneratedAt;
     @Column(name = "last_pdf_generated_by") private String lastPdfGeneratedBy;
+    @Version
+    @Column(nullable = false)
+    private long version;
+    @Column(name = "assessment_data", nullable = false, columnDefinition = "text")
+    private String assessmentData = "{}";
 
     protected Interview() { }
 
@@ -92,6 +98,17 @@ public class Interview extends AuditableEntity {
         registerUpdate(actorId, now);
     }
 
+    public void saveAssessment(String assessmentData, String actorId, Instant now) {
+        if (status != InterviewStatus.IN_PROGRESS)
+            throw new IllegalStateException("only an interview in progress can be saved");
+        if (assessmentData == null || assessmentData.isBlank())
+            throw new IllegalArgumentException("assessmentData is required");
+        if (assessmentData.length() > 1_000_000)
+            throw new IllegalArgumentException("assessmentData exceeds the maximum size");
+        this.assessmentData = assessmentData;
+        registerUpdate(actorId, now);
+    }
+
     public UUID id() { return id; }
     public UUID vacancyId() { return vacancyId; }
     public String candidateName() { return candidateName; }
@@ -107,4 +124,6 @@ public class Interview extends AuditableEntity {
     public String assessmentFinalizedBy() { return assessmentFinalizedBy; }
     public Instant lastPdfGeneratedAt() { return lastPdfGeneratedAt; }
     public String lastPdfGeneratedBy() { return lastPdfGeneratedBy; }
+    public long version() { return version; }
+    public String assessmentData() { return assessmentData; }
 }

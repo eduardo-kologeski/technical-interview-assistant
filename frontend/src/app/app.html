@@ -104,10 +104,14 @@
         </p>
       </div>
       <div class="session-actions">
-        <span class="save">● {{ saveState() }}</span
-        ><button class="timer" (click)="toggleTimer()">
-          {{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}</button
-        ><button class="finish" (click)="finishInterview()">Finalizar entrevista</button>
+        <span class="save">● {{ saveState() }}</span>
+        @if (saveState() === 'Falha ao salvar') {
+          <button class="retry-save" type="button" (click)="retryAutosave()">Tentar novamente</button>
+        }
+        <button class="timer" (click)="toggleTimer()">
+          {{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}
+        </button>
+        <button class="finish" (click)="finishInterview()">Finalizar entrevista</button>
       </div>
     </section>
     <section class="progress-row">
@@ -386,7 +390,7 @@
           >Resumo técnico editável<textarea
             rows="8"
             [ngModel]="finalAssessment()"
-            (ngModelChange)="finalAssessment.set($event)"
+            (ngModelChange)="updateFinalAssessment($event)"
           ></textarea>
         </label>
         <span class="eyebrow review-feedback-heading">FEEDBACK</span>
@@ -396,7 +400,7 @@
             ><textarea
               rows="5"
               [ngModel]="strengths()"
-              (ngModelChange)="strengths.set($event)"
+              (ngModelChange)="updateStrengths($event)"
               placeholder="Um ponto por linha"
             ></textarea></label
           ><label
@@ -404,7 +408,7 @@
             ><textarea
               rows="5"
               [ngModel]="concerns()"
-              (ngModelChange)="concerns.set($event)"
+              (ngModelChange)="updateConcerns($event)"
               placeholder="Um ponto por linha"
             ></textarea>
           </label>
@@ -412,7 +416,7 @@
         <label
           >Recomendação<select
             [ngModel]="recommendation()"
-            (ngModelChange)="recommendation.set($event)"
+            (ngModelChange)="updateRecommendation($event)"
           >
             <option>Sem recomendação</option>
             <option>Fortemente recomendado</option>

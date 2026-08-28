@@ -118,4 +118,27 @@ class InterviewServiceAuditTest {
         assertThat(interview.interviewerId()).isEqualTo("interviewer");
         assertThat(interview.updatedBy()).isEqualTo("reviewer");
     }
+
+    @Test
+    void persistsAssessmentAndRejectsAStaleRevision() {
+        var interviewRepository = mock(InterviewRepository.class);
+        var vacancyRepository = mock(JobVacancyRepository.class);
+        when(interviewRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(interviewRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var vacancy = new JobVacancy("Backend", List.of("Java"), "creator", Instant.EPOCH);
+        when(vacancyRepository.findById(vacancy.id())).thenReturn(Optional.of(vacancy));
+        var actor = new MutableActor("interviewer");
+        var clock = new MutableClock(Instant.parse("2026-08-26T10:00:00Z"));
+        var service = new InterviewService(interviewRepository, vacancyRepository, actor, clock);
+        var interview = service.createAndStart(vacancy.id(), "Candidato", "");
+        when(interviewRepository.findById(interview.id())).thenReturn(Optional.of(interview));
+
+        service.saveAssessment(interview.id(), 0, "{\"notes\":\"Persistido\"}");
+
+        assertThat(interview.assessmentData()).contains("Persistido");
+        assertThat(interview.updatedBy()).isEqualTo("interviewer");
+        assertThatThrownBy(() -> service.saveAssessment(interview.id(), 1, "{}"))
+                .isInstanceOf(InterviewService.StaleInterviewException.class)
+                .hasMessageContaining("Recarregue");
+    }
 }

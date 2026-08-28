@@ -41,6 +41,47 @@ describe('App', () => {
     expect(app.saveState()).toBe('Não salvo — somente nesta aba');
   });
 
+  it('shows saved only after the backend confirms autosave', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    const http = TestBed.inject(HttpTestingController);
+    http.match(() => true).forEach((request) => request.flush([]));
+    (app as any).interviewId.set('interview-1');
+    (app as any).assessmentVersion.set(0);
+
+    app.updateNotes('Persistir esta anotação');
+    expect(app.saveState()).toBe('Salvando...');
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    const request = http.expectOne('http://localhost:8081/api/interviews/interview-1/assessment');
+    expect(request.request.body.version).toBe(0);
+    expect(JSON.parse(request.request.body.assessmentData).interviewNotes).toBe(
+      'Persistir esta anotação',
+    );
+    expect(app.saveState()).toBe('Salvando...');
+    request.flush({ version: 1 });
+
+    expect(app.saveState()).toBe('Salvo');
+  });
+
+  it('keeps autosave failure visible and retries explicitly', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    const http = TestBed.inject(HttpTestingController);
+    http.match(() => true).forEach((request) => request.flush([]));
+    (app as any).interviewId.set('interview-2');
+
+    app.updateNotes('Não pode ser perdido');
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    http
+      .expectOne('http://localhost:8081/api/interviews/interview-2/assessment')
+      .flush('offline', { status: 503, statusText: 'Unavailable' });
+    expect(app.saveState()).toBe('Falha ao salvar');
+
+    app.retryAutosave();
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    const retry = http.expectOne('http://localhost:8081/api/interviews/interview-2/assessment');
+    retry.flush({ version: 1 });
+    expect(app.saveState()).toBe('Salvo');
+  });
+
   it('should search languages and frameworks with partial case-insensitive text', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.technologySearch.set('JAVA');
