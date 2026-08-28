@@ -24,8 +24,14 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `JWT_SECRET` | sim | Chave Base64 forte fornecida pelo secret manager |
 | `JWT_ACCESS_EXPIRATION` | não | Validade curta do access token; padrão `15m` |
 | `JWT_REFRESH_EXPIRATION` | não | Validade do refresh token; padrão `7d` |
+| `AUTH_RATE_LIMIT_WINDOW` | não | Janela local dos limites; padrão `60s` |
+| `AUTH_LOGIN_RATE_LIMIT` | não | Tentativas de login por origem/janela; padrão `10` |
+| `AUTH_REGISTER_RATE_LIMIT` | não | Cadastros por origem/janela; padrão `5` |
+| `AUTH_REFRESH_RATE_LIMIT` | não | Refreshes por origem/janela; padrão `30` |
 
 Não reutilizar secrets entre ambientes. A aplicação com profile `prod` deve falhar na inicialização quando banco, origem CORS ou chave JWT não forem fornecidos.
+
+O rate limiting atual é mantido na memória de cada instância. Ele é adequado para uma única instância e reduz abuso acidental, mas não fornece limite global em escala horizontal. Antes de executar múltiplas réplicas, aplicar limite compartilhado no gateway/ingress ou adotar armazenamento distribuído; não aumentar os valores apenas para ocultar respostas `429`.
 
 ## Build e artefatos
 

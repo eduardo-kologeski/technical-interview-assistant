@@ -27,6 +27,12 @@ app:
     access-expiration: ${JWT_ACCESS_EXPIRATION:15m}
   refresh-token:
     expiration: ${JWT_REFRESH_EXPIRATION:7d}
+  security:
+    rate-limit:
+      window: ${AUTH_RATE_LIMIT_WINDOW:60s}
+      login: ${AUTH_LOGIN_RATE_LIMIT:10}
+      register: ${AUTH_REGISTER_RATE_LIMIT:5}
+      refresh: ${AUTH_REFRESH_RATE_LIMIT:30}
 
 management:
   endpoint:
