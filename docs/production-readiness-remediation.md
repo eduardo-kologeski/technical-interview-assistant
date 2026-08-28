@@ -8,10 +8,10 @@ Esta evidência corresponde à pilha de PRs #8 a #20. Enquanto essas PRs não fo
 
 | Item | Estado | Evidência | Pendência |
 |---|---|---|---|
-| P0-01 Persistência | DONE | Entidades JPA para usuários, vagas, entrevistas, perfil e disponibilidade; avaliação versionada na entrevista; migrations V1–V9 | Validação sobre cópia anonimizada segue externa |
+| P0-01 Persistência | DONE | Entidades JPA para usuários, vagas, entrevistas, perfil e disponibilidade; avaliação versionada na entrevista; migrations V1–V10 | Validação sobre cópia anonimizada segue externa |
 | P0-02 Autosave | DONE | Debounce, fila sequencial, confirmação backend, erro/retry, reload e teste Angular | Exercício E2E com falha real segue no P1 |
 | P0-03 Auth e sessão | DONE | Cadastro/login interno, BCrypt, JWT, rotação/revogação de refresh, logout, `/users/me`, rate limiting e testes de sessão | Política distribuída segue como evolução |
-| P0-04 Schema e histórico | DONE | Flyway V1–V9, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI do PR #20 aplicou e validou as 9 migrations sem skips |
+| P0-04 Schema e histórico | DONE | Flyway V1–V10, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI valida todas as migrations sem skips |
 | P0-05 Auditoria | DONE | Autoria derivada do `SecurityContext`; teste A cria/B edita preserva criador e entrevistador; eventos operacionais estruturados | Centralização/retenção de logs depende do ambiente |
 | P0-06 Backup/restore | PARTIAL | Scripts PowerShell/shell, dump customizado, checksum e recusa de destino não vazio | Restore isolado: NOT VERIFIED — ENVIRONMENT REQUIRED; RPO/RTO externos |
 | P0-07 Produção segura | PARTIAL | Profile `prod` fail-fast, DB/JWT/CORS externos, graceful shutdown, probes, Nginx non-root, headers e proxy same-origin | TLS/ingress, container e homologação: NOT VERIFIED — ENVIRONMENT REQUIRED |
@@ -29,7 +29,7 @@ Esta evidência corresponde à pilha de PRs #8 a #20. Enquanto essas PRs não fo
 | PostgreSQL/Flyway | DONE | Testcontainers executado no CI com PostgreSQL 17.6, migrations V1–V9 e zero skips | Cópia anonimizada segue externa |
 | Tratamento de erros | DONE | Problem Details consistente, `correlationId`, mensagens seguras e UX de conflito | Revisão contínua por novo endpoint |
 | Rate limiting | DONE | Limites e `Retry-After` para login, cadastro e refresh, com proxy confiável | Armazenamento distribuído é P2 |
-| Performance | PARTIAL | Vagas e histórico de entrevistas paginados; busca no banco; índices V9 | Entrevistadores e eventual auditoria persistida ainda requerem revisão |
+| Performance | DONE | Vagas, histórico e entrevistadores paginados; filtros de entrevistadores no banco; associações carregadas em lote; índices V9/V10 alinhados às buscas | Monitorar planos reais e volume em homologação |
 | PDF | DONE | Paginação de seções extensas, truncamento seguro no cabeçalho, nomes de arquivo normalizados e teste com acentos/alto volume; PDF QA de 9 páginas inspecionado visualmente e por extração de texto | Manter regressão visual quando o layout do parecer mudar |
 | Deploy/containers | PARTIAL | Probes, graceful shutdown, imagens multi-stage/non-root com healthcheck, Compose sem segredos padrão e build das imagens no CI | Smoke da stack completa e TLS ainda exigem Docker/homologação externa |
 | Acessibilidade | DONE | Foco visível global, link de salto, estados ARIA, anúncios de autosave/progresso, movimento reduzido, contraste do fluxo principal e regressão axe-core WCAG A/AA em entrevista/revisão | Manter validação manual com leitor de tela nas releases de UI |

@@ -41,9 +41,7 @@ describe('ProfileService', () => {
     skill.flush({});
 
     service.getAvailability('2026-09-01', '2026-09-07').subscribe();
-    http
-      .expectOne('/api/profile/availability?from=2026-09-01&to=2026-09-07')
-      .flush([]);
+    http.expectOne('/api/profile/availability?from=2026-09-01&to=2026-09-07').flush([]);
 
     service.addAvailability('2026-09-01', '14:00', '17:00').subscribe();
     const slot = http.expectOne('/api/profile/availability');
@@ -70,6 +68,16 @@ describe('ProfileService', () => {
     expect(request.request.params.get('technology')).toBe('Java');
     expect(request.request.params.get('date')).toBe('2026-09-01');
     expect(request.request.params.get('time')).toBe('14:00');
-    request.flush([]);
+    expect(request.request.params.get('page')).toBe('0');
+    expect(request.request.params.get('size')).toBe('20');
+    request.flush({
+      content: [],
+      page: 0,
+      size: 20,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+    });
   });
 });

@@ -106,6 +106,18 @@ import { OpenNativePickerDirective } from './open-native-picker.directive';
           <div class="empty">Nenhum entrevistador encontrado para os filtros selecionados.</div>
         }
       </div>
+      @if (totalPages() > 1) {
+        <nav class="pagination" aria-label="Paginação de entrevistadores">
+          <button [disabled]="page() === 0" (click)="goTo(page() - 1)">Anterior</button>
+          <span
+            >Página {{ page() + 1 }} de {{ totalPages() }} ·
+            {{ totalElements() }} entrevistadores</span
+          >
+          <button [disabled]="page() + 1 >= totalPages()" (click)="goTo(page() + 1)">
+            Próxima
+          </button>
+        </nav>
+      }
     </section>
   `,
   styles: [
@@ -280,6 +292,25 @@ import { OpenNativePickerDirective } from './open-native-picker.directive';
         border-radius: 10px;
         color: #697881;
       }
+      .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin-top: 22px;
+        color: #53626c;
+      }
+      .pagination button {
+        padding: 9px 13px;
+        border: 1px solid #cfd9df;
+        border-radius: 7px;
+        background: #fff;
+        color: #405e6d;
+        font-weight: 750;
+      }
+      .pagination button:disabled {
+        opacity: 0.45;
+      }
       @media (max-width: 850px) {
         .filters {
           grid-template-columns: 1fr 1fr;
@@ -314,6 +345,9 @@ export class InterviewersComponent {
   private readonly positions = inject(JobPositionService);
   readonly vacancies = signal<JobPosition[]>([]);
   readonly interviewers = signal<InterviewerResult[]>([]);
+  readonly page = signal(0);
+  readonly totalPages = signal(0);
+  readonly totalElements = signal(0);
   vacancyId = '';
   technology = '';
   date = '';
@@ -325,15 +359,29 @@ export class InterviewersComponent {
   selectedVacancy() {
     return this.vacancies().find((item) => item.id === this.vacancyId);
   }
-  search() {
+  search(resetPage = true) {
+    if (resetPage) this.page.set(0);
     this.profiles
-      .searchInterviewers({
-        vacancyId: this.vacancyId,
-        technology: this.technology.trim(),
-        date: this.date,
-        time: this.time,
-      })
-      .subscribe((items) => this.interviewers.set(items));
+      .searchInterviewers(
+        {
+          vacancyId: this.vacancyId,
+          technology: this.technology.trim(),
+          date: this.date,
+          time: this.time,
+        },
+        this.page(),
+      )
+      .subscribe((result) => {
+        this.interviewers.set(result.content);
+        this.page.set(result.page);
+        this.totalPages.set(result.totalPages);
+        this.totalElements.set(result.totalElements);
+      });
+  }
+  goTo(page: number) {
+    if (page < 0 || page >= this.totalPages()) return;
+    this.page.set(page);
+    this.search(false);
   }
   levelLabel(level: ProficiencyLevel | null) {
     return level === 'ADVANCED'

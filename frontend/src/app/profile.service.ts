@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { PageResponse } from './job-position.service';
 
 export type ProficiencyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 export interface TechnicalSkill {
@@ -84,16 +85,20 @@ export class ProfileService {
   removeAvailability(id: number) {
     return this.http.delete<void>(`${this.profileUrl}/availability/${id}`);
   }
-  searchInterviewers(filters: {
-    vacancyId?: string;
-    technology?: string;
-    date?: string;
-    time?: string;
-  }) {
-    let params = new HttpParams();
+  searchInterviewers(
+    filters: {
+      vacancyId?: string;
+      technology?: string;
+      date?: string;
+      time?: string;
+    },
+    page = 0,
+    size = 20,
+  ) {
+    let params = new HttpParams().set('page', page).set('size', size);
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params = params.set(key, value);
     });
-    return this.http.get<InterviewerResult[]>('/api/interviewers', { params });
+    return this.http.get<PageResponse<InterviewerResult>>('/api/interviewers', { params });
   }
 }

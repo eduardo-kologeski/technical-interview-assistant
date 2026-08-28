@@ -3,6 +3,9 @@ package com.kologeski.interviewassistant.profile;
 import com.kologeski.interviewassistant.vacancy.JobVacancyService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import java.time.*;
 import java.util.*;
 
@@ -19,19 +22,19 @@ public class InterviewerSearchService {
     }
 
     @Transactional(readOnly = true)
-    public List<InterviewerResult> search(UUID vacancyId, String technology, LocalDate date, LocalTime time) {
+    public Page<InterviewerResult> search(UUID vacancyId, String technology, LocalDate date, LocalTime time,
+                                          Pageable pageable) {
         List<String> requirements = vacancyId == null ? List.of() : vacancies.get(vacancyId).requirements();
         String technologyFilter = technology == null ? "" : ProfileService.normalize(technology);
-        return profiles.allProfessionalProfiles().stream()
+        Page<ProfileService.ProfileSnapshot> profilesPage = profiles.professionalProfiles(
+                technologyFilter, date, time, pageable);
+        List<InterviewerResult> results = profilesPage.getContent().stream()
                 .map(profile -> result(profile, requirements, date))
-                .filter(result -> technologyFilter.isBlank() || result.allSkills().stream()
-                        .anyMatch(skill -> ProfileService.normalize(skill.name()).equals(technologyFilter)))
-                .filter(result -> date == null || !result.availability().isEmpty())
-                .filter(result -> time == null || result.availability().stream().anyMatch(slot -> contains(slot, time)))
                 .sorted(Comparator.comparingInt(InterviewerResult::matchedCount).reversed()
                         .thenComparing(Comparator.comparingInt(InterviewerResult::proficiencyWeight).reversed())
                         .thenComparing(InterviewerResult::name))
                 .toList();
+        return new PageImpl<>(results, pageable, profilesPage.getTotalElements());
     }
 
     private InterviewerResult result(ProfileService.ProfileSnapshot profile, List<String> requirements, LocalDate date) {

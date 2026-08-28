@@ -99,14 +99,21 @@ class ProfileIntegrationTest {
 
         mvc.perform(get("/api/interviewers").header("Authorization", bearer(joao))
                         .param("vacancyId", vacancyId))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[0].name").value("João"))
-                .andExpect(jsonPath("$[0].matchedCount").value(2))
-                .andExpect(jsonPath("$[0].requirementCount").value(3))
-                .andExpect(jsonPath("$[0].passwordHash").doesNotExist());
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].name").value("João"))
+                .andExpect(jsonPath("$.content[0].matchedCount").value(2))
+                .andExpect(jsonPath("$.content[0].requirementCount").value(3))
+                .andExpect(jsonPath("$.content[0].passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.totalElements").value(2));
         mvc.perform(get("/api/interviewers").header("Authorization", bearer(joao))
                         .param("technology", "JAVA").param("date", interviewDate.toString()).param("time", "15:00"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].name").value("João"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("João"));
+        mvc.perform(get("/api/interviewers").header("Authorization", bearer(joao))
+                        .param("page", "0").param("size", "1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2));
     }
 
     private String register(String name, String email) throws Exception {

@@ -3,6 +3,8 @@ package com.kologeski.interviewassistant.profile;
 import com.kologeski.interviewassistant.user.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.text.Normalizer;
 import java.time.*;
 import java.util.*;
@@ -95,8 +97,28 @@ public class ProfileService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProfileSnapshot> allProfessionalProfiles() {
-        return users.findAll().stream().map(user -> snapshot(user, true)).toList();
+    public Page<ProfileSnapshot> professionalProfiles(String technology, LocalDate date, LocalTime time,
+                                                      Pageable pageable) {
+        LocalDate today = LocalDate.now(clock);
+        Page<User> page = users.searchInterviewers(technology, today, date, time, pageable);
+        List<Long> ids = page.getContent().stream().map(User::getId).toList();
+        if (ids.isEmpty()) return page.map(user -> snapshot(user, false));
+        Map<Long, List<SkillSnapshot>> skillsByUser = skills
+                .findByUserIdInOrderByUserIdAscNameAsc(ids).stream()
+                .collect(java.util.stream.Collectors.groupingBy(item -> item.getUser().getId(),
+                        LinkedHashMap::new,
+                        java.util.stream.Collectors.mapping(SkillSnapshot::from,
+                                java.util.stream.Collectors.toList())));
+        Map<Long, List<AvailabilitySnapshot>> availabilityByUser = availability
+                .findByUserIdInAndAvailabilityDateGreaterThanEqualOrderByUserIdAscAvailabilityDateAscStartTimeAsc(
+                        ids, today).stream()
+                .collect(java.util.stream.Collectors.groupingBy(item -> item.getUser().getId(),
+                        LinkedHashMap::new,
+                        java.util.stream.Collectors.mapping(AvailabilitySnapshot::from,
+                                java.util.stream.Collectors.toList())));
+        return page.map(user -> new ProfileSnapshot(user.getId(), user.getName(), user.getEmail(),
+                skillsByUser.getOrDefault(user.getId(), List.of()),
+                availabilityByUser.getOrDefault(user.getId(), List.of())));
     }
 
     private ProfileSnapshot snapshot(User user, boolean includeAvailability) {
