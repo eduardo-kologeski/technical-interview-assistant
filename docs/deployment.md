@@ -51,6 +51,8 @@ O pipeline deve produzir imagens uma única vez, identificadas por SHA. A mesma 
 
 As imagens-base dos Dockerfiles e o PostgreSQL do Compose são fixados por digest. Atualizações devem vir por PR revisada, reconstruir e escanear as imagens e atualizar o comentário/tag de referência junto do digest; nunca trocar apenas para uma tag flutuante.
 
+Os estágios runtime Alpine aplicam atualizações de segurança disponíveis durante o build e voltam ao usuário não privilegiado. Por isso a imagem final, não apenas o digest-base, é a unidade imutável que deve ser promovida e novamente analisada pelo scanner.
+
 `/actuator/info` expõe `info.app.version` e `info.app.git-sha` apenas a clientes autenticados. A release deve usar SemVer em `APP_VERSION` e o commit imutável em `GIT_SHA`; ambos precisam coincidir com o artefato promovido.
 
 Cada linha de log inclui os mesmos `appVersion` e `gitSha`, permitindo correlacionar incidente e artefato sem consultar conteúdo de entrevistas. O Nginx limita conexão ao backend a 5 s e leitura/escrita a 60 s; valores maiores exigem evidência de carga e não devem substituir correção de lentidão.

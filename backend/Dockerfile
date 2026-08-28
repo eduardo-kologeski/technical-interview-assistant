@@ -11,7 +11,8 @@ ARG APP_VERSION=dev
 ARG GIT_SHA=local
 ENV APP_VERSION=${APP_VERSION}
 ENV GIT_SHA=${GIT_SHA}
-RUN apk add --no-cache curl \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache curl \
     && addgroup -S -g 10001 appgroup \
     && adduser -S -D -H -u 10001 -G appgroup appuser
 WORKDIR /app
