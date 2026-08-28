@@ -19,7 +19,7 @@ describe('ProfileService', () => {
 
   it('loads and updates only the authenticated profile endpoint', () => {
     service.getProfile().subscribe();
-    http.expectOne('http://localhost:8081/api/profile').flush({
+    http.expectOne('/api/profile').flush({
       id: 1,
       name: 'João',
       email: 'joao@example.com',
@@ -27,7 +27,7 @@ describe('ProfileService', () => {
       availability: [],
     });
     service.updateProfile({ name: 'João Silva', email: 'joao@example.com' }).subscribe();
-    const request = http.expectOne('http://localhost:8081/api/profile');
+    const request = http.expectOne('/api/profile');
     expect(request.request.method).toBe('PUT');
     expect(request.request.body).toEqual({ name: 'João Silva', email: 'joao@example.com' });
     request.flush({});
@@ -35,18 +35,18 @@ describe('ProfileService', () => {
 
   it('manages date-based availability without sending a user id', () => {
     service.addSkill('Playwright', 'ADVANCED').subscribe();
-    const skill = http.expectOne('http://localhost:8081/api/profile/technical-skills');
+    const skill = http.expectOne('/api/profile/technical-skills');
     expect(skill.request.body).toEqual({ name: 'Playwright', proficiencyLevel: 'ADVANCED' });
     expect(skill.request.body.userId).toBeUndefined();
     skill.flush({});
 
     service.getAvailability('2026-09-01', '2026-09-07').subscribe();
     http
-      .expectOne('http://localhost:8081/api/profile/availability?from=2026-09-01&to=2026-09-07')
+      .expectOne('/api/profile/availability?from=2026-09-01&to=2026-09-07')
       .flush([]);
 
     service.addAvailability('2026-09-01', '14:00', '17:00').subscribe();
-    const slot = http.expectOne('http://localhost:8081/api/profile/availability');
+    const slot = http.expectOne('/api/profile/availability');
     expect(slot.request.body).toEqual({
       date: '2026-09-01',
       startTime: '14:00',
@@ -65,7 +65,7 @@ describe('ProfileService', () => {
         time: '14:00',
       })
       .subscribe();
-    const request = http.expectOne((req) => req.url === 'http://localhost:8081/api/interviewers');
+    const request = http.expectOne((req) => req.url === '/api/interviewers');
     expect(request.request.params.get('vacancyId')).toBe('vacancy-1');
     expect(request.request.params.get('technology')).toBe('Java');
     expect(request.request.params.get('date')).toBe('2026-09-01');

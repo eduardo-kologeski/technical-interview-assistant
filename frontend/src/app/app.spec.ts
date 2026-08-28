@@ -51,7 +51,7 @@ describe('App', () => {
     app.updateNotes('Persistir esta anotação');
     expect(app.saveState()).toBe('Salvando...');
     await new Promise((resolve) => setTimeout(resolve, 550));
-    const request = http.expectOne('http://localhost:8081/api/interviews/interview-1/assessment');
+    const request = http.expectOne('/api/interviews/interview-1/assessment');
     expect(request.request.body.version).toBe(0);
     expect(JSON.parse(request.request.body.assessmentData).interviewNotes).toBe(
       'Persistir esta anotação',
@@ -71,13 +71,13 @@ describe('App', () => {
     app.updateNotes('Não pode ser perdido');
     await new Promise((resolve) => setTimeout(resolve, 550));
     http
-      .expectOne('http://localhost:8081/api/interviews/interview-2/assessment')
+      .expectOne('/api/interviews/interview-2/assessment')
       .flush('offline', { status: 503, statusText: 'Unavailable' });
     expect(app.saveState()).toBe('Falha ao salvar');
 
     app.retryAutosave();
     await new Promise((resolve) => setTimeout(resolve, 550));
-    const retry = http.expectOne('http://localhost:8081/api/interviews/interview-2/assessment');
+    const retry = http.expectOne('/api/interviews/interview-2/assessment');
     retry.flush({ version: 1 });
     expect(app.saveState()).toBe('Salvo');
   });
@@ -202,12 +202,12 @@ describe('App', () => {
     const app = fixture.componentInstance;
     const http = TestBed.inject(HttpTestingController);
     http
-      .expectOne('http://localhost:8081/api/users/me')
+      .expectOne('/api/users/me')
       .flush({ id: 7, name: 'Eduardo', email: 'eduardo@example.com' });
     http
       .expectOne(
         (request) =>
-          request.url === 'http://localhost:8081/api/job-positions' &&
+          request.url === '/api/job-positions' &&
           request.params.get('active') === 'true',
       )
       .flush([
@@ -232,10 +232,10 @@ describe('App', () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
     http
-      .match('http://localhost:8081/api/users/me')[0]
+      .match('/api/users/me')[0]
       ?.flush({ id: 7, name: 'Eduardo', email: 'eduardo@example.com' });
     http
-      .expectOne((request) => request.url === 'http://localhost:8081/api/job-positions')
+      .expectOne((request) => request.url === '/api/job-positions')
       .flush('error', { status: 500, statusText: 'Server Error' });
     expect(app.vacancies()).toEqual([]);
     expect(app.vacanciesError()).toBe(true);

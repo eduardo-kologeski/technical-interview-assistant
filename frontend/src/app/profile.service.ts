@@ -39,7 +39,7 @@ export interface InterviewerResult {
 @Injectable({ providedIn: 'root' })
 export class ProfileService {
   private readonly http = inject(HttpClient);
-  private readonly profileUrl = 'http://localhost:8081/api/profile';
+  private readonly profileUrl = '/api/profile';
 
   getProfile() {
     return this.http.get<Profile>(this.profileUrl);
@@ -94,6 +94,6 @@ export class ProfileService {
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params = params.set(key, value);
     });
-    return this.http.get<InterviewerResult[]>('http://localhost:8081/api/interviewers', { params });
+    return this.http.get<InterviewerResult[]>('/api/interviewers', { params });
   }
 }

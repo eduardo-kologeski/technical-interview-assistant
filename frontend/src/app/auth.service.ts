@@ -8,7 +8,7 @@ export interface AuthTokens { accessToken: string; refreshToken?: string; expire
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://localhost:8081/api';
+  private readonly apiUrl = '/api';
   private readonly userState = signal<AuthUser | null>(null);
   private refreshRequest?: Observable<string>;
   readonly user = this.userState.asReadonly();
