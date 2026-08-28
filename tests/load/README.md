@@ -10,4 +10,6 @@ k6 run tests/load/critical-journeys.js \
   -e LOAD_INTERVIEW_ID=<uuid>
 ```
 
-O cenário cobre login no setup, listagem de vagas, leitura da entrevista e autosave concorrente. Os thresholds iniciais são menos de 1% de falhas HTTP e p95 inferior a 1 segundo. Credenciais devem vir do secret manager/CI e nunca ser versionadas. O autosave aceita 409 porque a concorrência otimista é o comportamento seguro esperado quando VUs usam a mesma entrevista.
+O cenário cobre login no setup, listagem de vagas, histórico paginado, leitura da entrevista, autosave concorrente e registro da geração de PDF. Os thresholds iniciais são menos de 1% de falhas HTTP, p95 global inferior a 1 segundo, histórico inferior a 750 ms e registro de PDF inferior a 1 segundo. Credenciais devem vir do secret manager/CI e nunca ser versionadas. O autosave aceita 409 porque a concorrência otimista é o comportamento seguro esperado quando VUs usam a mesma entrevista.
+
+A geração visual do PDF ocorre no navegador e é coberta pelo orçamento do teste Angular de alto volume. O endpoint medido aqui registra a operação e sua auditoria no backend; ele não deve ser interpretado como benchmark de renderização do jsPDF.

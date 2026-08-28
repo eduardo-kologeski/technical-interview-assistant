@@ -398,11 +398,14 @@ describe('App', () => {
     app.concerns.set('Necessita aprofundamento em observabilidade e mensageria. '.repeat(80));
     seedSkills(app);
 
+    const startedAt = performance.now();
     const pdf = await app.exportPdf(false);
+    const durationMs = performance.now() - startedAt;
     const bytes = pdf.output('arraybuffer') as ArrayBuffer;
 
     expect(pdf.getNumberOfPages()).toBeGreaterThan(3);
     expect(bytes.byteLength).toBeGreaterThan(10_000);
+    expect(durationMs).toBeLessThan(5_000);
   });
 
   it('records behavioral skills without creating scored evaluations', () => {

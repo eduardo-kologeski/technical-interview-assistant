@@ -17,6 +17,8 @@ export const options = {
   thresholds: {
     http_req_failed: ['rate<0.01'],
     http_req_duration: ['p(95)<1000'],
+    'http_req_duration{journey:history}': ['p(95)<750'],
+    'http_req_duration{journey:pdf-registration}': ['p(95)<1000'],
   },
 };
 
@@ -39,6 +41,13 @@ export default function (data) {
     'vacancies succeed': (response) => response.status === 200,
   });
 
+  check(http.get(`${baseUrl}/api/interviews?page=0&size=20`, {
+    headers,
+    tags: { journey: 'history' },
+  }), {
+    'interview history succeeds': (response) => response.status === 200,
+  });
+
   const interview = http.get(`${baseUrl}/api/interviews/${interviewId}`, { headers });
   check(interview, { 'interview succeeds': (response) => response.status === 200 });
 
@@ -48,6 +57,13 @@ export default function (data) {
     assessmentData: payload.assessmentData,
   }), { headers }), {
     'autosave succeeds or conflicts safely': (response) => response.status === 200 || response.status === 409,
+  });
+
+  check(http.post(`${baseUrl}/api/interviews/${interviewId}/pdf-generation`, null, {
+    headers,
+    tags: { journey: 'pdf-registration' },
+  }), {
+    'PDF generation registration succeeds': (response) => response.status === 200,
   });
 
   sleep(1);

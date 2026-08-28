@@ -54,7 +54,7 @@ Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subseq
 | Runbooks | DONE | Banco indisponível, falha de deploy, autenticação e backup/restore documentados | Exercitar em game day antes do go-live |
 | Versionamento | DONE | SemVer em `APP_VERSION` e commit em `GIT_SHA`, incorporados à imagem e disponíveis no Actuator autenticado | Pipeline de release deve fornecer o SemVer aprovado |
 | Browsers | PARTIAL | Matriz e critérios documentados; E2E Chromium no CI | Smoke Edge/Firefox/Safari requer ambiente/dispositivos |
-| Carga | PARTIAL | Cenário k6 cobre login, vagas, entrevista e autosave com thresholds | Executar em homologação isolada e calibrar limites |
+| Carga | PARTIAL | Cenário k6 cobre login, vagas, histórico, entrevista, autosave e registro de PDF; renderização volumosa possui orçamento frontend de 5 s | Executar em homologação isolada e calibrar limites |
 | Autorização | PARTIAL | Modelo futuro por capacidades e decisões pendentes documentados | Papéis e escopos dependem de aprovação de negócio |
 | Proteção de branches | PARTIAL | Checks e regras recomendadas documentados | Configuração no GitHub exige verificação administrativa |
 | Checklist de produção | DONE | Gate consolidado em `production-checklist.md` | Preenchimento exige ambiente e aprovações externas |
