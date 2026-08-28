@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.*;
 
 import java.time.Instant;
@@ -22,9 +23,15 @@ class AuthenticationIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired JdbcTemplate jdbc;
     private final ObjectMapper json = new ObjectMapper();
 
-    @BeforeEach void clean() { refreshTokens.deleteAll(); users.deleteAll(); }
+    @BeforeEach void clean() {
+        refreshTokens.deleteAll();
+        jdbc.update("DELETE FROM interview_availability");
+        jdbc.update("DELETE FROM user_technical_skills");
+        users.deleteAll();
+    }
 
     @Test void registerLoginAndCurrentUserAreInternal() throws Exception {
         MvcResult registration = register("user@example.com", false)
