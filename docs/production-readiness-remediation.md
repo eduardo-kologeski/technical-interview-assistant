@@ -11,13 +11,13 @@ Esta evidência corresponde à pilha de PRs #8 a #13. Enquanto essas PRs não fo
 | P0-01 Persistência | DONE | Entidades JPA para usuários, vagas, entrevistas, perfil e disponibilidade; avaliação versionada na entrevista; migrations V1–V7 | Validação PostgreSQL real segue no P1 |
 | P0-02 Autosave | DONE | Debounce, fila sequencial, confirmação backend, erro/retry, reload e teste Angular | Exercício E2E com falha real segue no P1 |
 | P0-03 Auth e sessão | DONE | Cadastro/login interno, BCrypt, JWT, rotação/revogação de refresh, logout, `/users/me` e testes de sessão | Rate limit/brute force segue no P1 |
-| P0-04 Schema e histórico | PARTIAL | Flyway V1–V7, constraints, `ddl-auto=validate`, snapshot imutável e soft delete de vaga | Flyway em PostgreSQL/Testcontainers: NOT VERIFIED |
+| P0-04 Schema e histórico | DONE | Flyway V1–V8, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI do PR #18 aplicou e validou as 8 migrations sem skips |
 | P0-05 Auditoria | DONE | Autoria derivada do `SecurityContext`; teste A cria/B edita preserva criador e entrevistador | Eventos estruturados seguem no P1 |
 | P0-06 Backup/restore | PARTIAL | Scripts PowerShell/shell, dump customizado, checksum e recusa de destino não vazio | Restore isolado: NOT VERIFIED — ENVIRONMENT REQUIRED; RPO/RTO externos |
 | P0-07 Produção segura | PARTIAL | Profile `prod` fail-fast, DB/JWT/CORS externos, graceful shutdown, probes, Nginx non-root, headers e proxy same-origin | TLS/ingress, container e homologação: NOT VERIFIED — ENVIRONMENT REQUIRED |
 | P0-08 Governança | PARTIAL | Inventário, minimização, acesso atual, exclusão, retenção e backups documentados em `data-governance.md` | Retenção, base legal e responsáveis exigem aprovação externa |
 
-**Resultado do gate P0: FAIL / NO-GO**, pois P0-04, P0-06, P0-07 e P0-08 ainda dependem de verificação ou decisão externa. Não há outro P0 de implementação local claramente executável identificado nesta revisão; o trabalho pode avançar para P1 sem declarar o sistema pronto para produção.
+**Resultado do gate P0: FAIL / NO-GO**, pois P0-06, P0-07 e P0-08 ainda dependem de verificação ou decisão externa. P0-04 foi validado em PostgreSQL real pelo CI do PR #18. Não há outro P0 de implementação local claramente executável identificado nesta revisão; o trabalho pode avançar para P1 sem declarar o sistema pronto para produção.
 
 ## Evidências automatizadas
 
@@ -26,7 +26,7 @@ Esta evidência corresponde à pilha de PRs #8 a #13. Enquanto essas PRs não fo
 - build Angular: aprovado, com warnings de budget/CommonJS já registrados;
 - secrets audit: nenhum secret produtivo identificado; valores do Compose e profile padrão são exclusivamente locais e o profile `prod` exige valores externos;
 - Docker/Nginx: NOT VERIFIED neste host;
-- PostgreSQL/Flyway real: NOT VERIFIED neste host;
+- PostgreSQL/Flyway real: VERIFIED no CI do PR #18 com PostgreSQL 17.6, 8 migrations e zero skips; localmente o teste é ignorado quando Docker não está disponível;
 - restore: NOT VERIFIED neste host.
 
 ## Controles entregues na pilha
