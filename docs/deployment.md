@@ -53,7 +53,7 @@ As imagens-base dos Dockerfiles e o PostgreSQL do Compose são fixados por diges
 
 Os estágios runtime Alpine aplicam atualizações de segurança disponíveis durante o build e voltam ao usuário não privilegiado. Por isso a imagem final, não apenas o digest-base, é a unidade imutável que deve ser promovida e novamente analisada pelo scanner.
 
-O runtime Nginx remove `curl` e `tiff`, herdados da imagem-base mas desnecessários para servir o frontend. O healthcheck utiliza o `wget` do BusyBox; não reinstalar ferramentas de diagnóstico na imagem final — depuração deve ocorrer em container efêmero separado.
+O runtime Nginx remove `curl`, o módulo opcional `nginx-module-image-filter` e sua dependência `tiff`, herdados da imagem-base mas desnecessários para servir o frontend. O healthcheck utiliza o `wget` do BusyBox; não reinstalar ferramentas de diagnóstico na imagem final — depuração deve ocorrer em container efêmero separado.
 
 `/actuator/info` expõe `info.app.version` e `info.app.git-sha` apenas a clientes autenticados. A release deve usar SemVer em `APP_VERSION` e o commit imutável em `GIT_SHA`; ambos precisam coincidir com o artefato promovido.
 
