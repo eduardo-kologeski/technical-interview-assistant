@@ -104,14 +104,14 @@
         </p>
       </div>
       <div class="session-actions">
-        <span class="save">● {{ saveState() }}</span>
+        <span class="save" role="status" aria-live="polite">● {{ saveState() }}</span>
         @if (saveState() === 'Falha ao salvar') {
           <button class="retry-save" type="button" (click)="retryAutosave()">Tentar novamente</button>
         }
-        <button class="timer" (click)="toggleTimer()">
+        <button class="timer" type="button" (click)="toggleTimer()" [attr.aria-label]="running() ? 'Pausar cronômetro' : 'Iniciar cronômetro'">
           {{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}
         </button>
-        <button class="finish" (click)="finishInterview()" [disabled]="finishingInterview()">
+        <button class="finish" type="button" (click)="finishInterview()" [disabled]="finishingInterview()">
           {{ finishingInterview() ? 'Finalizando...' : 'Finalizar entrevista' }}
         </button>
       </div>
@@ -122,7 +122,7 @@
         <span>Progresso da avaliação</span
         ><strong>{{ evaluated() }} de {{ skills().length }} competências</strong>
       </div>
-      <div class="progress-track"><span [style.width.%]="progress()"></span></div>
+      <div class="progress-track" role="progressbar" aria-label="Progresso da avaliação" [attr.aria-valuenow]="progress()" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="progress()"></span></div>
     </section>
     <div class="workspace">
       <section class="skills-panel">
@@ -190,6 +190,7 @@
             <span class="eyebrow">ANOTAÇÕES DA ENTREVISTA</span><small>autosave</small>
           </div>
           <textarea
+            aria-label="Anotações da entrevista"
             rows="3"
             [ngModel]="quickNotes()"
             (ngModelChange)="updateNotes($event)"
@@ -200,6 +201,7 @@
           <span class="eyebrow">EXPERIÊNCIAS COMPLEMENTARES</span>
           <div class="technology-search">
             <input
+              aria-label="Pesquisar ou adicionar experiência complementar"
               [ngModel]="technologySearch()"
               (ngModelChange)="technologySearch.set($event)"
               (keydown.enter)="addCustomTechnology(); $event.preventDefault()"
@@ -209,10 +211,10 @@
           @if (technologySearch()) {
             <div class="technology-results support-results">
               @for (technology of technologyResults(); track technology.name) {
-                <button (click)="selectTechnology(technology)">{{ technology.name }}</button>
+                <button type="button" (click)="selectTechnology(technology)">{{ technology.name }}</button>
               }
               @if (canAddCustomTechnology()) {
-                <button class="custom-tech" (click)="addCustomTechnology()">
+                <button type="button" class="custom-tech" (click)="addCustomTechnology()">
                   + Adicionar “{{ technologySearch().trim() }}”
                 </button>
               }
@@ -221,7 +223,7 @@
             <small class="suggestion-label">Sugestões</small>
             <div class="technology-suggestions compact-suggestions">
               @for (name of visibleQuickTechnologySuggestions(); track name) {
-                <button (click)="selectSuggestedTechnology(name)">{{ name }}</button>
+                <button type="button" (click)="selectSuggestedTechnology(name)">{{ name }}</button>
               }
             </div>
             @if (availableQuickTechnologySuggestions().length > 6) {
@@ -243,6 +245,7 @@
           <span class="eyebrow">HABILIDADES COMPORTAMENTAIS</span>
           <div class="technology-search">
             <input
+              aria-label="Pesquisar ou adicionar habilidade comportamental"
               [ngModel]="behavioralSearch()"
               (ngModelChange)="behavioralSearch.set($event)"
               (keydown.enter)="addBehavioralSkill(); $event.preventDefault()"
@@ -252,7 +255,7 @@
           <small class="suggestion-label">Sugestões</small>
           <div class="technology-suggestions compact-suggestions">
             @for (name of visibleBehavioralSuggestions(); track name) {
-              <button (click)="addBehavioralSkill(name)">{{ name }}</button>
+              <button type="button" (click)="addBehavioralSkill(name)">{{ name }}</button>
             }
           </div>
           @if (!behavioralSearch() && availableBehavioralSuggestions().length > 4) {
@@ -269,7 +272,7 @@
             <small class="suggestion-label">Selecionadas</small>
             <div class="selected-technologies compact-selected">
               @for (name of selectedBehavioralSkills(); track name) {
-                <button (click)="removeBehavioralSkill(name)">{{ name }} <span>×</span></button>
+                <button type="button" (click)="removeBehavioralSkill(name)" [attr.aria-label]="'Remover habilidade ' + name">{{ name }} <span aria-hidden="true">×</span></button>
               }
             </div>
           }
@@ -286,8 +289,8 @@
         <p>Revise o conteúdo antes de exportar. A recomendação sempre pertence ao entrevistador.</p>
       </div>
       <div class="session-actions">
-        <button class="timer" (click)="backToInterview()">← Voltar à entrevista</button
-        ><button class="finish" (click)="exportPdf()">Exportar PDF</button>
+        <button class="timer" type="button" (click)="backToInterview()">← Voltar à entrevista</button
+        ><button class="finish" type="button" (click)="exportPdf()">Exportar PDF</button>
       </div>
     </section>
     <div class="review-grid">
@@ -314,6 +317,7 @@
           <div class="review-technology-selector technology-card inline-technology-selector">
             <div class="technology-search">
               <input
+                aria-label="Pesquisar ou adicionar experiência complementar"
                 [ngModel]="technologySearch()"
                 (ngModelChange)="technologySearch.set($event)"
                 (keydown.enter)="addCustomTechnology(); $event.preventDefault()"
@@ -323,10 +327,10 @@
             @if (technologySearch()) {
               <div class="technology-results">
                 @for (technology of technologyResults(); track technology.name) {
-                  <button (click)="selectTechnology(technology)">{{ technology.name }}</button>
+                  <button type="button" (click)="selectTechnology(technology)">{{ technology.name }}</button>
                 }
                 @if (canAddCustomTechnology()) {
-                  <button class="custom-tech" (click)="addCustomTechnology()">
+                  <button type="button" class="custom-tech" (click)="addCustomTechnology()">
                     + Adicionar “{{ technologySearch().trim() }}”
                   </button>
                 }
@@ -357,6 +361,7 @@
           <span class="eyebrow">HABILIDADES COMPORTAMENTAIS</span>
           <div class="technology-search">
             <input
+              aria-label="Pesquisar ou adicionar habilidade comportamental"
               [ngModel]="behavioralSearch()"
               (ngModelChange)="behavioralSearch.set($event)"
               (keydown.enter)="addBehavioralSkill(); $event.preventDefault()"
@@ -372,8 +377,8 @@
           }
           <div class="selected-technologies">
             @for (name of selectedBehavioralSkills(); track name) {
-              <button type="button" (click)="removeBehavioralSkill(name)">
-                {{ name }} <span>×</span>
+              <button type="button" (click)="removeBehavioralSkill(name)" [attr.aria-label]="'Remover habilidade ' + name">
+                {{ name }} <span aria-hidden="true">×</span>
               </button>
             } @empty {
               <p class="empty-review">Nenhuma habilidade comportamental adicionada.</p>
@@ -383,6 +388,7 @@
         <section class="review-notes">
           <span class="eyebrow">ANOTAÇÕES DA ENTREVISTA</span
           ><textarea
+            aria-label="Anotações da entrevista"
             rows="6"
             [ngModel]="quickNotes()"
             (ngModelChange)="updateNotes($event)"
@@ -446,7 +452,7 @@
             </div>
           }
         </section>
-        <button class="pdf-cta" (click)="exportPdf()">
+        <button class="pdf-cta" type="button" (click)="exportPdf()">
           <strong>Exportar parecer em PDF</strong><span>Documento A4 pronto para compartilhar</span>
         </button>
       </aside>

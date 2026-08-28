@@ -3,6 +3,7 @@ import { InterviewPage } from './app';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import axe, { type RunOptions } from 'axe-core';
 
 const App = InterviewPage;
 
@@ -450,6 +451,50 @@ describe('App', () => {
     expect(text).not.toContain('Pontos de atenção');
     expect(text).not.toContain('FEEDBACK');
   });
+
+  it('exposes evaluation state and support controls to assistive technology', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    seedSkills(app);
+    app.started.set(true);
+    app.setScore(0, 5);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const firstEvaluation = element.querySelector('app-skill-evaluation-card');
+    const radios = Array.from(firstEvaluation?.querySelectorAll('[role="radio"]') || []);
+
+    expect(radios).toHaveLength(7);
+    expect(radios.filter((radio) => radio.getAttribute('aria-checked') === 'true')).toHaveLength(1);
+    expect(element.querySelector('.progress-track')?.getAttribute('role')).toBe('progressbar');
+    expect(element.querySelector('.save')?.getAttribute('aria-live')).toBe('polite');
+    expect(
+      element.querySelector('.support-notes textarea')?.getAttribute('aria-label'),
+    ).toBe('Anotações da entrevista');
+    expect(
+      element.querySelector('.complementary-support input')?.getAttribute('aria-label'),
+    ).toBe('Pesquisar ou adicionar experiência complementar');
+  });
+
+  it('has no automatically detectable WCAG A/AA violations in interview and review modes', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    seedSkills(app);
+    app.started.set(true);
+    fixture.detectChanges();
+
+    const options: RunOptions = {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+      rules: { 'color-contrast': { enabled: false } },
+    };
+    const interviewResult = await axe.run(fixture.nativeElement as HTMLElement, options);
+
+    app.reviewing.set(true);
+    fixture.detectChanges();
+    const reviewResult = await axe.run(fixture.nativeElement as HTMLElement, options);
+
+    expect(interviewResult.violations.map((violation) => violation.id)).toEqual([]);
+    expect(reviewResult.violations.map((violation) => violation.id)).toEqual([]);
+  }, 15_000);
 
   it('shows editable notes and feedback fields only in review', () => {
     const fixture = TestBed.createComponent(App);

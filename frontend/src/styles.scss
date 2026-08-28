@@ -9,6 +9,22 @@ body {
 * {
   box-sizing: border-box;
 }
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid #0b6fcb;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
 .registration-page {
   max-width: 940px !important;
   padding-top: 60px !important;
@@ -56,7 +72,7 @@ body {
 }
 .form-heading p {
   margin-top: 4px;
-  color: #78848d;
+  color: #5c6973;
   font-size: 12px;
 }
 .step {
@@ -102,7 +118,7 @@ body {
   padding-top: 8px;
 }
 .form-actions small {
-  color: #78848d;
+  color: #5c6973;
 }
 .form-actions button:disabled {
   cursor: not-allowed;
@@ -143,7 +159,7 @@ body {
   font-size: 14px;
 }
 .authenticated-interviewer small {
-  color: #71817f;
+  color: #5c6973;
   font-size: 10px;
 }
 .vacancy-preview {
@@ -424,7 +440,7 @@ body {
   text-transform: none !important;
 }
 .column-heading > span {
-  color: #70808b;
+  color: #5c6973;
   font-size: 12px;
 }
 .complementary-review {
@@ -670,7 +686,7 @@ body {
 .review-fields small {
   display: block;
   margin-top: 4px;
-  color: #7b878f;
+  color: #5c6973;
   font-size: 10px;
   font-weight: 400;
 }

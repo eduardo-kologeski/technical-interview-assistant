@@ -32,7 +32,7 @@ Esta evidência corresponde à pilha de PRs #8 a #20. Enquanto essas PRs não fo
 | Performance | PARTIAL | Vagas e histórico de entrevistas paginados; busca no banco; índices V9 | Entrevistadores e eventual auditoria persistida ainda requerem revisão |
 | PDF | DONE | Paginação de seções extensas, truncamento seguro no cabeçalho, nomes de arquivo normalizados e teste com acentos/alto volume; PDF QA de 9 páginas inspecionado visualmente e por extração de texto | Manter regressão visual quando o layout do parecer mudar |
 | Deploy/containers | PARTIAL | Probes, graceful shutdown, Nginx non-root e proxy same-origin | Validação por container/homologação externa |
-| Acessibilidade | PENDING | Sem auditoria sistemática completa | Foco, teclado, contraste e leitor de tela |
+| Acessibilidade | DONE | Foco visível global, link de salto, estados ARIA, anúncios de autosave/progresso, movimento reduzido, contraste do fluxo principal e regressão axe-core WCAG A/AA em entrevista/revisão | Manter validação manual com leitor de tela nas releases de UI |
 | Dependências | PENDING | Build reproduzível | Scan CVE automatizado |
 
 ## Evidências automatizadas

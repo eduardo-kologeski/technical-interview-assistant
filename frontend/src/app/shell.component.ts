@@ -4,21 +4,21 @@ import { AuthService } from './auth.service';
 @Component({
   selector: 'app-shell',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
-  template: `<header>
+  template: `<a class="skip-link" href="#main-content">Pular para o conteúdo principal</a><header>
       <a class="brand" routerLink="/dashboard"><b>T</b><span>Technical Interview</span></a>
       <nav>
-        <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a
-        ><a routerLink="/interviews" routerLinkActive="active">Entrevistas</a
-        ><a routerLink="/job-positions" routerLinkActive="active">Vagas</a
-        ><a routerLink="/interviewers" routerLinkActive="active">Entrevistadores</a
-        ><a routerLink="/profile" routerLinkActive="active">Perfil</a>
+        <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page">Dashboard</a
+        ><a routerLink="/interviews" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistas</a
+        ><a routerLink="/job-positions" routerLinkActive="active" ariaCurrentWhenActive="page">Vagas</a
+        ><a routerLink="/interviewers" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistadores</a
+        ><a routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page">Perfil</a>
       </nav>
       <div class="user">
         <span>{{ auth.user()?.name || 'Usuário' }}</span
         ><button (click)="logout()">Sair</button>
       </div>
     </header>
-    <main><router-outlet /></main>`,
+    <main id="main-content" tabindex="-1"><router-outlet /></main>`,
   styles: [
     `
       :host {
@@ -36,6 +36,21 @@ import { AuthService } from './auth.service';
         padding: 0 5vw;
         background: #fff;
         border-bottom: 1px solid #e1e7ec;
+      }
+      .skip-link {
+        position: fixed;
+        z-index: 1000;
+        top: 8px;
+        left: 8px;
+        padding: 10px 14px;
+        border-radius: 6px;
+        background: #fff;
+        color: #0b516d;
+        font-weight: 800;
+        transform: translateY(-150%);
+      }
+      .skip-link:focus {
+        transform: translateY(0);
       }
       .brand {
         display: flex;

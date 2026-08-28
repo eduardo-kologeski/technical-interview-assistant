@@ -120,7 +120,7 @@ import { OpenNativePickerDirective } from './open-native-picker.directive';
       }
       header p {
         margin: 0;
-        color: #278d83;
+        color: #176b66;
         font-size: 11px;
         font-weight: 900;
         letter-spacing: 0.14em;
@@ -247,7 +247,7 @@ import { OpenNativePickerDirective } from './open-native-picker.directive';
       }
       .matches span.missing {
         background: #f5f6f7;
-        color: #7a858b;
+        color: #5c6973;
       }
       .matches small {
         font-weight: 700;
@@ -271,7 +271,7 @@ import { OpenNativePickerDirective } from './open-native-picker.directive';
       }
       .muted {
         margin: 5px 0;
-        color: #74818a;
+        color: #5c6973;
       }
       .empty {
         padding: 30px;

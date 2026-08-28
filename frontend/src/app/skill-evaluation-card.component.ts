@@ -17,9 +17,9 @@ type QuickOption = { label: string; text: string; tone: 'positive' | 'neutral' |
       </div>
       <div class="rating" role="radiogroup" [attr.aria-label]="'Nota de ' + name">
         @for (value of scores; track value) {
-          <button type="button" (click)="scoreChange.emit(value)" [class.selected]="score === value && !notEvaluated" [attr.aria-label]="name + ': nota ' + value">{{ value }}</button>
+          <button type="button" role="radio" (click)="scoreChange.emit(value)" [class.selected]="score === value && !notEvaluated" [attr.aria-checked]="score === value && !notEvaluated" [attr.aria-label]="name + ': ' + value + ' de 5'">{{ value }}</button>
         }
-        <button type="button" class="na" (click)="notEvaluatedChange.emit()" [class.selected]="notEvaluated">N/A</button>
+        <button type="button" role="radio" class="na" (click)="notEvaluatedChange.emit()" [class.selected]="notEvaluated" [attr.aria-checked]="notEvaluated" [attr.aria-label]="name + ': não avaliado'">N/A</button>
       </div>
       <label>Comentário<textarea rows="2" [ngModel]="comment" (ngModelChange)="commentChange.emit($event)" placeholder="Registre contexto ou evidências observadas"></textarea></label>
       <div class="quick-tags" aria-label="Opções rápidas de avaliação">
@@ -27,7 +27,7 @@ type QuickOption = { label: string; text: string; tone: 'positive' | 'neutral' |
           <button type="button" [class]="option.tone" (click)="quickOption.emit(option.text)">{{ option.label }}</button>
         }
       </div>
-      @if (removable) { <button type="button" class="remove" (click)="remove.emit()">Remover tecnologia</button> }
+      @if (removable) { <button type="button" class="remove" (click)="remove.emit()" [attr.aria-label]="'Remover ' + name + ' das experiências complementares'">Remover tecnologia</button> }
     </article>
   `,
   styleUrl: './skill-evaluation-card.component.scss',

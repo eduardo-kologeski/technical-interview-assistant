@@ -174,7 +174,7 @@ import {
       header p,
       .section-title p {
         margin: 0;
-        color: #278d83;
+        color: #176b66;
         font-size: 11px;
         font-weight: 900;
         letter-spacing: 0.14em;
@@ -283,7 +283,7 @@ import {
         padding: 18px;
         border: 1px dashed #ccd9de;
         border-radius: 9px;
-        color: #6c7b84;
+        color: #5c6973;
         background: #fafcfd;
       }
       .week-navigation {
@@ -342,7 +342,7 @@ import {
         letter-spacing: 0.07em;
       }
       .week-days article > header span {
-        color: #6d7b84;
+        color: #5c6973;
         font-size: 11px;
       }
       .add-time {
@@ -357,7 +357,7 @@ import {
         gap: 6px;
       }
       .day-slots small {
-        color: #7b878e;
+        color: #5c6973;
       }
       .inline-time-form {
         display: grid;

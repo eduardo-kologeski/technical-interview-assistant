@@ -16,7 +16,7 @@ import { AuthService } from './auth.service';
       <label>Senha<input name="password" [(ngModel)]="password" required minlength="6" type="password" autocomplete="current-password"></label>
       @if (registerMode) { <label>Confirmar senha<input name="confirm" [(ngModel)]="confirmPassword" required type="password" autocomplete="new-password"></label> }
       <label class="remember"><input name="remember" [(ngModel)]="rememberMe" type="checkbox"> Permanecer logado</label>
-      @if (error()) { <p class="error">{{ error() }}</p> }
+      @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
       <button [disabled]="loading()">{{ loading() ? 'Aguarde...' : (registerMode ? 'Criar conta' : 'Entrar') }}</button>
       <p class="switch">{{ registerMode ? 'Já possui uma conta?' : 'Não possui uma conta?' }}
         <a [routerLink]="registerMode ? '/auth/login' : '/auth/register'">{{ registerMode ? 'Entrar' : 'Criar conta' }}</a></p>
