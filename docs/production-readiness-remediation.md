@@ -8,10 +8,10 @@ Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subseq
 
 | Item | Estado | Evidência | Pendência |
 |---|---|---|---|
-| P0-01 Persistência | DONE | Entidades JPA para usuários, vagas, entrevistas, perfil e disponibilidade; avaliação versionada na entrevista; migrations V1–V10 | Validação sobre cópia anonimizada segue externa |
+| P0-01 Persistência | DONE | Entidades JPA para usuários, vagas, entrevistas, perfil e disponibilidade; avaliação versionada na entrevista; migrations V1–V11 | Validação sobre cópia anonimizada segue externa |
 | P0-02 Autosave | DONE | Debounce, fila sequencial, confirmação backend, erro/retry, reload e teste Angular | Exercício E2E com falha real segue no P1 |
 | P0-03 Auth e sessão | DONE | Cadastro/login interno, BCrypt, JWT, rotação/revogação de refresh, logout, `/users/me`, rate limiting e testes de sessão | Política distribuída segue como evolução |
-| P0-04 Schema e histórico | DONE | Flyway V1–V10, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI valida todas as migrations sem skips |
+| P0-04 Schema e histórico | DONE | Flyway V1–V11, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI valida todas as migrations sem skips |
 | P0-05 Auditoria | DONE | Autoria derivada do `SecurityContext`; teste A cria/B edita preserva criador e entrevistador; eventos operacionais estruturados | Centralização/retenção de logs depende do ambiente |
 | P0-06 Backup/restore | PARTIAL | Scripts PowerShell/shell, dump customizado, checksum e recusa de destino não vazio | Restore isolado: NOT VERIFIED — ENVIRONMENT REQUIRED; RPO/RTO externos |
 | P0-07 Produção segura | PARTIAL | Profile `prod` fail-fast, DB/JWT/CORS externos, graceful shutdown, probes, Nginx non-root, headers e proxy same-origin | TLS/ingress, container e homologação: NOT VERIFIED — ENVIRONMENT REQUIRED |
@@ -26,7 +26,7 @@ Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subseq
 | Observabilidade | DONE | Correlation ID, logs operacionais seguros e métricas Prometheus HTTP/JVM/Hikari | Dashboards e alertas são P2/ambiente |
 | Concorrência | DONE | Versionamento otimista em entrevistas e vagas; autosave/edição obsoletos retornam 409 | — |
 | Idempotência | DONE | Conclusão/finalização toleram repetição e o frontend bloqueia clique duplo | — |
-| PostgreSQL/Flyway | DONE | Testcontainers executado no CI com PostgreSQL 17.6, migrations V1–V9 e zero skips | Cópia anonimizada segue externa |
+| PostgreSQL/Flyway | DONE | Testcontainers executado no CI com PostgreSQL 17.6, migrations V1–V11 e zero skips | Cópia anonimizada segue externa |
 | Tratamento de erros | DONE | Problem Details consistente, `correlationId`, mensagens seguras e UX de conflito | Revisão contínua por novo endpoint |
 | Rate limiting | DONE | Limites e `Retry-After` para login, cadastro e refresh, com proxy confiável | Armazenamento distribuído é P2 |
 | Performance | DONE | Vagas, histórico e entrevistadores paginados; filtros de entrevistadores no banco; associações carregadas em lote; índices V9/V10 alinhados às buscas | Monitorar planos reais e volume em homologação |
@@ -43,7 +43,7 @@ Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subseq
 - build Angular: aprovado, com warnings de budget/CommonJS já registrados;
 - secrets audit: nenhum secret produtivo identificado; valores do Compose e profile padrão são exclusivamente locais e o profile `prod` exige valores externos;
 - Docker/Nginx: NOT VERIFIED neste host;
-- PostgreSQL/Flyway real: VERIFIED no CI do PR #20 com PostgreSQL 17.6, 9 migrations e zero skips; localmente o teste é ignorado quando Docker não está disponível;
+- PostgreSQL/Flyway real: VERIFIED no CI com PostgreSQL 17.6 e todas as migrations da respectiva pilha; localmente o teste é ignorado quando Docker não está disponível;
 - restore: NOT VERIFIED neste host.
 
 ## Progresso P2
@@ -58,6 +58,7 @@ Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subseq
 | Autorização | PARTIAL | Modelo futuro por capacidades e decisões pendentes documentados | Papéis e escopos dependem de aprovação de negócio |
 | Proteção de branches | PARTIAL | Checks e regras recomendadas documentados | Configuração no GitHub exige verificação administrativa |
 | Checklist de produção | DONE | Gate consolidado em `production-checklist.md` | Preenchimento exige ambiente e aprovações externas |
+| Limpeza de sessões | DONE | Refresh tokens expirados/revogados são removidos por job idempotente, transacional e configurável; índices V11 suportam a busca | Monitorar duração/volume em produção |
 
 ## Controles entregues na pilha
 

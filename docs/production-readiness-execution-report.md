@@ -48,13 +48,14 @@ Não houve merge em `develop`/`main`, deploy ou uso de dados reais.
 - desenho de autorização por capacidades e proteção de branches;
 - checklist único de produção;
 - limites explícitos de entrada nos DTOs expostos.
+- limpeza automática e idempotente de refresh tokens expirados/revogados, segura para múltiplas instâncias.
 
 ## Evidências automatizadas
 
 | Evidência | Resultado |
 |---|---|
-| Backend Maven | 38 testes, 0 falhas, 0 erros; 1 Testcontainers ignorado localmente sem Docker |
-| PostgreSQL/Flyway | validado no CI com PostgreSQL real e migrations V1–V10 |
+| Backend Maven | 40 testes, 0 falhas, 0 erros; 1 Testcontainers ignorado localmente sem Docker |
+| PostgreSQL/Flyway | validado no CI com PostgreSQL real; migrations V1–V11 na pilha atual |
 | Frontend Angular | 44 testes aprovados |
 | Build frontend | aprovado; warnings de budget/CommonJS conhecidos |
 | E2E Playwright | fluxo crítico aprovado no CI |

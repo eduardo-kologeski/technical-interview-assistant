@@ -23,6 +23,7 @@ class AuthenticationIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired RefreshTokenCleanupService refreshTokenCleanup;
     @Autowired JdbcTemplate jdbc;
     private final ObjectMapper json = new ObjectMapper();
 
@@ -122,6 +123,20 @@ class AuthenticationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test void cleanupRemovesOnlyRefreshTokensPastRetention() throws Exception {
+        register("old-token@example.com", true).andExpect(status().isCreated());
+        RefreshToken old = refreshTokens.findAll().getFirst();
+        old.expireAt(Instant.now().minus(java.time.Duration.ofDays(31)));
+        refreshTokens.save(old);
+
+        register("current-token@example.com", true).andExpect(status().isCreated());
+        assertEquals(2, refreshTokens.count());
+
+        assertEquals(1, refreshTokenCleanup.removeExpiredAndRevokedTokens());
+        assertEquals(1, refreshTokens.count());
+        assertTrue(refreshTokens.findAll().getFirst().getExpiresAt().isAfter(Instant.now()));
     }
 
     @Test void rejectsOversizedAuthenticationInputBeforeProcessing() throws Exception {

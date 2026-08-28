@@ -25,6 +25,8 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `JWT_SECRET` | sim | Chave Base64 forte fornecida pelo secret manager |
 | `JWT_ACCESS_EXPIRATION` | não | Validade curta do access token; padrão `15m` |
 | `JWT_REFRESH_EXPIRATION` | não | Validade do refresh token; padrão `7d` |
+| `JWT_REFRESH_CLEANUP_RETENTION` | não | Retenção após expiração/revogação; padrão `P30D` |
+| `JWT_REFRESH_CLEANUP_INTERVAL` | não | Intervalo idempotente de limpeza; padrão `PT6H` |
 | `AUTH_RATE_LIMIT_WINDOW` | não | Janela local dos limites; padrão `60s` |
 | `AUTH_LOGIN_RATE_LIMIT` | não | Tentativas de login por origem/janela; padrão `10` |
 | `AUTH_REGISTER_RATE_LIMIT` | não | Cadastros por origem/janela; padrão `5` |

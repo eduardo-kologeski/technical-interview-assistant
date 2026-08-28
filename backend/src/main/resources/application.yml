@@ -27,6 +27,9 @@ app:
     access-expiration: ${JWT_ACCESS_EXPIRATION:15m}
   refresh-token:
     expiration: ${JWT_REFRESH_EXPIRATION:7d}
+    cleanup-retention: ${JWT_REFRESH_CLEANUP_RETENTION:P30D}
+    cleanup-interval: ${JWT_REFRESH_CLEANUP_INTERVAL:PT6H}
+    cleanup-initial-delay: ${JWT_REFRESH_CLEANUP_INITIAL_DELAY:PT5M}
   security:
     rate-limit:
       window: ${AUTH_RATE_LIMIT_WINDOW:60s}
