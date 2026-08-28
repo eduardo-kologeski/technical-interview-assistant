@@ -34,6 +34,7 @@ Esta evidência corresponde à pilha de PRs #8 a #20. Enquanto essas PRs não fo
 | Deploy/containers | PARTIAL | Probes, graceful shutdown, Nginx non-root e proxy same-origin | Validação por container/homologação externa |
 | Acessibilidade | DONE | Foco visível global, link de salto, estados ARIA, anúncios de autosave/progresso, movimento reduzido, contraste do fluxo principal e regressão axe-core WCAG A/AA em entrevista/revisão | Manter validação manual com leitor de tela nas releases de UI |
 | Dependências | DONE | `npm audit` bloqueante no CI, OSV-Scanner para Maven/npm em PRs e varredura semanal, Dependabot sem auto-merge | Triar alertas novos e atualizar supressões somente com justificativa documentada |
+| E2E crítico | DONE | Playwright cobre cadastro, sessão após reload, vaga, entrevista, requisitos, complementar, comportamental, falha/retry de autosave, reload, finalização, feedback e PDF | Manter o cenário no CI Chromium e ampliar somente quando surgir regressão real |
 
 ## Evidências automatizadas
 
