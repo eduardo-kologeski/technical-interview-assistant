@@ -39,6 +39,7 @@ type InterviewAssessment = {
   recommendation: string;
   finalAssessment: string;
 };
+type AutosaveRequest = { sequence: number; assessment: InterviewAssessment };
 
 @Component({
   selector: 'app-interview-page',
@@ -56,6 +57,8 @@ export class InterviewPage {
   readonly loadingVacancies = signal(true);
   readonly vacanciesError = signal(false);
   readonly formError = signal('');
+  readonly finishError = signal('');
+  readonly finishingInterview = signal(false);
   readonly creatingInterview = signal(false);
   readonly selectedVacancyId = signal('');
   readonly started = signal(false);
@@ -239,13 +242,16 @@ export class InterviewPage {
   private timer?: ReturnType<typeof setInterval>;
   private readonly interviewId = signal('');
   private readonly assessmentVersion = signal(0);
-  private readonly autosave = new Subject<InterviewAssessment>();
+  private readonly autosave = new Subject<AutosaveRequest>();
   private failedAssessment?: InterviewAssessment;
+  private autosaveSequence = 0;
+  private finishSequence = 0;
+  private finishRequested = false;
 
   constructor() {
     this.autosave.pipe(
       debounceTime(500),
-      concatMap((assessment) => {
+      concatMap(({ sequence, assessment }) => {
         const id = this.interviewId();
         if (!id) return EMPTY;
         this.saveState.set('Salvando...');
@@ -254,10 +260,17 @@ export class InterviewPage {
             this.assessmentVersion.set(saved.version);
             this.failedAssessment = undefined;
             this.saveState.set('Salvo');
+            if (this.finishRequested && sequence === this.finishSequence)
+              this.completePersistedInterview();
           }),
           catchError(() => {
             this.failedAssessment = assessment;
             this.saveState.set('Falha ao salvar');
+            if (this.finishRequested && sequence === this.finishSequence) {
+              this.finishRequested = false;
+              this.finishingInterview.set(false);
+              this.finishError.set('Não foi possível salvar os dados finais. Tente novamente.');
+            }
             return EMPTY;
           }),
         );
@@ -366,11 +379,12 @@ export class InterviewPage {
   }
 
   finishInterview() {
-    clearInterval(this.timer);
-    this.running.set(false);
+    if (this.finishingInterview()) return;
+    this.finishError.set('');
+    this.finishingInterview.set(true);
+    this.finishRequested = true;
     this.finalAssessment.set(this.buildAssessmentDraft());
-    this.reviewing.set(true);
-    this.markSaving();
+    this.finishSequence = this.markSaving();
   }
 
   backToInterview() {
@@ -702,10 +716,13 @@ export class InterviewPage {
   private markSaving() {
     if (!this.interviewId()) {
       this.saveState.set('Não salvo — somente nesta aba');
-      return;
+      return 0;
     }
     this.saveState.set('Salvando...');
-    this.autosave.next(this.assessmentSnapshot());
+    const sequence = ++this.autosaveSequence;
+    if (this.finishRequested) this.finishSequence = sequence;
+    this.autosave.next({ sequence, assessment: this.assessmentSnapshot() });
+    return sequence;
   }
   updateFinalAssessment(value: string) {
     this.finalAssessment.set(value);
@@ -726,7 +743,28 @@ export class InterviewPage {
   retryAutosave() {
     if (!this.failedAssessment) return;
     this.saveState.set('Salvando...');
-    this.autosave.next(this.failedAssessment);
+    const sequence = ++this.autosaveSequence;
+    if (this.finishRequested) this.finishSequence = sequence;
+    this.autosave.next({ sequence, assessment: this.failedAssessment });
+  }
+  private completePersistedInterview() {
+    const id = this.interviewId();
+    if (!id) return;
+    this.interviews.complete(id).subscribe({
+      next: (completed) => {
+        this.assessmentVersion.set(completed.version);
+        this.finishRequested = false;
+        this.finishingInterview.set(false);
+        clearInterval(this.timer);
+        this.running.set(false);
+        this.reviewing.set(true);
+      },
+      error: () => {
+        this.finishRequested = false;
+        this.finishingInterview.set(false);
+        this.finishError.set('Não foi possível finalizar a entrevista. Tente novamente.');
+      },
+    });
   }
   private assessmentSnapshot(): InterviewAssessment {
     return {

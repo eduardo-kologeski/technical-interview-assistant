@@ -82,6 +82,34 @@ describe('App', () => {
     expect(app.saveState()).toBe('Salvo');
   });
 
+  it('waits for the latest autosave before completing once', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    const http = TestBed.inject(HttpTestingController);
+    http.match(() => true).forEach((request) => request.flush([]));
+    (app as any).interviewId.set('interview-3');
+    (app as any).assessmentVersion.set(0);
+
+    app.updateNotes('Versão anterior');
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    const previous = http.expectOne('/api/interviews/interview-3/assessment');
+
+    app.updateNotes('Versão final');
+    app.finishInterview();
+    previous.flush({ version: 1 });
+    expect(http.match('/api/interviews/interview-3/complete')).toHaveLength(0);
+    await new Promise((resolve) => setTimeout(resolve, 550));
+
+    const latest = http.expectOne('/api/interviews/interview-3/assessment');
+    expect(latest.request.body.version).toBe(1);
+    expect(JSON.parse(latest.request.body.assessmentData).interviewNotes).toBe('Versão final');
+    latest.flush({ version: 2 });
+    const complete = http.expectOne('/api/interviews/interview-3/complete');
+    complete.flush({ version: 3, status: 'COMPLETED' });
+
+    expect(app.reviewing()).toBe(true);
+    expect(app.finishingInterview()).toBe(false);
+  });
+
   it('should search languages and frameworks with partial case-insensitive text', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.technologySearch.set('JAVA');

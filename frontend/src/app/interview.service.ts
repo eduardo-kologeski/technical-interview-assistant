@@ -6,4 +6,5 @@ export interface InterviewRecord { id:string; vacancyId:string; candidateName:st
   create(candidateName:string,jobPositionId:string,clientCompany:string){return this.http.post<InterviewRecord>(this.url,{candidateName,jobPositionId,clientCompany})}
   get(id:string){return this.http.get<InterviewRecord>(`${this.url}/${id}`)}
   saveAssessment(id:string,version:number,assessmentData:string){return this.http.patch<InterviewRecord>(`${this.url}/${id}/assessment`,{version,assessmentData})}
+  complete(id:string){return this.http.patch<InterviewRecord>(`${this.url}/${id}/complete`,{})}
 }

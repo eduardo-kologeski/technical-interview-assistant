@@ -88,6 +88,9 @@ class InterviewServiceAuditTest {
         clock.advanceTo(completedAt);
         service.complete(interview.id());
         assertThat(interview.completedAt()).isEqualTo(completedAt);
+        clock.advanceTo(completedAt.plusSeconds(30));
+        service.complete(interview.id());
+        assertThat(interview.completedAt()).isEqualTo(completedAt);
 
         var finalizedAt = Instant.parse("2026-08-26T18:10:00Z");
         clock.advanceTo(finalizedAt);

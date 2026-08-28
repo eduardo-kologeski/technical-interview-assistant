@@ -111,9 +111,12 @@
         <button class="timer" (click)="toggleTimer()">
           {{ running() ? 'Ⅱ' : '▶' }} {{ formattedTime() }}
         </button>
-        <button class="finish" (click)="finishInterview()">Finalizar entrevista</button>
+        <button class="finish" (click)="finishInterview()" [disabled]="finishingInterview()">
+          {{ finishingInterview() ? 'Finalizando...' : 'Finalizar entrevista' }}
+        </button>
       </div>
     </section>
+    @if (finishError()) { <p class="form-error" role="alert">{{ finishError() }}</p> }
     <section class="progress-row">
       <div class="progress-label">
         <span>Progresso da avaliação</span

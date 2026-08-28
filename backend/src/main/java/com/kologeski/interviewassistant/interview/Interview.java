@@ -74,6 +74,7 @@ public class Interview extends AuditableEntity {
     }
 
     public void complete(String actorId, Instant now) {
+        if (status == InterviewStatus.COMPLETED) return;
         if (status != InterviewStatus.IN_PROGRESS) throw new IllegalStateException("interview is not in progress");
         completedAt = now;
         status = InterviewStatus.COMPLETED;
@@ -81,6 +82,7 @@ public class Interview extends AuditableEntity {
     }
 
     public void finalizeAssessment(String actorId, Instant now) {
+        if (assessmentFinalizedAt != null) return;
         if (status != InterviewStatus.COMPLETED) throw new IllegalStateException("interview must be completed");
         assessmentFinalizedAt = now;
         assessmentFinalizedBy = requiredText(actorId, "actorId");
