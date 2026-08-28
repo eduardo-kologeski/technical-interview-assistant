@@ -3,6 +3,7 @@
 Data da consolidação: 28/08/2026  
 Baseline diagnosticada: `develop` em `85e0de6`  
 Estratégia: PRs pequenas e empilhadas para revisão; nenhum merge ou deploy automático.
+Última evidência automatizada: PR #43, commit `cac9c1a`.
 
 ## Resultado executivo
 
@@ -60,11 +61,19 @@ Não houve merge em `develop`/`main`, deploy ou uso de dados reais.
 | Build frontend | aprovado; jsPDF permanece lazy e suas dependências CommonJS transitivas estão explicitamente inventariadas; budget de estilo 6/8 KB |
 | E2E Playwright | fluxo crítico aprovado no CI |
 | Dependências | npm audit e OSV aprovados |
-| Containers | build e `docker compose config` aprovados no CI |
+| Containers | builds, scans bloqueantes HIGH/CRITICAL e smoke PostgreSQL/backend/frontend aprovados no CI |
+| Backup/restore | guardas Bash e PowerShell recusam checksum corrompido antes da conexão; restore completo requer ambiente isolado |
 | PDF | documento de QA com 9 páginas inspecionado visualmente e por extração |
 | Secrets no conteúdo versionado atual | nenhum secret produtivo identificado |
 
-O host local não possui Docker; portanto PostgreSQL Testcontainers, Compose e imagens são evidência de CI, não validação local. O teste de carga foi preparado, mas exige homologação e dados sintéticos controlados.
+O host local não possui Docker; portanto PostgreSQL Testcontainers, Compose e imagens são evidência de CI, não validação local. No PR #43, o smoke inicializou PostgreSQL 18.6, aplicou Flyway V1–V11, confirmou backend e frontend saudáveis e concluiu com todos os checks verdes. O teste de carga foi preparado, mas exige homologação e dados sintéticos controlados.
+
+## Rastreabilidade Git
+
+- implementação organizada na pilha revisável de PRs #8 a #43;
+- auditoria final mantida em branch própria, empilhada sobre o PR #43;
+- commits Conventional Commits e pushes incrementais;
+- destino de revisão: `develop`; nenhum merge em `develop`/`main` foi realizado.
 
 ## Riscos residuais
 
