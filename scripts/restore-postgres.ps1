@@ -11,6 +11,18 @@ if ([string]::IsNullOrWhiteSpace($env:RESTORE_DATABASE_URL)) {
     throw 'RESTORE_DATABASE_URL must target an isolated, empty PostgreSQL database.'
 }
 $resolvedBackup = (Resolve-Path -LiteralPath $BackupFile).Path
+$checksumFile = "$resolvedBackup.sha256"
+if (-not (Test-Path -LiteralPath $checksumFile -PathType Leaf)) {
+    throw "Checksum file not found: $checksumFile"
+}
+$checksumParts = ((Get-Content -LiteralPath $checksumFile -Raw).Trim() -split '\s+', 2)
+if ($checksumParts.Count -lt 1 -or $checksumParts[0] -notmatch '^[A-Fa-f0-9]{64}$') {
+    throw 'Checksum file is invalid.'
+}
+$actualChecksum = (Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedBackup).Hash
+if (-not $actualChecksum.Equals($checksumParts[0], [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Backup checksum verification failed. Restore was not started.'
+}
 foreach ($tool in @('psql', 'pg_restore')) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "$tool was not found in PATH." }
 }

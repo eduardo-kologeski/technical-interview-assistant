@@ -9,5 +9,9 @@ timestamp="$(date -u +%Y%m%d-%H%M%S)"
 backup_file="$output_directory/interview-assistant-$timestamp.dump"
 
 pg_dump --format=custom --no-owner --no-acl --file="$backup_file" "$DATABASE_URL"
-sha256sum "$backup_file" > "$backup_file.sha256"
+backup_name="$(basename "$backup_file")"
+(
+  cd "$output_directory"
+  sha256sum "$backup_name" > "$backup_name.sha256"
+)
 printf '%s\n' "$backup_file"

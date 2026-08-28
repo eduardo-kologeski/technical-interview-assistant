@@ -9,10 +9,11 @@
 ## Teste de restore
 
 1. Provisionar PostgreSQL isolado e vazio na versão suportada.
-2. Verificar checksum e restaurar com `pg_restore --exit-on-error --no-owner`.
-3. Iniciar a mesma imagem por SHA, validar Flyway e executar smoke sintético.
-4. Comparar contagens esperadas, constraints e amostras conhecidas; medir duração contra RTO.
-5. Registrar operador, backup, RPO observado, duração, evidências e resultado.
-6. Destruir com segurança o ambiente temporário.
+2. Manter o arquivo `.sha256` ao lado do dump. Os scripts recusam automaticamente checksum ausente, inválido ou divergente antes de conectar ao destino.
+3. Restaurar com `pg_restore --exit-on-error --no-owner` somente após a verificação.
+4. Iniciar a mesma imagem por SHA, validar Flyway e executar smoke sintético.
+5. Comparar contagens esperadas, constraints e amostras conhecidas; medir duração contra RTO.
+6. Registrar operador, backup, RPO observado, duração, evidências e resultado.
+7. Destruir com segurança o ambiente temporário.
 
 Restore em produção exige declaração de incidente, aprovação e avaliação explícita da perda de dados entre o ponto restaurado e o incidente.

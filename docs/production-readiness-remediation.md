@@ -13,7 +13,7 @@ Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subseq
 | P0-03 Auth e sessão | DONE | Cadastro/login interno, BCrypt, JWT, rotação/revogação de refresh, logout, `/users/me`, rate limiting e testes de sessão | Política distribuída segue como evolução |
 | P0-04 Schema e histórico | DONE | Flyway V1–V11, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI valida todas as migrations sem skips |
 | P0-05 Auditoria | DONE | Autoria derivada do `SecurityContext`; teste A cria/B edita preserva criador e entrevistador; eventos operacionais estruturados | Centralização/retenção de logs depende do ambiente |
-| P0-06 Backup/restore | PARTIAL | Scripts PowerShell/shell, dump customizado, checksum e recusa de destino não vazio | Restore isolado: NOT VERIFIED — ENVIRONMENT REQUIRED; RPO/RTO externos |
+| P0-06 Backup/restore | PARTIAL | Scripts PowerShell/shell, dump customizado, verificação SHA-256 obrigatória antes da conexão e recusa de destino não vazio | Restore isolado: NOT VERIFIED — ENVIRONMENT REQUIRED; RPO/RTO externos |
 | P0-07 Produção segura | PARTIAL | Profile `prod` fail-fast, DB/JWT/CORS externos, graceful shutdown, probes, Nginx non-root, headers e proxy same-origin | TLS/ingress, container e homologação: NOT VERIFIED — ENVIRONMENT REQUIRED |
 | P0-08 Governança | PARTIAL | Inventário, minimização, acesso atual, exclusão, retenção e backups documentados em `data-governance.md` | Retenção, base legal e responsáveis exigem aprovação externa |
 
