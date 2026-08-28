@@ -48,6 +48,15 @@ class AuthenticationIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test void protectedEndpointReturnsProblemDetailsWithCorrelationId() throws Exception {
+        mvc.perform(get("/api/users/me").header("X-Correlation-ID", "auth-test-123"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Autenticação necessária."))
+                .andExpect(jsonPath("$.correlationId").value("auth-test-123"));
+    }
+
     @Test void duplicateNormalizedEmailReturnsConflict() throws Exception {
         register("duplicate@example.com", false).andExpect(status().isCreated());
         register("DUPLICATE@example.com", false).andExpect(status().isConflict());

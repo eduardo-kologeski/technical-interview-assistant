@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.Normalizer;
 import java.time.*;
 import java.util.*;
+import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 
 @Service
 public class ProfileService {
@@ -123,12 +124,12 @@ public class ProfileService {
 
     private UserTechnicalSkill skill(User user, Long id) {
         return skills.findByIdAndUserId(id, user.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Conhecimento não encontrado."));
+                .orElseThrow(() -> new ResourceNotFoundException("Conhecimento não encontrado."));
     }
 
     private InterviewAvailability availability(User user, Long id) {
         return availability.findByIdAndUserId(id, user.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Disponibilidade não encontrada."));
+                .orElseThrow(() -> new ResourceNotFoundException("Disponibilidade não encontrada."));
     }
 
     static String normalize(String value) {

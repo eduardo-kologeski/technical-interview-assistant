@@ -4,6 +4,7 @@ import com.kologeski.interviewassistant.audit.MutableActor;
 import com.kologeski.interviewassistant.audit.MutableClock;
 import com.kologeski.interviewassistant.vacancy.JobVacancy;
 import com.kologeski.interviewassistant.vacancy.JobVacancyRepository;
+import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -47,7 +48,7 @@ class InterviewServiceAuditTest {
         var service = new InterviewService(interviewRepository, vacancyRepository, actor, clock);
 
         assertThatThrownBy(() -> service.createAndStart(java.util.UUID.randomUUID(), "Candidato", ""))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
 
         var inactive = new JobVacancy("QA", List.of("Cypress"), "creator", Instant.EPOCH);
         inactive.deactivate("creator", Instant.EPOCH.plusSeconds(1));

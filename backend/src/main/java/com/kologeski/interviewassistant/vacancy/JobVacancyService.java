@@ -10,6 +10,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.UUID;
+import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 
 @Service
 public class JobVacancyService {
@@ -68,7 +69,7 @@ public class JobVacancyService {
     }
 
     private JobVacancy required(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("vacancy not found"));
+        return repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
     }
 
     private void requireVersion(JobVacancy vacancy, long expectedVersion) {

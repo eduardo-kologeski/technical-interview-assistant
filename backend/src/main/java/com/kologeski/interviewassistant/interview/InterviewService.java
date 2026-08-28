@@ -10,6 +10,7 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.UUID;
+import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 
 @Service
 public class InterviewService {
@@ -30,7 +31,7 @@ public class InterviewService {
     @Transactional
     public Interview create(UUID vacancyId, String candidateName) {
         var vacancy = vacancyRepository.findById(vacancyId)
-                .orElseThrow(() -> new IllegalArgumentException("vacancy not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
         var actor = currentActor.required();
         var interview = new Interview(vacancy.id(), vacancy.title(), vacancy.requirements(),
                 candidateName, actor.id(), Instant.now(clock));
@@ -42,7 +43,7 @@ public class InterviewService {
     @Transactional
     public Interview createAndStart(UUID vacancyId, String candidateName, String clientCompany) {
         var vacancy = vacancyRepository.findById(vacancyId)
-                .orElseThrow(() -> new IllegalArgumentException("job position not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
         if (!vacancy.active()) throw new IllegalStateException("inactive job position cannot start an interview");
         var actor = currentActor.required();
         var now = Instant.now(clock);
@@ -99,7 +100,7 @@ public class InterviewService {
     }
 
     private Interview required(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("interview not found"));
+        return repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Entrevista não encontrada."));
     }
 
     @FunctionalInterface
