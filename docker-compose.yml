@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: interview_assistant
       POSTGRES_USER: interview_app
-      POSTGRES_PASSWORD: interview_app
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Defina DATABASE_PASSWORD no ambiente ou arquivo .env local}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U interview_app -d interview_assistant"]
       interval: 5s
@@ -18,22 +18,48 @@ services:
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/interview_assistant
       DATABASE_USER: interview_app
-      DATABASE_PASSWORD: interview_app
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Defina DATABASE_PASSWORD no ambiente ou arquivo .env local}
       SERVER_PORT: 8081
-      JWT_SECRET: ${JWT_SECRET:-V7l3Z4qB6uS8yC2dE9gH1jK5mN7pQ3rT6vW8xY0zA2bC4dE6fG8hI0jK2lM4nO6p}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no ambiente ou arquivo .env local}
     ports:
       - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "--silent",
+          "http://localhost:8081/actuator/health",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
 
   frontend:
     build: ./frontend
     ports:
       - "4200:8080"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--output-document=-",
+          "http://localhost:8080/",
+        ]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
 
 volumes:
   postgres_data:
-

@@ -17,10 +17,12 @@ Usuários autenticados também podem manter conhecimentos e disponibilidades em 
 ### Execução
 
 ```powershell
-docker compose up --build
+cp .env.example .env
+# edite .env com segredos locais antes de continuar
+docker compose up --build --wait
 ```
 
-Serviços: frontend em `http://localhost:4200`, API em `http://localhost:8081` e PostgreSQL interno ao Compose. Configure `JWT_SECRET` em ambientes reais; o valor padrão existe apenas para desenvolvimento local.
+Serviços: frontend em `http://localhost:4200`, API em `http://localhost:8081` e PostgreSQL interno ao Compose. O Compose recusa iniciar sem `DATABASE_PASSWORD` e `JWT_SECRET`; nunca reutilize os valores locais em produção.
 
 ## Status
 

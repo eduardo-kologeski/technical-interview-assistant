@@ -65,3 +65,17 @@ jobs:
             frontend/playwright-report
             frontend/test-results
           if-no-files-found: ignore
+
+  container-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose configuration
+        env:
+          DATABASE_PASSWORD: ci-only-database-password
+          JWT_SECRET: ci-only-secret-with-at-least-sixty-four-characters-1234567890
+        run: docker compose config --quiet
+      - name: Build backend image
+        run: docker build --tag technical-interview-backend:ci ./backend
+      - name: Build frontend image
+        run: docker build --tag technical-interview-frontend:ci ./frontend
