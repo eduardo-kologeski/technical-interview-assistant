@@ -31,7 +31,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(8);
+        assertThat(migration.migrationsExecuted).isEqualTo(9);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(

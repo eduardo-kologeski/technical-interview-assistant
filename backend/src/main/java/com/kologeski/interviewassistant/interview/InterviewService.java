@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.UUID;
 import com.kologeski.interviewassistant.api.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 public class InterviewService {
@@ -56,6 +58,11 @@ public class InterviewService {
     }
 
     @Transactional(readOnly = true) public Interview get(UUID id) { return required(id); }
+
+    @Transactional(readOnly = true)
+    public Page<Interview> list(InterviewStatus status, Pageable pageable) {
+        return status == null ? repository.findAll(pageable) : repository.findByStatus(status, pageable);
+    }
 
     @Transactional public Interview start(UUID id) { return mutate(id, Interview::start); }
     @Transactional public Interview complete(UUID id) {

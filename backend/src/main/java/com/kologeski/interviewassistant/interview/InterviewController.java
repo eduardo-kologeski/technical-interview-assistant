@@ -16,9 +16,17 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.kologeski.interviewassistant.api.PageResponse;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/interviews")
+@Validated
 public class InterviewController {
     private final InterviewService service;
 
@@ -30,6 +38,15 @@ public class InterviewController {
     }
 
     @GetMapping("/{id}") InterviewResponse get(@PathVariable UUID id) { return InterviewResponse.from(service.get(id)); }
+
+    @GetMapping
+    PageResponse<InterviewResponse> list(
+            @RequestParam(required = false) InterviewStatus status,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        return PageResponse.from(service.list(status, pageable), InterviewResponse::from);
+    }
 
     @PatchMapping("/{id}/start")
     InterviewResponse start(@PathVariable UUID id) { return InterviewResponse.from(service.start(id)); }

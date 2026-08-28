@@ -44,7 +44,7 @@ describe('App', () => {
   it('shows saved only after the backend confirms autosave', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
-    http.match(() => true).forEach((request) => request.flush([]));
+    flushInitialRequests(http);
     (app as any).interviewId.set('interview-1');
     (app as any).assessmentVersion.set(0);
 
@@ -65,7 +65,7 @@ describe('App', () => {
   it('keeps autosave failure visible and retries explicitly', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
-    http.match(() => true).forEach((request) => request.flush([]));
+    flushInitialRequests(http);
     (app as any).interviewId.set('interview-2');
 
     app.updateNotes('Não pode ser perdido');
@@ -85,7 +85,7 @@ describe('App', () => {
   it('waits for the latest autosave before completing once', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
-    http.match(() => true).forEach((request) => request.flush([]));
+    flushInitialRequests(http);
     (app as any).interviewId.set('interview-3');
     (app as any).assessmentVersion.set(0);
 
@@ -238,8 +238,8 @@ describe('App', () => {
           request.url === '/api/job-positions' &&
           request.params.get('active') === 'true',
       )
-      .flush([
-        {
+      .flush({
+        content: [{
           id: 'job-1',
           title: 'Backend Java',
           seniority: 'Pleno',
@@ -248,8 +248,9 @@ describe('App', () => {
           active: true,
           createdAt: '',
           createdBy: '7',
-        },
-      ]);
+        }],
+        page: 0, size: 100, totalElements: 1, totalPages: 1, first: true, last: true,
+      });
     app.selectVacancy('job-1');
     expect(app.seniority()).toBe('Pleno');
     expect(app.requirementNames()).toBe('Java · SQL');
@@ -485,4 +486,12 @@ function seedSkills(app: InterviewPage) {
       source: 'JOB_REQUIREMENT',
     },
   ]);
+}
+
+function flushInitialRequests(http: HttpTestingController) {
+  http.match(() => true).forEach((request) => request.flush(
+    request.request.url === '/api/job-positions'
+      ? { content: [], page: 0, size: 100, totalElements: 0, totalPages: 0, first: true, last: true }
+      : [],
+  ));
 }

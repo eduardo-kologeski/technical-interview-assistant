@@ -28,6 +28,10 @@ class AuthenticationIntegrationTest {
 
     @BeforeEach void clean() {
         refreshTokens.deleteAll();
+        jdbc.update("DELETE FROM interview_requirement_snapshots");
+        jdbc.update("DELETE FROM interviews");
+        jdbc.update("DELETE FROM job_vacancy_requirements");
+        jdbc.update("DELETE FROM job_vacancies");
         jdbc.update("DELETE FROM interview_availability");
         jdbc.update("DELETE FROM user_technical_skills");
         users.deleteAll();
@@ -105,6 +109,19 @@ class AuthenticationIntegrationTest {
                         .content("{\"jobPositionId\":\"%s\",\"candidateName\":\"Candidato\"}".formatted(vacancyId)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.interviewerId").value(userId))
                 .andExpect(jsonPath("$.createdBy").value(userId));
+
+        mvc.perform(get("/api/job-positions").header("Authorization", "Bearer " + access)
+                        .param("query", "Java").param("page", "0").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.size").value(1));
+
+        mvc.perform(get("/api/interviews").header("Authorization", "Bearer " + access)
+                        .param("status", "IN_PROGRESS").param("page", "0").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1));
     }
 
     private ResultActions register(String email, boolean remember) throws Exception {

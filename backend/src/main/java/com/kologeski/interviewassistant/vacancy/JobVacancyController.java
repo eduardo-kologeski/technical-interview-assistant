@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,9 +18,16 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import com.kologeski.interviewassistant.api.PageResponse;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.validation.annotation.Validated;
 
 @RestController
 @RequestMapping({"/api/job-positions", "/api/vacancies"})
+@Validated
 public class JobVacancyController {
     private final JobVacancyService service;
 
@@ -30,8 +38,13 @@ public class JobVacancyController {
         return VacancyResponse.from(service.create(command.title(), command.seniority(), command.description(), command.requirements()));
     }
 
-    @GetMapping List<VacancyResponse> list(@RequestParam(required = false) Boolean active) {
-        return service.list(active).stream().map(VacancyResponse::from).toList();
+    @GetMapping PageResponse<VacancyResponse> list(
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(defaultValue = "") @Size(max = 120) String query,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        return PageResponse.from(service.list(active, query, pageable), VacancyResponse::from);
     }
     @GetMapping("/{id}") VacancyResponse get(@PathVariable UUID id) { return VacancyResponse.from(service.get(id)); }
 

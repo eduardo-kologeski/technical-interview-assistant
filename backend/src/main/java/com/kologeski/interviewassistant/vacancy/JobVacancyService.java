@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.UUID;
 import com.kologeski.interviewassistant.api.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 public class JobVacancyService {
@@ -39,6 +41,10 @@ public class JobVacancyService {
     @Transactional(readOnly = true) public List<JobVacancy> list() { return repository.findAll(); }
     @Transactional(readOnly = true) public List<JobVacancy> list(Boolean active) {
         return repository.findAll().stream().filter(item -> active == null || item.active() == active).toList();
+    }
+    @Transactional(readOnly = true)
+    public Page<JobVacancy> list(Boolean active, String query, Pageable pageable) {
+        return repository.search(active, query == null ? "" : query.trim(), pageable);
     }
     @Transactional(readOnly = true) public JobVacancy get(UUID id) { return required(id); }
 
