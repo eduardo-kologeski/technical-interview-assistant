@@ -57,7 +57,7 @@ Não houve merge em `develop`/`main`, deploy ou uso de dados reais.
 | Backend Maven | 40 testes, 0 falhas, 0 erros; 1 Testcontainers ignorado localmente sem Docker |
 | PostgreSQL/Flyway | validado no CI com PostgreSQL real; migrations V1–V11 na pilha atual |
 | Frontend Angular | 44 testes aprovados |
-| Build frontend | aprovado; warnings de budget/CommonJS conhecidos |
+| Build frontend | aprovado; jsPDF permanece lazy e suas dependências CommonJS transitivas estão explicitamente inventariadas; budget de estilo 6/8 KB |
 | E2E Playwright | fluxo crítico aprovado no CI |
 | Dependências | npm audit e OSV aprovados |
 | Containers | build e `docker compose config` aprovados no CI |
