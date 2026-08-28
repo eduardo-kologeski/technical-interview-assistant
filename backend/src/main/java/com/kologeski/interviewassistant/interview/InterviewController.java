@@ -70,8 +70,9 @@ public class InterviewController {
         return InterviewResponse.from(service.registerPdfGeneration(id));
     }
 
-    public record CreateInterviewCommand(@NotNull UUID jobPositionId, @NotBlank String candidateName,
-                                         String clientCompany) { }
+    public record CreateInterviewCommand(@NotNull UUID jobPositionId,
+                                         @NotBlank @Size(max = 160) String candidateName,
+                                         @Size(max = 160) String clientCompany) { }
     public record SaveAssessmentCommand(@PositiveOrZero long version,
                                         @NotBlank @Size(max = 1_000_000) String assessmentData) { }
 

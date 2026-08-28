@@ -3,6 +3,7 @@ package com.kologeski.interviewassistant.auth;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,5 +33,5 @@ public class AuthController {
         String ip = forwarded == null || forwarded.isBlank() ? request.getRemoteAddr() : forwarded.split(",")[0].trim();
         return new RefreshTokenService.Metadata(device, request.getHeader("User-Agent"), ip);
     }
-    public record TokenRequest(@NotBlank String refreshToken) { }
+    public record TokenRequest(@NotBlank @Size(max = 4096) String refreshToken) { }
 }

@@ -124,6 +124,19 @@ class AuthenticationIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
+    @Test void rejectsOversizedAuthenticationInputBeforeProcessing() throws Exception {
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of(
+                                "email", "a".repeat(181) + "@example.com",
+                                "password", "x".repeat(73),
+                                "rememberMe", false))))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(post("/api/auth/refresh").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("refreshToken", "x".repeat(4097)))))
+                .andExpect(status().isBadRequest());
+    }
+
     private ResultActions register(String email, boolean remember) throws Exception {
         return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"Usuário Teste\",\"email\":\"%s\",\"password\":\"123456\",\"rememberMe\":%s}"

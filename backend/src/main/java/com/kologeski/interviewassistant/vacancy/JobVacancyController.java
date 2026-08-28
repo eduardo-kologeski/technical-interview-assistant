@@ -58,10 +58,14 @@ public class JobVacancyController {
         return VacancyResponse.from(service.deactivate(id, command.version()));
     }
 
-    public record VacancyCommand(@NotBlank String title, @NotBlank String seniority, String description,
-                                 List<String> requirements) { }
-    public record UpdateVacancyCommand(@NotBlank String title, @NotBlank String seniority,
-                                       String description, List<String> requirements,
+    public record VacancyCommand(@NotBlank @Size(max = 160) String title,
+                                 @NotBlank @Size(max = 80) String seniority,
+                                 @Size(max = 20_000) String description,
+                                 @Size(max = 100) List<@NotBlank @Size(max = 160) String> requirements) { }
+    public record UpdateVacancyCommand(@NotBlank @Size(max = 160) String title,
+                                       @NotBlank @Size(max = 80) String seniority,
+                                       @Size(max = 20_000) String description,
+                                       @Size(max = 100) List<@NotBlank @Size(max = 160) String> requirements,
                                        @NotNull @PositiveOrZero Long version) { }
     public record VersionCommand(@NotNull @PositiveOrZero Long version) { }
 
