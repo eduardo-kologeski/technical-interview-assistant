@@ -8,6 +8,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.kologeski.interviewassistant.auth.AuthenticationService;
 import com.kologeski.interviewassistant.interview.InterviewService;
+import com.kologeski.interviewassistant.vacancy.JobVacancyService;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -19,6 +21,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InterviewService.StaleInterviewException.class)
     ProblemDetail staleInterview(InterviewService.StaleInterviewException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler({JobVacancyService.StaleVacancyException.class, ObjectOptimisticLockingFailureException.class})
+    ProblemDetail staleRecord(RuntimeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "Este registro foi alterado por outro usuário. Recarregue os dados.");
     }
 
     @ExceptionHandler(BadCredentialsException.class)

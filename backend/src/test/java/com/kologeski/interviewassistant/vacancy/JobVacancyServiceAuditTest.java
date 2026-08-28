@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -51,10 +52,24 @@ class JobVacancyServiceAuditTest {
 
         actor.use("another-user");
         clock.advanceTo(Instant.parse("2026-08-26T09:00:00Z"));
-        service.deactivate(vacancy.id());
+        service.deactivate(vacancy.id(), 0);
 
         assertThat(vacancy.active()).isFalse();
         assertThat(vacancy.createdBy()).isEqualTo("creator");
         assertThat(vacancy.updatedBy()).isEqualTo("another-user");
+    }
+
+    @Test
+    void rejectsStaleVacancyUpdates() {
+        var repository = mock(JobVacancyRepository.class);
+        var vacancy = new JobVacancy("Backend", List.of("Java"), "creator", Instant.EPOCH);
+        when(repository.findById(vacancy.id())).thenReturn(java.util.Optional.of(vacancy));
+        var service = new JobVacancyService(repository, new MutableActor("editor"),
+                new MutableClock(Instant.EPOCH.plusSeconds(1)));
+
+        assertThatThrownBy(() -> service.update(vacancy.id(), 1, "Backend", "Pleno", "",
+                List.of("Java")))
+                .isInstanceOf(JobVacancyService.StaleVacancyException.class)
+                .hasMessageContaining("Recarregue");
     }
 }

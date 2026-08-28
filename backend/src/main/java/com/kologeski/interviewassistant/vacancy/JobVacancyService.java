@@ -42,8 +42,9 @@ public class JobVacancyService {
     @Transactional(readOnly = true) public JobVacancy get(UUID id) { return required(id); }
 
     @Transactional
-    public JobVacancy update(UUID id, String title, String seniority, String description, List<String> requirements) {
+    public JobVacancy update(UUID id, long expectedVersion, String title, String seniority, String description, List<String> requirements) {
         var vacancy = required(id);
+        requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
         vacancy.update(title, seniority, description, requirements, actor.id(), Instant.now(clock));
         var saved = repository.save(vacancy);
@@ -52,12 +53,13 @@ public class JobVacancyService {
     }
     public JobVacancy update(UUID id, String title, List<String> requirements) {
         var vacancy = required(id);
-        return update(id, title, vacancy.seniority(), vacancy.description(), requirements);
+        return update(id, vacancy.version(), title, vacancy.seniority(), vacancy.description(), requirements);
     }
 
     @Transactional
-    public JobVacancy deactivate(UUID id) {
+    public JobVacancy deactivate(UUID id, long expectedVersion) {
         var vacancy = required(id);
+        requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
         vacancy.deactivate(actor.id(), Instant.now(clock));
         var saved = repository.save(vacancy);
@@ -67,5 +69,19 @@ public class JobVacancyService {
 
     private JobVacancy required(UUID id) {
         return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("vacancy not found"));
+    }
+
+    private void requireVersion(JobVacancy vacancy, long expectedVersion) {
+        if (vacancy.version() != expectedVersion) {
+            log.warn("event=vacancy_update_conflict vacancyId={} expectedVersion={} actualVersion={}",
+                    vacancy.id(), expectedVersion, vacancy.version());
+            throw new StaleVacancyException();
+        }
+    }
+
+    public static final class StaleVacancyException extends RuntimeException {
+        public StaleVacancyException() {
+            super("Este registro foi alterado por outro usuário. Recarregue os dados.");
+        }
     }
 }

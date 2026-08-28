@@ -9,6 +9,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -23,6 +24,9 @@ public class JobVacancy extends AuditableEntity {
     @Column(nullable = false) private String seniority;
     @Column(columnDefinition = "text") private String description;
     @Column(nullable = false) private boolean active;
+    @Version
+    @Column(nullable = false)
+    private long version;
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "job_vacancy_requirements", joinColumns = @JoinColumn(name = "vacancy_id"))
     @Column(name = "requirement_name", nullable = false)
@@ -73,4 +77,5 @@ public class JobVacancy extends AuditableEntity {
     public String description() { return description; }
     public boolean active() { return active; }
     public List<String> requirements() { return List.copyOf(requirements); }
+    public long version() { return version; }
 }
