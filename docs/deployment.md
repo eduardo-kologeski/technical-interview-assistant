@@ -20,8 +20,12 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `DATABASE_PASSWORD` | sim | Secret manager; nunca arquivo versionado |
 | `SERVER_PORT` | não | Padrão interno da imagem: 8080 |
 | `APP_VERSION` | sim | SemVer e/ou SHA imutável da imagem |
+| `CORS_ALLOWED_ORIGINS` | sim | Lista de origens HTTPS explícitas, separadas por vírgula |
+| `JWT_SECRET` | sim | Chave Base64 forte fornecida pelo secret manager |
+| `JWT_ACCESS_EXPIRATION` | não | Validade curta do access token; padrão `15m` |
+| `JWT_REFRESH_EXPIRATION` | não | Validade do refresh token; padrão `7d` |
 
-Quando autenticação for integrada, também serão obrigatórios JWT/keys, CORS explícito e parâmetros de expiração. A lista deve ser atualizada junto com a feature; não reutilizar secrets entre ambientes.
+Não reutilizar secrets entre ambientes. A aplicação com profile `prod` deve falhar na inicialização quando banco, origem CORS ou chave JWT não forem fornecidos.
 
 ## Build e artefatos
 
