@@ -138,6 +138,8 @@ Smoke mínimo, sempre com dados sintéticos identificados:
 6. finalizar e gerar PDF;
 7. remover/expirar os dados sintéticos conforme política.
 
+O CI inicia PostgreSQL, backend e frontend com as imagens já construídas por SHA, aguarda todos os healthchecks e verifica o health da API e a raiz do Nginx. Esse smoke prova a topologia local da release, mas não substitui E2E nem a validação de TLS/ingress em homologação.
+
 Na baseline auditada somente o health genérico existe; os demais passos dependem dos P0 funcionais.
 
 ## Rollback

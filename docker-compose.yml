@@ -14,6 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
+    image: technical-interview-backend:${APP_IMAGE_TAG:-local}
     build:
       context: ./backend
       args:
@@ -45,6 +46,7 @@ services:
       retries: 5
 
   frontend:
+    image: technical-interview-frontend:${APP_IMAGE_TAG:-local}
     build: ./frontend
     ports:
       - "4200:8080"

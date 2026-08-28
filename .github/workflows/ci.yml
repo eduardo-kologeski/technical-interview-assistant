@@ -90,7 +90,7 @@ jobs:
           --tag technical-interview-backend:${{ github.sha }}
           ./backend
       - name: Build frontend image
-        run: docker build --tag technical-interview-frontend:ci ./frontend
+        run: docker build --tag technical-interview-frontend:${{ github.sha }} ./frontend
       - name: Scan backend image
         uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
         with:
@@ -101,7 +101,30 @@ jobs:
       - name: Scan frontend image
         uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
         with:
-          image: technical-interview-frontend:ci
+          image: technical-interview-frontend:${{ github.sha }}
           fail-build: true
           severity-cutoff: high
           output-format: table
+      - name: Smoke full container stack
+        env:
+          APP_IMAGE_TAG: ${{ github.sha }}
+          DATABASE_PASSWORD: ci-only-database-password
+          JWT_SECRET: ci-only-secret-with-at-least-sixty-four-characters-1234567890
+        run: |
+          docker compose up --detach --wait --no-build
+          curl --fail --silent --show-error http://127.0.0.1:8081/actuator/health
+          curl --fail --silent --show-error http://127.0.0.1:4200/ > /dev/null
+      - name: Collect container logs on failure
+        if: failure()
+        env:
+          APP_IMAGE_TAG: ${{ github.sha }}
+          DATABASE_PASSWORD: ci-only-database-password
+          JWT_SECRET: ci-only-secret-with-at-least-sixty-four-characters-1234567890
+        run: docker compose logs --no-color --tail=200
+      - name: Remove smoke stack
+        if: always()
+        env:
+          APP_IMAGE_TAG: ${{ github.sha }}
+          DATABASE_PASSWORD: ci-only-database-password
+          JWT_SECRET: ci-only-secret-with-at-least-sixty-four-characters-1234567890
+        run: docker compose down --volumes --remove-orphans
