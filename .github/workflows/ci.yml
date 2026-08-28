@@ -70,6 +70,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate monitoring assets
+        run: |
+          jq empty monitoring/grafana/technical-interview-overview.json
+          docker run --rm --entrypoint /bin/promtool \
+            --volume "$PWD/monitoring:/monitoring:ro" \
+            quay.io/prometheus/prometheus@sha256:49214755b6153f90a597adcbff0252cc61069f8ab69ce8411285cd4a560e8038 \
+            check rules /monitoring/prometheus/technical-interview-rules.yml
       - name: Validate Compose configuration
         env:
           DATABASE_PASSWORD: ci-only-database-password

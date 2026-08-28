@@ -1,0 +1,57 @@
+groups:
+  - name: technical-interview-slo-recording
+    interval: 30s
+    rules:
+      - record: tia:http_requests:rate5m
+        expr: sum(rate(http_server_requests_seconds_count{uri!~"/actuator/.*"}[5m]))
+      - record: tia:http_5xx:ratio5m
+        expr: sum(rate(http_server_requests_seconds_count{status=~"5..",uri!~"/actuator/.*"}[5m])) / clamp_min(tia:http_requests:rate5m, 0.000001)
+      - record: tia:http_latency:p95_5m
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{uri!~"/actuator/.*"}[5m])))
+
+  - name: technical-interview-alerts
+    rules:
+      - alert: TechnicalInterviewHighErrorBudgetBurn
+        expr: tia:http_5xx:ratio5m > 0.01
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API consumindo rapidamente o error budget"
+          description: "A proporção de respostas 5xx excedeu 1% por 10 minutos."
+
+      - alert: TechnicalInterviewHighLatency
+        expr: tia:http_latency:p95_5m > 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latência p95 acima do orçamento"
+          description: "A latência p95 da API excedeu 1 segundo por 15 minutos."
+
+      - alert: TechnicalInterviewDatabasePoolSaturation
+        expr: hikaricp_connections_active / clamp_min(hikaricp_connections_max, 1) > 0.9
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pool de conexões próximo da saturação"
+          description: "Mais de 90% das conexões Hikari estão ativas por 10 minutos."
+
+      - alert: TechnicalInterviewJvmHeapPressure
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / clamp_min(sum(jvm_memory_max_bytes{area="heap"}), 1) > 0.85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pressão persistente de heap"
+          description: "O uso agregado de heap permaneceu acima de 85% por 15 minutos."
+
+      - alert: TechnicalInterviewTargetDown
+        expr: up{job="technical-interview-assistant"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aplicação indisponível para coleta"
+          description: "O alvo não responde ao Prometheus há pelo menos 2 minutos."

@@ -50,7 +50,7 @@ Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subseq
 
 | Item | Estado | Evidência | Pendência |
 |---|---|---|---|
-| SLOs e alertas | PARTIAL | SLIs, objetivos, error budget e limites iniciais documentados em `slo.md` | Calibrar e configurar dashboards/alertas no ambiente |
+| SLOs e alertas | PARTIAL | SLIs/error budget em `slo.md`, recording/alert rules Prometheus e dashboard Grafana versionados | Validar com promtool, calibrar e instalar no ambiente |
 | Runbooks | DONE | Banco indisponível, falha de deploy, autenticação e backup/restore documentados | Exercitar em game day antes do go-live |
 | Versionamento | DONE | SemVer em `APP_VERSION` e commit em `GIT_SHA`, incorporados à imagem e disponíveis no Actuator autenticado | Pipeline de release deve fornecer o SemVer aprovado |
 | Browsers | PARTIAL | Matriz e critérios documentados; E2E Chromium no CI | Smoke Edge/Firefox/Safari requer ambiente/dispositivos |

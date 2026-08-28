@@ -31,3 +31,5 @@ Nunca adicionar aos logs:
 ## Alertas recomendados
 
 Os limites precisam ser calibrados em homologação. Como ponto inicial de observação, criar painéis para taxa de respostas 5xx, latência p95/p99, falhas de autenticação, conflitos de autosave, saturação do Hikari e uso de heap. Esses valores não constituem SLO ou SLA.
+
+Os artefatos iniciais versionados ficam em `monitoring/`: regras Prometheus para error budget, latência, disponibilidade, Hikari e heap, além de um dashboard Grafana. A instalação e o roteamento de alertas pertencem ao ambiente e precisam ser validados com `promtool` antes do go-live.
