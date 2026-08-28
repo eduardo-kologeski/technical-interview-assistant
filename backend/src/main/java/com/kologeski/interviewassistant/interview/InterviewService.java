@@ -75,8 +75,27 @@ public class InterviewService {
             log.info("event=interview_completed interviewId={} actorId={}", id, actor.id());
         return saved;
     }
-    @Transactional public Interview finalizeAssessment(UUID id) { return mutate(id, Interview::finalizeAssessment); }
-    @Transactional public Interview registerPdfGeneration(UUID id) { return mutate(id, Interview::registerPdfGeneration); }
+    @Transactional
+    public Interview finalizeAssessment(UUID id) {
+        var interview = required(id);
+        boolean alreadyFinalized = interview.assessmentFinalizedAt() != null;
+        var actor = currentActor.required();
+        interview.finalizeAssessment(actor.id(), Instant.now(clock));
+        var saved = repository.save(interview);
+        if (!alreadyFinalized)
+            log.info("event=interview_assessment_finalized interviewId={} actorId={}", id, actor.id());
+        return saved;
+    }
+
+    @Transactional
+    public Interview registerPdfGeneration(UUID id) {
+        var interview = required(id);
+        var actor = currentActor.required();
+        interview.registerPdfGeneration(actor.id(), Instant.now(clock));
+        var saved = repository.save(interview);
+        log.info("event=interview_pdf_generated interviewId={} actorId={}", id, actor.id());
+        return saved;
+    }
 
     @Transactional
     public Interview renameCandidate(UUID id, String name) {
@@ -96,7 +115,10 @@ public class InterviewService {
         }
         var actor = currentActor.required();
         interview.saveAssessment(assessmentData, actor.id(), Instant.now(clock));
-        return repository.saveAndFlush(interview);
+        var saved = repository.saveAndFlush(interview);
+        log.info("event=interview_autosave_succeeded interviewId={} actorId={} version={}",
+                id, actor.id(), saved.version());
+        return saved;
     }
 
     private Interview mutate(UUID id, AuditMutation operation) {

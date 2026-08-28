@@ -18,7 +18,7 @@ O proxy deve encaminhar esse header. Ao investigar um erro, procure primeiro pel
 
 ## Eventos
 
-Eventos atuais incluem cadastro, login bem-sucedido/falho, refresh, criação/edição/desativação de vaga, início/conclusão de entrevista e conflito de autosave. Eles registram somente IDs técnicos e metadados necessários.
+Eventos atuais incluem cadastro, login bem-sucedido/falho, refresh, criação/edição/desativação de vaga, início/conclusão de entrevista, autosave confirmado/conflitante, finalização da avaliação, geração de PDF e limpeza de refresh tokens. Eles registram somente IDs técnicos e metadados necessários.
 
 Nunca adicionar aos logs:
 

@@ -84,3 +84,17 @@ jobs:
           ./backend
       - name: Build frontend image
         run: docker build --tag technical-interview-frontend:ci ./frontend
+      - name: Scan backend image
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
+        with:
+          image: technical-interview-backend:${{ github.sha }}
+          fail-build: true
+          severity-cutoff: high
+          output-format: table
+      - name: Scan frontend image
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
+        with:
+          image: technical-interview-frontend:ci
+          fail-build: true
+          severity-cutoff: high
+          output-format: table

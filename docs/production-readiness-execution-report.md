@@ -36,7 +36,7 @@ Não houve merge em `develop`/`main`, deploy ou uso de dados reais.
 - acessibilidade do fluxo crítico com axe-core;
 - npm audit, OSV e Dependabot sem auto-merge;
 - Playwright cobrindo a jornada autenticada e falha/retry de autosave;
-- imagens multi-stage/non-root, healthchecks e Compose sem secrets padrão.
+- imagens multi-stage/non-root, healthchecks, scan bloqueante HIGH/CRITICAL e Compose sem secrets padrão.
 
 ### P2
 
