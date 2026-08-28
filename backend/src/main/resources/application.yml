@@ -49,6 +49,7 @@ info:
   app:
     name: ${spring.application.name}
     version: ${APP_VERSION:dev}
+    git-sha: ${GIT_SHA:local}
 
 logging:
   pattern:

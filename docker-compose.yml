@@ -14,7 +14,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+        GIT_SHA: ${GIT_SHA:-local}
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/interview_assistant
       DATABASE_USER: interview_app

@@ -2,7 +2,7 @@
 
 Baseline inicial: `develop` em `85e0de6`, avaliada como **NO-GO** em 27/08/2026. O diagnóstico original permanece em [production-readiness.md](production-readiness.md).
 
-Esta evidência corresponde à pilha de PRs #8 a #20. Enquanto essas PRs não forem revisadas e integradas, `develop` continua com o estado descrito no diagnóstico original.
+Esta evidência corresponde à pilha de PRs #8 a #26 e aos incrementos P2 subsequentes. Enquanto essas PRs não forem revisadas e integradas, `develop` continua com o estado descrito no diagnóstico original.
 
 ## Gate P0
 
@@ -38,13 +38,26 @@ Esta evidência corresponde à pilha de PRs #8 a #20. Enquanto essas PRs não fo
 
 ## Evidências automatizadas
 
-- backend: 36 testes aprovados localmente; CI executa também o teste PostgreSQL sem skip;
-- frontend: 41 testes aprovados;
+- backend: suíte Maven `verify` aprovada localmente; CI executa também o teste PostgreSQL sem skip;
+- frontend: 44 testes aprovados;
 - build Angular: aprovado, com warnings de budget/CommonJS já registrados;
 - secrets audit: nenhum secret produtivo identificado; valores do Compose e profile padrão são exclusivamente locais e o profile `prod` exige valores externos;
 - Docker/Nginx: NOT VERIFIED neste host;
 - PostgreSQL/Flyway real: VERIFIED no CI do PR #20 com PostgreSQL 17.6, 9 migrations e zero skips; localmente o teste é ignorado quando Docker não está disponível;
 - restore: NOT VERIFIED neste host.
+
+## Progresso P2
+
+| Item | Estado | Evidência | Pendência |
+|---|---|---|---|
+| SLOs e alertas | PARTIAL | SLIs, objetivos, error budget e limites iniciais documentados em `slo.md` | Calibrar e configurar dashboards/alertas no ambiente |
+| Runbooks | DONE | Banco indisponível, falha de deploy, autenticação e backup/restore documentados | Exercitar em game day antes do go-live |
+| Versionamento | DONE | SemVer em `APP_VERSION` e commit em `GIT_SHA`, incorporados à imagem e disponíveis no Actuator autenticado | Pipeline de release deve fornecer o SemVer aprovado |
+| Browsers | PARTIAL | Matriz e critérios documentados; E2E Chromium no CI | Smoke Edge/Firefox/Safari requer ambiente/dispositivos |
+| Carga | PARTIAL | Cenário k6 cobre login, vagas, entrevista e autosave com thresholds | Executar em homologação isolada e calibrar limites |
+| Autorização | PARTIAL | Modelo futuro por capacidades e decisões pendentes documentados | Papéis e escopos dependem de aprovação de negócio |
+| Proteção de branches | PARTIAL | Checks e regras recomendadas documentados | Configuração no GitHub exige verificação administrativa |
+| Checklist de produção | DONE | Gate consolidado em `production-checklist.md` | Preenchimento exige ambiente e aprovações externas |
 
 ## Controles entregues na pilha
 

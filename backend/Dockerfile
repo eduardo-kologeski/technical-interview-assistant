@@ -7,6 +7,10 @@ COPY src src
 RUN ./mvnw -B package -DskipTests
 
 FROM eclipse-temurin:21-jre
+ARG APP_VERSION=dev
+ARG GIT_SHA=local
+ENV APP_VERSION=${APP_VERSION}
+ENV GIT_SHA=${GIT_SHA}
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \

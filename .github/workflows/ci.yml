@@ -76,6 +76,11 @@ jobs:
           JWT_SECRET: ci-only-secret-with-at-least-sixty-four-characters-1234567890
         run: docker compose config --quiet
       - name: Build backend image
-        run: docker build --tag technical-interview-backend:ci ./backend
+        run: >-
+          docker build
+          --build-arg APP_VERSION=0.0.0-ci
+          --build-arg GIT_SHA=${{ github.sha }}
+          --tag technical-interview-backend:${{ github.sha }}
+          ./backend
       - name: Build frontend image
         run: docker build --tag technical-interview-frontend:ci ./frontend

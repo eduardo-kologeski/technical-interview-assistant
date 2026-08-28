@@ -20,6 +20,7 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `DATABASE_PASSWORD` | sim | Secret manager; nunca arquivo versionado |
 | `SERVER_PORT` | não | Padrão interno da imagem: 8080 |
 | `APP_VERSION` | sim | SemVer e/ou SHA imutável da imagem |
+| `GIT_SHA` | sim | SHA completo do commit contido na imagem |
 | `CORS_ALLOWED_ORIGINS` | sim | Lista de origens HTTPS explícitas, separadas por vírgula |
 | `JWT_SECRET` | sim | Chave Base64 forte fornecida pelo secret manager |
 | `JWT_ACCESS_EXPIRATION` | não | Validade curta do access token; padrão `15m` |
@@ -41,6 +42,8 @@ frontend: npm ci && npm test -- --watch=false && npm run build
 ```
 
 O pipeline deve produzir imagens uma única vez, identificadas por SHA. A mesma imagem aprovada em homologação deve ser promovida para produção. Não reconstruir entre ambientes e não usar tags mutáveis como única referência.
+
+`/actuator/info` expõe `info.app.version` e `info.app.git-sha` apenas a clientes autenticados. A release deve usar SemVer em `APP_VERSION` e o commit imutável em `GIT_SHA`; ambos precisam coincidir com o artefato promovido.
 
 ## Banco e migrations
 
