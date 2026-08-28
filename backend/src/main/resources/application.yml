@@ -37,10 +37,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 
 info:
   app:
     name: ${spring.application.name}
     version: ${APP_VERSION:dev}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%p correlationId=%X{correlationId:-none} logger=%logger{36} message=%msg%n"
 

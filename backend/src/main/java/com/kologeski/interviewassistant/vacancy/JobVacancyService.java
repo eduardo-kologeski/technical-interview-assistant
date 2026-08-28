@@ -7,10 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.UUID;
 
 @Service
 public class JobVacancyService {
+    private static final Logger log = LoggerFactory.getLogger(JobVacancyService.class);
     private final JobVacancyRepository repository;
     private final CurrentActor currentActor;
     private final Clock clock;
@@ -24,7 +27,9 @@ public class JobVacancyService {
     @Transactional
     public JobVacancy create(String title, String seniority, String description, List<String> requirements) {
         var actor = currentActor.required();
-        return repository.save(new JobVacancy(title, seniority, description, requirements, actor.id(), Instant.now(clock)));
+        var saved = repository.save(new JobVacancy(title, seniority, description, requirements, actor.id(), Instant.now(clock)));
+        log.info("event=vacancy_created vacancyId={} actorId={}", saved.id(), actor.id());
+        return saved;
     }
     public JobVacancy create(String title, List<String> requirements) {
         return create(title, "Não informada", "", requirements);
@@ -41,7 +46,9 @@ public class JobVacancyService {
         var vacancy = required(id);
         var actor = currentActor.required();
         vacancy.update(title, seniority, description, requirements, actor.id(), Instant.now(clock));
-        return repository.save(vacancy);
+        var saved = repository.save(vacancy);
+        log.info("event=vacancy_updated vacancyId={} actorId={}", id, actor.id());
+        return saved;
     }
     public JobVacancy update(UUID id, String title, List<String> requirements) {
         var vacancy = required(id);
@@ -53,7 +60,9 @@ public class JobVacancyService {
         var vacancy = required(id);
         var actor = currentActor.required();
         vacancy.deactivate(actor.id(), Instant.now(clock));
-        return repository.save(vacancy);
+        var saved = repository.save(vacancy);
+        log.info("event=vacancy_deactivated vacancyId={} actorId={}", id, actor.id());
+        return saved;
     }
 
     private JobVacancy required(UUID id) {
