@@ -2,31 +2,47 @@
 
 Baseline inicial: `develop` em `85e0de6`, avaliada como **NO-GO** em 27/08/2026. O diagnóstico original permanece em [production-readiness.md](production-readiness.md).
 
-Esta evidência corresponde à pilha de PRs #8 a #13. Enquanto essas PRs não forem revisadas e integradas, `develop` continua com o estado descrito no diagnóstico original.
+Esta evidência corresponde à pilha de PRs #8 a #20. Enquanto essas PRs não forem revisadas e integradas, `develop` continua com o estado descrito no diagnóstico original.
 
 ## Gate P0
 
 | Item | Estado | Evidência | Pendência |
 |---|---|---|---|
-| P0-01 Persistência | DONE | Entidades JPA para usuários, vagas, entrevistas, perfil e disponibilidade; avaliação versionada na entrevista; migrations V1–V7 | Validação PostgreSQL real segue no P1 |
+| P0-01 Persistência | DONE | Entidades JPA para usuários, vagas, entrevistas, perfil e disponibilidade; avaliação versionada na entrevista; migrations V1–V9 | Validação sobre cópia anonimizada segue externa |
 | P0-02 Autosave | DONE | Debounce, fila sequencial, confirmação backend, erro/retry, reload e teste Angular | Exercício E2E com falha real segue no P1 |
-| P0-03 Auth e sessão | DONE | Cadastro/login interno, BCrypt, JWT, rotação/revogação de refresh, logout, `/users/me` e testes de sessão | Rate limit/brute force segue no P1 |
-| P0-04 Schema e histórico | DONE | Flyway V1–V8, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI do PR #18 aplicou e validou as 8 migrations sem skips |
-| P0-05 Auditoria | DONE | Autoria derivada do `SecurityContext`; teste A cria/B edita preserva criador e entrevistador | Eventos estruturados seguem no P1 |
+| P0-03 Auth e sessão | DONE | Cadastro/login interno, BCrypt, JWT, rotação/revogação de refresh, logout, `/users/me`, rate limiting e testes de sessão | Política distribuída segue como evolução |
+| P0-04 Schema e histórico | DONE | Flyway V1–V9, constraints, `ddl-auto=validate`, snapshot imutável, soft delete e teste Testcontainers em PostgreSQL 17.6 | CI do PR #20 aplicou e validou as 9 migrations sem skips |
+| P0-05 Auditoria | DONE | Autoria derivada do `SecurityContext`; teste A cria/B edita preserva criador e entrevistador; eventos operacionais estruturados | Centralização/retenção de logs depende do ambiente |
 | P0-06 Backup/restore | PARTIAL | Scripts PowerShell/shell, dump customizado, checksum e recusa de destino não vazio | Restore isolado: NOT VERIFIED — ENVIRONMENT REQUIRED; RPO/RTO externos |
 | P0-07 Produção segura | PARTIAL | Profile `prod` fail-fast, DB/JWT/CORS externos, graceful shutdown, probes, Nginx non-root, headers e proxy same-origin | TLS/ingress, container e homologação: NOT VERIFIED — ENVIRONMENT REQUIRED |
 | P0-08 Governança | PARTIAL | Inventário, minimização, acesso atual, exclusão, retenção e backups documentados em `data-governance.md` | Retenção, base legal e responsáveis exigem aprovação externa |
 
-**Resultado do gate P0: FAIL / NO-GO**, pois P0-06, P0-07 e P0-08 ainda dependem de verificação ou decisão externa. P0-04 foi validado em PostgreSQL real pelo CI do PR #18. Não há outro P0 de implementação local claramente executável identificado nesta revisão; o trabalho pode avançar para P1 sem declarar o sistema pronto para produção.
+**Resultado do gate P0: FAIL / NO-GO**, pois P0-06, P0-07 e P0-08 ainda dependem de verificação ou decisão externa. P0-04 foi validado em PostgreSQL real pelo CI do PR #20. Não há outro P0 de implementação local claramente executável identificado nesta revisão; o trabalho pode avançar para P1 sem declarar o sistema pronto para produção.
+
+## Progresso P1
+
+| Item | Estado | Evidência | Pendência |
+|---|---|---|---|
+| Observabilidade | DONE | Correlation ID, logs operacionais seguros e métricas Prometheus HTTP/JVM/Hikari | Dashboards e alertas são P2/ambiente |
+| Concorrência | DONE | Versionamento otimista em entrevistas e vagas; autosave/edição obsoletos retornam 409 | — |
+| Idempotência | DONE | Conclusão/finalização toleram repetição e o frontend bloqueia clique duplo | — |
+| PostgreSQL/Flyway | DONE | Testcontainers executado no CI com PostgreSQL 17.6, migrations V1–V9 e zero skips | Cópia anonimizada segue externa |
+| Tratamento de erros | DONE | Problem Details consistente, `correlationId`, mensagens seguras e UX de conflito | Revisão contínua por novo endpoint |
+| Rate limiting | DONE | Limites e `Retry-After` para login, cadastro e refresh, com proxy confiável | Armazenamento distribuído é P2 |
+| Performance | PARTIAL | Vagas e histórico de entrevistas paginados; busca no banco; índices V9 | Entrevistadores e eventual auditoria persistida ainda requerem revisão |
+| PDF | PENDING | Geração funcional existente | Testes de Unicode, volume, textos extensos e quebra de páginas |
+| Deploy/containers | PARTIAL | Probes, graceful shutdown, Nginx non-root e proxy same-origin | Validação por container/homologação externa |
+| Acessibilidade | PENDING | Sem auditoria sistemática completa | Foco, teclado, contraste e leitor de tela |
+| Dependências | PENDING | Build reproduzível | Scan CVE automatizado |
 
 ## Evidências automatizadas
 
-- backend: 25 testes aprovados após persistência/autosave;
-- frontend: 38 testes aprovados após finalização coordenada;
+- backend: 36 testes aprovados localmente; CI executa também o teste PostgreSQL sem skip;
+- frontend: 41 testes aprovados;
 - build Angular: aprovado, com warnings de budget/CommonJS já registrados;
 - secrets audit: nenhum secret produtivo identificado; valores do Compose e profile padrão são exclusivamente locais e o profile `prod` exige valores externos;
 - Docker/Nginx: NOT VERIFIED neste host;
-- PostgreSQL/Flyway real: VERIFIED no CI do PR #18 com PostgreSQL 17.6, 8 migrations e zero skips; localmente o teste é ignorado quando Docker não está disponível;
+- PostgreSQL/Flyway real: VERIFIED no CI do PR #20 com PostgreSQL 17.6, 9 migrations e zero skips; localmente o teste é ignorado quando Docker não está disponível;
 - restore: NOT VERIFIED neste host.
 
 ## Controles entregues na pilha
@@ -43,7 +59,7 @@ Esta evidência corresponde à pilha de PRs #8 a #13. Enquanto essas PRs não fo
 
 ## Ações externas necessárias para encerrar P0
 
-1. Disponibilizar Docker ou PostgreSQL isolado e executar Flyway desde banco vazio e sobre uma cópia anonimizada compatível.
+1. Executar Flyway sobre uma cópia anonimizada compatível; banco vazio em PostgreSQL 17.6 já foi validado no CI.
 2. Executar backup e restore, registrar checksum, duração, contagens e integridade referencial.
 3. Validar imagem Nginx/backend, TLS, headers, CORS e probes em homologação.
 4. Aprovar retenção, acesso, exclusão, RPO/RTO e tratamento de PDFs/backups.
