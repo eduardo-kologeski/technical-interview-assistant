@@ -28,7 +28,7 @@ O projeto está em construção. O desenho do produto, a arquitetura, o domínio
 
 ## Produção
 
-O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production Readiness](docs/production-readiness.md) e o [runbook de deployment, backup e rollback](docs/deployment.md) antes de utilizar dados reais.
+O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production Readiness](docs/production-readiness.md), o [progresso de remediação](docs/production-readiness-remediation.md) e o [runbook de deployment, backup e rollback](docs/deployment.md) antes de utilizar dados reais.
 
 ## Princípios
 
