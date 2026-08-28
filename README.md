@@ -2,6 +2,26 @@
 
 Aplicação para conduzir entrevistas técnicas, registrar avaliações com rapidez e gerar um parecer estruturado e revisável.
 
+## Arquitetura
+
+O sistema é um monólito modular com um único backend Spring Boot e um único banco PostgreSQL:
+
+```text
+Angular -> Spring Boot -> PostgreSQL
+```
+
+O backend contém módulos internos para autenticação, usuários, vagas, entrevistas, avaliações e auditoria. O projeto não depende do AuthCore em runtime. Consulte [`docs/modular-monolith.md`](docs/modular-monolith.md).
+
+Usuários autenticados também podem manter conhecimentos e disponibilidades em datas específicas, navegando por semana, e consultar a aderência transparente entre perfis e vagas. Consulte [`docs/interviewer-profile.md`](docs/interviewer-profile.md).
+
+### Execução
+
+```powershell
+docker compose up --build
+```
+
+Serviços: frontend em `http://localhost:4200`, API em `http://localhost:8081` e PostgreSQL interno ao Compose. Configure `JWT_SECRET` em ambientes reais; o valor padrão existe apenas para desenvolvimento local.
+
 ## Status
 
 O projeto está em construção. O desenho do produto, a arquitetura, o domínio e o backlog estão em [`docs/architecture.md`](docs/architecture.md).
@@ -23,4 +43,3 @@ O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production
 - `main`: versão estável;
 - `develop`: integração do desenvolvimento;
 - `feature/*`: unidades de trabalho revisáveis.
-

@@ -10,12 +10,18 @@ public final class SkillEvaluation {
     private final int weight;
     private final SkillImportance importance;
     private final Integer expectedScore;
+    private final EvaluationSource source;
     private Integer score;
     private EvaluationStatus status;
     private String comment;
 
     public SkillEvaluation(String category, String skill, int weight,
                            SkillImportance importance, Integer expectedScore) {
+        this(category, skill, weight, importance, expectedScore, EvaluationSource.JOB_REQUIREMENT);
+    }
+
+    public SkillEvaluation(String category, String skill, int weight,
+                           SkillImportance importance, Integer expectedScore, EvaluationSource source) {
         this.id = UUID.randomUUID();
         this.category = requireText(category, "category");
         this.skill = requireText(skill, "skill");
@@ -24,6 +30,7 @@ public final class SkillEvaluation {
         this.weight = weight;
         this.importance = Objects.requireNonNull(importance, "importance is required");
         this.expectedScore = expectedScore;
+        this.source = Objects.requireNonNull(source, "source is required");
         this.status = EvaluationStatus.PENDING;
         this.comment = "";
     }
@@ -63,4 +70,5 @@ public final class SkillEvaluation {
     public Integer score() { return score; }
     public EvaluationStatus status() { return status; }
     public String comment() { return comment; }
+    public EvaluationSource source() { return source; }
 }

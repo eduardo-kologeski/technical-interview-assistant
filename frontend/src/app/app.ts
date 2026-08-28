@@ -1,71 +1,329 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, HostListener, signal } from '@angular/core';
+import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { EvaluationSource, SkillEvaluationCardComponent } from './skill-evaluation-card.component';
+import { JobPosition, JobPositionService } from './job-position.service';
+import { InterviewService } from './interview.service';
+import { AuthService } from './auth.service';
+import { ActivatedRoute, Router } from '@angular/router';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
-type Skill = { name: string; category: string; weight: number; importance: Importance; expected: number; score: number | null; skipped: boolean; comment: string };
+type Skill = {
+  name: string;
+  category: string;
+  weight: number;
+  importance: Importance;
+  expected: number;
+  score: number | null;
+  skipped: boolean;
+  comment: string;
+  source: EvaluationSource;
+};
 type TechnologyType = 'LANGUAGE' | 'FRAMEWORK' | 'OTHER';
-type Technology = { name: string; type: TechnologyType; description?: string; reviewScore?: number | null; notEvaluated?: boolean };
+type Technology = {
+  name: string;
+  type: TechnologyType;
+  description?: string;
+  reviewScore?: number | null;
+  notEvaluated?: boolean;
+  source?: EvaluationSource;
+};
 
-@Component({ selector: 'app-root', imports: [CommonModule, FormsModule], templateUrl: './app.html', styleUrl: './app.scss' })
-export class App {
+@Component({
+  selector: 'app-interview-page',
+  imports: [CommonModule, FormsModule, SkillEvaluationCardComponent],
+  templateUrl: './app.html',
+  styleUrl: './app.scss',
+})
+export class InterviewPage {
+  private readonly jobPositions = inject(JobPositionService);
+  private readonly interviews = inject(InterviewService);
+  private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  readonly vacancies = signal<JobPosition[]>([]);
+  readonly loadingVacancies = signal(true);
+  readonly vacanciesError = signal(false);
+  readonly formError = signal('');
+  readonly creatingInterview = signal(false);
+  readonly selectedVacancyId = signal('');
   readonly started = signal(false);
   readonly reviewing = signal(false);
   readonly candidate = signal('');
   readonly role = signal('');
   readonly company = signal('');
-  readonly interviewer = signal('');
-  readonly seniority = signal('Pleno');
-  readonly template = signal('Backend .NET');
+  readonly authenticatedUserName = computed(() => this.auth.user()?.name || '');
+  readonly loadingUser = computed(() => !this.auth.user());
+  readonly seniority = signal('');
+  readonly template = signal('');
   readonly recommendation = signal('Sem recomendação');
   readonly strengths = signal('');
   readonly concerns = signal('');
   readonly finalAssessment = signal('');
   readonly technologySearch = signal('');
   readonly selectedTechnologies = signal<Technology[]>([]);
-  readonly technologyCatalog: Technology[] = [
-    ...['Java', 'C#', 'JavaScript', 'TypeScript', 'Python', 'PHP', 'SQL', 'Go', 'Kotlin', 'C', 'C++', 'Ruby', 'Dart', 'Swift', 'Rust', 'Scala', 'PL/SQL', 'T-SQL'].map(name => ({ name, type: 'LANGUAGE' as const })),
-    ...['Spring', 'Spring Boot', '.NET', 'ASP.NET Core', 'Node.js', 'NestJS', 'Express', 'Django', 'Flask', 'FastAPI', 'Laravel', 'Symfony', 'Ruby on Rails', 'Quarkus', 'Micronaut', 'Angular', 'React', 'Vue.js', 'Next.js', 'Nuxt', 'Svelte', 'Flutter', 'React Native', 'Ionic'].map(name => ({ name, type: 'FRAMEWORK' as const })),
+  readonly behavioralSearch = signal('');
+  readonly lastSupportMessage = signal('');
+  readonly technologySuggestionsExpanded = signal(false);
+  readonly behavioralSuggestionsExpanded = signal(false);
+  readonly selectedBehavioralSkills = signal<string[]>([]);
+  readonly behavioralCatalog = [
+    'Comunicação',
+    'Trabalho em equipe',
+    'Proatividade',
+    'Autonomia',
+    'Organização',
+    'Adaptabilidade',
+    'Capacidade analítica',
+    'Resolução de problemas',
+    'Colaboração',
+    'Clareza na comunicação',
   ];
-  readonly quickTechnologySuggestions = ['Java', 'C#', 'JavaScript', 'TypeScript', 'Python', 'PHP', 'SQL', 'Spring Boot', '.NET', 'Angular', 'React', 'Node.js', 'Laravel'];
+  readonly behavioralResults = computed(() => {
+    const query = this.normalizeTechnology(this.behavioralSearch());
+    return this.behavioralCatalog
+      .filter(
+        (item) => this.normalizeTechnology(item).includes(query) && !this.hasBehavioralSkill(item),
+      )
+      .slice(0, 8);
+  });
+  readonly availableBehavioralSuggestions = computed(() =>
+    this.behavioralCatalog.filter((item) => !this.hasBehavioralSkill(item)),
+  );
+  readonly visibleBehavioralSuggestions = computed(() => {
+    if (this.behavioralSearch().trim()) return this.behavioralResults();
+    const suggestions = this.availableBehavioralSuggestions();
+    return this.behavioralSuggestionsExpanded() ? suggestions : suggestions.slice(0, 4);
+  });
+  readonly technologyCatalog: Technology[] = [
+    ...[
+      'Java',
+      'C#',
+      'JavaScript',
+      'TypeScript',
+      'Python',
+      'PHP',
+      'SQL',
+      'Go',
+      'Kotlin',
+      'C',
+      'C++',
+      'Ruby',
+      'Dart',
+      'Swift',
+      'Rust',
+      'Scala',
+      'PL/SQL',
+      'T-SQL',
+    ].map((name) => ({ name, type: 'LANGUAGE' as const })),
+    ...[
+      'Spring',
+      'Spring Boot',
+      '.NET',
+      'ASP.NET Core',
+      'Node.js',
+      'NestJS',
+      'Express',
+      'Django',
+      'Flask',
+      'FastAPI',
+      'Laravel',
+      'Symfony',
+      'Ruby on Rails',
+      'Quarkus',
+      'Micronaut',
+      'Angular',
+      'React',
+      'Vue.js',
+      'Next.js',
+      'Nuxt',
+      'Svelte',
+      'Flutter',
+      'React Native',
+      'Ionic',
+    ].map((name) => ({ name, type: 'FRAMEWORK' as const })),
+  ];
+  readonly quickTechnologySuggestions = [
+    'Java',
+    'C#',
+    'JavaScript',
+    'TypeScript',
+    'Python',
+    'PHP',
+    'SQL',
+    'Spring Boot',
+    '.NET',
+    'Angular',
+    'React',
+    'Node.js',
+    'Laravel',
+  ];
+  readonly availableQuickTechnologySuggestions = computed(() => {
+    const requirements = new Set(
+      this.skills().flatMap((skill) =>
+        [skill.name, ...skill.name.split('/')].map((name) => this.normalizeTechnology(name)),
+      ),
+    );
+    return this.quickTechnologySuggestions.filter(
+      (name) => !requirements.has(this.normalizeTechnology(name)) && !this.hasTechnology(name),
+    );
+  });
+  readonly visibleQuickTechnologySuggestions = computed(() => {
+    const suggestions = this.availableQuickTechnologySuggestions();
+    return this.technologySuggestionsExpanded() ? suggestions : suggestions.slice(0, 6);
+  });
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);
   readonly running = signal(false);
-  readonly saveState = signal('Não salvo — somente nesta aba');
+  readonly saveState = signal<'Não salvo — somente nesta aba'>('Não salvo — somente nesta aba');
   readonly quickNotes = signal('');
-  readonly skills = signal<Skill[]>([
-    { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '' },
-    { name: 'APIs REST', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '' },
-    { name: 'SQL', category: 'Dados', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '' },
-    { name: 'Angular', category: 'Frontend', weight: 3, importance: 'Desejável', expected: 3, score: null, skipped: false, comment: '' },
-    { name: 'Testes automatizados', category: 'Qualidade', weight: 4, importance: 'Obrigatória', expected: 3, score: null, skipped: false, comment: '' },
-    { name: 'Docker', category: 'DevOps', weight: 2, importance: 'Desejável', expected: 2, score: null, skipped: false, comment: '' },
-  ]);
-  readonly evaluated = computed(() => this.skills().filter(s => s.score !== null || s.skipped).length);
-  readonly progress = computed(() => Math.round(this.evaluated() / this.skills().length * 100));
-  readonly average = computed(() => { const scored = this.skills().filter(s => s.score !== null && !s.skipped); const weights = scored.reduce((sum, s) => sum + s.weight, 0); return weights ? (scored.reduce((sum, s) => sum + s.score! * s.weight, 0) / weights).toFixed(1) : '—'; });
-  readonly formattedTime = computed(() => `${String(Math.floor(this.seconds() / 60)).padStart(2, '0')}:${String(this.seconds() % 60).padStart(2, '0')}`);
+  readonly skills = signal<Skill[]>([]);
+  readonly evaluated = computed(
+    () => this.skills().filter((s) => s.score !== null || s.skipped).length,
+  );
+  readonly requirementNames = computed(() =>
+    this.skills()
+      .map((skill) => skill.name)
+      .join(' · '),
+  );
+  readonly progress = computed(() => Math.round((this.evaluated() / this.skills().length) * 100));
+  readonly average = computed(() => {
+    const scored = this.skills().filter((s) => s.score !== null && !s.skipped);
+    const weights = scored.reduce((sum, s) => sum + s.weight, 0);
+    return weights
+      ? (scored.reduce((sum, s) => sum + s.score! * s.weight, 0) / weights).toFixed(1)
+      : '—';
+  });
+  readonly formattedTime = computed(
+    () =>
+      `${String(Math.floor(this.seconds() / 60)).padStart(2, '0')}:${String(this.seconds() % 60).padStart(2, '0')}`,
+  );
   readonly technologyResults = computed(() => {
     const query = this.normalizeTechnology(this.technologySearch());
-    return query ? this.technologyCatalog.filter(item => this.normalizeTechnology(item.name).includes(query) && !this.hasTechnology(item.name)).slice(0, 8) : [];
+    return query
+      ? this.technologyCatalog
+          .filter(
+            (item) =>
+              this.normalizeTechnology(item.name).includes(query) && !this.hasTechnology(item.name),
+          )
+          .slice(0, 8)
+      : [];
   });
   readonly canAddCustomTechnology = computed(() => {
     const value = this.technologySearch().trim();
-    return !!value && !this.technologyCatalog.some(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(value)) && !this.hasTechnology(value);
+    return (
+      !!value &&
+      !this.technologyCatalog.some(
+        (item) => this.normalizeTechnology(item.name) === this.normalizeTechnology(value),
+      ) &&
+      !this.hasTechnology(value)
+    );
   });
   readonly complementaryTechnologiesForReport = computed(() => {
-    const evaluated = new Set(this.skills().map(skill => this.normalizeTechnology(skill.name)));
-    return this.selectedTechnologies().filter(technology => !evaluated.has(this.normalizeTechnology(technology.name)));
+    const evaluated = new Set(this.skills().map((skill) => this.normalizeTechnology(skill.name)));
+    return this.selectedTechnologies().filter(
+      (technology) => !evaluated.has(this.normalizeTechnology(technology.name)),
+    );
   });
   private timer?: ReturnType<typeof setInterval>;
 
+  constructor() {
+    if (!this.auth.user())
+      this.auth.loadUser().subscribe({ error: () => this.router.navigateByUrl('/auth/login') });
+    const interviewId = this.route.snapshot.paramMap.get('id');
+    if (interviewId) this.loadInterview(interviewId);
+    else this.loadVacancies();
+  }
+
+  loadVacancies() {
+    this.loadingVacancies.set(true);
+    this.vacanciesError.set(false);
+    this.jobPositions.list(true).subscribe({
+      next: (items) => {
+        this.vacancies.set(items.filter((item) => item.active));
+        this.loadingVacancies.set(false);
+      },
+      error: () => {
+        this.vacancies.set([]);
+        this.vacanciesError.set(true);
+        this.loadingVacancies.set(false);
+      },
+    });
+  }
+
+  selectVacancy(id: string) {
+    this.selectedVacancyId.set(id);
+    const vacancy = this.vacancies().find((item) => item.id === id);
+    if (!vacancy) return;
+    this.template.set(vacancy.title);
+    this.role.set(vacancy.title);
+    this.seniority.set(vacancy.seniority);
+    this.skills.set(this.requirementSkills(vacancy.requirements));
+  }
+
   startInterview() {
-    if (!this.candidate().trim()) return;
-    this.candidate.set(this.candidate().trim());
-    this.started.set(true);
-    this.seconds.set(0);
-    this.running.set(true);
-    this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000);
+    this.formError.set('');
+    if (!this.candidate().trim()) {
+      this.formError.set('Informe o nome do candidato.');
+      return;
+    }
+    if (!this.selectedVacancyId()) {
+      this.formError.set('Selecione uma vaga antes de iniciar a entrevista.');
+      return;
+    }
+    if (!this.auth.user()) {
+      this.formError.set('Não foi possível identificar o entrevistador.');
+      return;
+    }
+    this.creatingInterview.set(true);
+    this.interviews
+      .create(this.candidate().trim(), this.selectedVacancyId(), this.company().trim())
+      .subscribe({
+        next: (interview) => this.router.navigate(['/interviews', interview.id]),
+        error: () => {
+          this.creatingInterview.set(false);
+          this.formError.set('Não foi possível iniciar a entrevista. Tente novamente.');
+        },
+      });
+  }
+
+  private loadInterview(id: string) {
+    this.interviews.get(id).subscribe({
+      next: (interview) => {
+        this.candidate.set(interview.candidateName);
+        this.role.set(interview.vacancyTitleSnapshot);
+        this.template.set(interview.vacancyTitleSnapshot);
+        this.seniority.set(interview.senioritySnapshot);
+        this.company.set(interview.clientCompany || '');
+        this.selectedVacancyId.set(interview.vacancyId);
+        this.skills.set(this.requirementSkills(interview.requirementSnapshot));
+        this.started.set(true);
+        this.seconds.set(
+          interview.startedAt
+            ? Math.max(0, Math.floor((Date.now() - new Date(interview.startedAt).getTime()) / 1000))
+            : 0,
+        );
+        this.running.set(interview.status === 'IN_PROGRESS');
+        if (this.running()) this.timer = setInterval(() => this.seconds.update((v) => v + 1), 1000);
+      },
+      error: () => {
+        this.formError.set('Não foi possível carregar a entrevista.');
+      },
+    });
+  }
+
+  private requirementSkills(requirements: string[]): Skill[] {
+    return requirements.map((name) => ({
+      name,
+      category: 'Requisito',
+      weight: 3,
+      importance: 'Obrigatória',
+      expected: 3,
+      score: null,
+      skipped: false,
+      comment: '',
+      source: 'JOB_REQUIREMENT',
+    }));
   }
 
   finishInterview() {
@@ -75,102 +333,248 @@ export class App {
     this.reviewing.set(true);
   }
 
-  backToInterview() { this.reviewing.set(false); }
+  backToInterview() {
+    this.reviewing.set(false);
+  }
 
   async exportPdf() {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-    const left = 16, width = 178, rightColumn = 116;
+    const left = 16,
+      width = 178,
+      rightColumn = 116;
     let y = 16;
-    const border = () => { pdf.setDrawColor(125); pdf.setLineWidth(0.25); };
-    const ensureSpace = (needed: number) => { if (y + needed > 280) { pdf.addPage(); y = 16; } };
-    const textLines = (text: string, maxWidth = width - 8) => pdf.splitTextToSize(text.trim() || 'Não informado.', maxWidth);
+    const border = () => {
+      pdf.setDrawColor(125);
+      pdf.setLineWidth(0.25);
+    };
+    const ensureSpace = (needed: number) => {
+      if (y + needed > 280) {
+        pdf.addPage();
+        y = 16;
+      }
+    };
+    const textLines = (text: string, maxWidth = width - 8) =>
+      pdf.splitTextToSize(text.trim() || 'Não informado.', maxWidth);
     const section = (title: string) => {
-      ensureSpace(14); border(); pdf.setFillColor(190, 190, 190); pdf.rect(left, y, width, 8, 'FD');
-      pdf.setTextColor(15); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11); pdf.text(title, left + 2, y + 5.5); y += 8;
+      ensureSpace(14);
+      border();
+      pdf.setFillColor(190, 190, 190);
+      pdf.rect(left, y, width, 8, 'FD');
+      pdf.setTextColor(15);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.text(title, left + 2, y + 5.5);
+      y += 8;
     };
     const paragraphBox = (text: string, minimumHeight = 18) => {
-      const lines = textLines(text); const height = Math.max(minimumHeight, lines.length * 4.3 + 8); ensureSpace(height);
-      border(); pdf.setTextColor(20); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.rect(left, y, width, height); pdf.text(lines, left + 4, y + 6); y += height;
+      const lines = textLines(text);
+      const height = Math.max(minimumHeight, lines.length * 4.3 + 8);
+      ensureSpace(height);
+      border();
+      pdf.setTextColor(20);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.rect(left, y, width, height);
+      pdf.text(lines, left + 4, y + 6);
+      y += height;
     };
-    const listText = (text: string) => text.split('\n').map(item => item.trim()).filter(Boolean).map(item => `- ${item.replace(/^[-+]\s*/, '')}`).join('\n');
 
-    border(); pdf.setFillColor(180, 180, 180); pdf.rect(left, y, width, 11, 'FD');
-    pdf.setTextColor(0); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.text('Parecer Técnico Seletivo', 105, y + 7.5, { align: 'center' }); y += 11;
+    border();
+    pdf.setFillColor(180, 180, 180);
+    pdf.rect(left, y, width, 11, 'FD');
+    pdf.setTextColor(0);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(15);
+    pdf.text('Parecer Técnico Seletivo', 105, y + 7.5, { align: 'center' });
+    y += 11;
 
     const row = (leftLabel: string, leftValue: string, rightLabel: string, rightValue: string) => {
-      border(); pdf.rect(left, y, rightColumn - left, 8); pdf.rect(rightColumn, y, left + width - rightColumn, 8);
-      pdf.setFontSize(8.5); pdf.setFont('helvetica', 'bold'); pdf.text(leftLabel, left + 1.5, y + 5.3); pdf.text(rightLabel, rightColumn + 1.5, y + 5.3);
-      pdf.setFont('helvetica', 'normal'); pdf.text(leftValue, left + 40, y + 5.3); pdf.text(rightValue, rightColumn + 26, y + 5.3); y += 8;
+      border();
+      pdf.rect(left, y, rightColumn - left, 8);
+      pdf.rect(rightColumn, y, left + width - rightColumn, 8);
+      pdf.setFontSize(8.5);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(leftLabel, left + 1.5, y + 5.3);
+      pdf.text(rightLabel, rightColumn + 1.5, y + 5.3);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(leftValue, left + 40, y + 5.3);
+      pdf.text(rightValue, rightColumn + 26, y + 5.3);
+      y += 8;
     };
     row('Pessoa Candidata:', this.candidate(), 'Data:', new Date().toLocaleDateString('pt-BR'));
-    row('Pessoa Entrevistadora:', this.interviewer() || 'Não informado', 'Vaga:', this.role() || 'Não informada');
+    row(
+      'Pessoa Entrevistadora:',
+      this.authenticatedUserName(),
+      'Vaga:',
+      this.role() || 'Não informada',
+    );
     row('Senioridade:', this.seniority(), 'Template:', this.template());
 
     section('Cultura Técnica');
-    paragraphBox(this.finalAssessment(), 30);
+    paragraphBox(this.technicalCultureForPdf(), 30);
 
     section('Tecnologias e Habilidades');
-    const evaluated = this.skills().map(skill => {
-      const score = skill.skipped ? 'N/A' : skill.score === null ? 'Não avaliado' : `${skill.score}/5`;
-      return `- ${skill.name}: ${score}${skill.comment ? ` - ${skill.comment}` : ''}`;
-    }).join('\n');
-    paragraphBox(evaluated, 28);
-
-    const complementary = this.complementaryTechnologiesForReport();
-    if (complementary.length) {
-      section('Experiências Complementares');
-      const complementaryText = complementary.map(item => {
-        const score = item.notEvaluated ? 'N/A' : item.reviewScore == null ? 'Sem nota' : `${item.reviewScore}/5`;
-        return `- ${item.name}: ${score}${item.description?.trim() ? ` - ${item.description.trim()}` : ''}`;
-      }).join('\n');
-      paragraphBox(`A pessoa candidata relatou as experiências abaixo. Estas notas são informativas e não entram na média.\n${complementaryText}`, 22);
-    }
-
-    section('Prós');
-    paragraphBox(listText(this.strengths()), 20);
-    section('Contras');
-    paragraphBox(listText(this.concerns()), 20);
+    paragraphBox(this.technologiesAndSkillsTextForPdf(), 24);
 
     section('Feedback');
-    paragraphBox(this.quickNotes(), 24);
+    paragraphBox(this.feedbackForPdf(), 24);
 
     section('Conclusão: recomenda a contratação? Para qual perfil e com qual senioridade?');
-    paragraphBox(`Recomendação: ${this.recommendation()}\nMédia ponderada: ${this.average()} / 5\nSenioridade avaliada: ${this.seniority()}`, 26);
+    paragraphBox(
+      `Recomendação: ${this.recommendation()}\nMédia ponderada: ${this.average()} / 5\nSenioridade avaliada: ${this.seniority()}`,
+      26,
+    );
 
     const pages = pdf.getNumberOfPages();
-    for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.setFontSize(7.5); pdf.setTextColor(110); pdf.text(`Página ${page} de ${pages}`, 105, 290, { align: 'center' }); }
-    pdf.save(`parecer-${this.candidate().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'entrevista'}.pdf`);
+    for (let page = 1; page <= pages; page++) {
+      pdf.setPage(page);
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(110);
+      pdf.text(`Página ${page} de ${pages}`, 105, 290, { align: 'center' });
+    }
+    pdf.save(
+      `parecer-${
+        this.candidate()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-') || 'entrevista'
+      }.pdf`,
+    );
   }
 
   private buildAssessmentDraft() {
-    const scored = this.skills().filter(s => s.score !== null);
-    if (!scored.length) return 'Nenhuma competência recebeu nota. Revise as anotações antes de concluir o parecer.';
-    const strong = scored.filter(s => s.score! >= 4).map(s => s.name);
-    const attention = scored.filter(s => s.score! <= 2).map(s => s.name);
-    const parts = [`Foram avaliadas ${scored.length} competências, com média ponderada de ${this.average()} em 5.`];
-    if (strong.length) parts.push(`Os melhores resultados registrados foram em ${strong.join(', ')}.`);
-    if (attention.length) parts.push(`Os principais pontos de desenvolvimento registrados foram ${attention.join(', ')}.`);
-    if (this.quickNotes().trim()) parts.push(`Anotações da entrevista: ${this.quickNotes().trim()}`);
+    const scored = this.skills().filter((s) => s.score !== null);
+    if (!scored.length)
+      return 'Nenhuma competência recebeu nota. Revise as anotações antes de concluir o parecer.';
+    const strong = scored.filter((s) => s.score! >= 4).map((s) => s.name);
+    const attention = scored.filter((s) => s.score! <= 2).map((s) => s.name);
+    const parts = [
+      `Foram avaliadas ${scored.length} competências, com média ponderada de ${this.average()} em 5.`,
+    ];
+    if (strong.length)
+      parts.push(`Os melhores resultados registrados foram em ${strong.join(', ')}.`);
+    if (attention.length)
+      parts.push(
+        `Os principais pontos de desenvolvimento registrados foram ${attention.join(', ')}.`,
+      );
+    const complementary = this.complementaryTechnologiesForReport().filter(
+      (item) => item.reviewScore != null || item.notEvaluated || !!item.description?.trim(),
+    );
+    if (complementary.length) {
+      const details = complementary.map((item) => {
+        const result = item.notEvaluated
+          ? 'N/A'
+          : item.reviewScore == null
+            ? ''
+            : `${item.reviewScore}/5`;
+        return `${item.name}${result ? ` (${result})` : ''}`;
+      });
+      parts.push(
+        `Como experiências tecnológicas complementares, foram registradas: ${details.join(', ')}.`,
+      );
+    }
+    if (this.selectedBehavioralSkills().length)
+      parts.push(
+        `Como habilidades comportamentais, foram registradas: ${this.selectedBehavioralSkills().join(', ')}.`,
+      );
     return parts.join(' ');
   }
 
-  setScore(index: number, score: number) { this.patchSkill(index, { score, skipped: false }); }
-  setNotEvaluated(index: number) { this.patchSkill(index, { score: null, skipped: true }); }
-  updateComment(index: number, comment: string) { this.patchSkill(index, { comment }); }
+  feedbackForPdf() {
+    const blocks: string[] = [];
+    const strengths = this.formatList(this.strengths());
+    const concerns = this.formatList(this.concerns());
+    if (strengths) blocks.push(`Pontos fortes\n${strengths}`);
+    if (concerns) blocks.push(`Pontos fracos e de atenção\n${concerns}`);
+    return blocks.join('\n\n') || 'Nenhum feedback registrado.';
+  }
+
+  technicalCultureForPdf() {
+    return `Resumo técnico\n${this.finalAssessment()}\n\nAnotações da entrevista\n${this.quickNotes().trim() || 'Nenhuma anotação registrada.'}`;
+  }
+
+  technologiesAndSkillsForPdf() {
+    const requirements = this.skills().map((skill) => ({
+      name: skill.name,
+      evaluation: skill.skipped
+        ? 'N/A'
+        : skill.score === null
+          ? 'Não avaliado'
+          : `${skill.score}/5`,
+    }));
+    const complementary = this.complementaryTechnologiesForReport().map((item) => ({
+      name: item.name,
+      evaluation: item.notEvaluated
+        ? 'N/A'
+        : item.reviewScore == null
+          ? 'Sem nota'
+          : `${item.reviewScore}/5`,
+    }));
+    const behavioral = this.selectedBehavioralSkills().map((name) => ({ name, evaluation: '-' }));
+
+    return [
+      { category: 'REQUISITOS DA VAGA', items: requirements },
+      { category: 'EXPERIÊNCIAS COMPLEMENTARES', items: complementary },
+      { category: 'HABILIDADES COMPORTAMENTAIS', items: behavioral },
+    ];
+  }
+
+  technologiesAndSkillsTextForPdf() {
+    const labels: Record<string, string> = {
+      'REQUISITOS DA VAGA': 'Requisitos da vaga:',
+      'EXPERIÊNCIAS COMPLEMENTARES': 'Experiências complementares:',
+      'HABILIDADES COMPORTAMENTAIS': 'Habilidades comportamentais:',
+    };
+
+    return this.technologiesAndSkillsForPdf()
+      .filter((group) => group.items.length)
+      .map((group) => {
+        const items = group.items.map((item) =>
+          item.evaluation === '-' ? item.name : `${item.name}: ${item.evaluation}`,
+        );
+        return `${labels[group.category]}\n${items.join('\n')}`;
+      })
+      .join('\n\n');
+  }
+
+  private formatList(text: string) {
+    return text
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => `- ${item.replace(/^[-+]\s*/, '')}`)
+      .join('\n');
+  }
+
+  setScore(index: number, score: number) {
+    this.patchSkill(index, { score, skipped: false });
+  }
+  setNotEvaluated(index: number) {
+    this.patchSkill(index, { score: null, skipped: true });
+  }
+  updateComment(index: number, comment: string) {
+    this.patchSkill(index, { comment });
+  }
   appendSkillComment(index: number, suggestion: string) {
     const current = this.skills()[index].comment.trim();
     this.updateComment(index, `${current}${current ? ' ' : ''}${suggestion}`);
   }
-  updateNotes(notes: string) { this.quickNotes.set(notes); this.markSaving(); }
+  updateNotes(notes: string) {
+    this.quickNotes.set(notes);
+    this.markSaving();
+  }
   selectTechnology(technology: Technology) {
     if (this.hasTechnology(technology.name)) return;
-    this.selectedTechnologies.update(items => [...items, technology]);
+    this.selectedTechnologies.update((items) => [
+      ...items,
+      { ...technology, source: 'COMPLEMENTARY_EXPERIENCE' },
+    ]);
     this.technologySearch.set('');
+    this.lastSupportMessage.set(`${technology.name} adicionada às experiências complementares.`);
     this.markSaving();
   }
   selectSuggestedTechnology(name: string) {
-    const technology = this.technologyCatalog.find(item => item.name === name);
+    const technology = this.technologyCatalog.find((item) => item.name === name);
     if (technology) this.selectTechnology(technology);
   }
   addCustomTechnology() {
@@ -178,33 +582,92 @@ export class App {
     if (name && !this.hasTechnology(name)) this.selectTechnology({ name, type: 'OTHER' });
   }
   removeTechnology(name: string) {
-    this.selectedTechnologies.update(items => items.filter(item => this.normalizeTechnology(item.name) !== this.normalizeTechnology(name)));
+    this.selectedTechnologies.update((items) =>
+      items.filter(
+        (item) => this.normalizeTechnology(item.name) !== this.normalizeTechnology(name),
+      ),
+    );
     this.markSaving();
   }
-  updateTechnologyReview(name: string, patch: Partial<Pick<Technology, 'description' | 'reviewScore' | 'notEvaluated'>>) {
-    this.selectedTechnologies.update(items => items.map(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(name) ? { ...item, ...patch } : item));
+  updateTechnologyReview(
+    name: string,
+    patch: Partial<Pick<Technology, 'description' | 'reviewScore' | 'notEvaluated'>>,
+  ) {
+    this.selectedTechnologies.update((items) =>
+      items.map((item) =>
+        this.normalizeTechnology(item.name) === this.normalizeTechnology(name)
+          ? { ...item, ...patch }
+          : item,
+      ),
+    );
     this.markSaving();
   }
-  scoreTechnology(name: string, score: number) { this.updateTechnologyReview(name, { reviewScore: score, notEvaluated: false }); }
-  skipTechnologyReview(name: string) { this.updateTechnologyReview(name, { reviewScore: null, notEvaluated: true }); }
+  scoreTechnology(name: string, score: number) {
+    this.updateTechnologyReview(name, { reviewScore: score, notEvaluated: false });
+  }
+  skipTechnologyReview(name: string) {
+    this.updateTechnologyReview(name, { reviewScore: null, notEvaluated: true });
+  }
   appendTechnologyDescription(name: string, suggestion: string) {
-    const technology = this.selectedTechnologies().find(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(name));
+    const technology = this.selectedTechnologies().find(
+      (item) => this.normalizeTechnology(item.name) === this.normalizeTechnology(name),
+    );
     const current = technology?.description?.trim() || '';
-    this.updateTechnologyReview(name, { description: `${current}${current ? ' ' : ''}${suggestion}` });
+    this.updateTechnologyReview(name, {
+      description: `${current}${current ? ' ' : ''}${suggestion}`,
+    });
   }
-  select(index: number) { this.activeIndex.set(index); }
-  toggleTimer() { this.running.update(v => !v); if (this.running()) this.timer = setInterval(() => this.seconds.update(v => v + 1), 1000); else clearInterval(this.timer); }
+  addBehavioralSkill(name = this.behavioralSearch()) {
+    const value = name.trim();
+    if (value && !this.hasBehavioralSkill(value))
+      this.selectedBehavioralSkills.update((items) => [...items, value]);
+    this.behavioralSearch.set('');
+    this.markSaving();
+  }
+  removeBehavioralSkill(name: string) {
+    this.selectedBehavioralSkills.update((items) =>
+      items.filter((item) => this.normalizeTechnology(item) !== this.normalizeTechnology(name)),
+    );
+    this.markSaving();
+  }
+  hasBehavioralSkill(name: string) {
+    return this.selectedBehavioralSkills().some(
+      (item) => this.normalizeTechnology(item) === this.normalizeTechnology(name),
+    );
+  }
+  select(index: number) {
+    this.activeIndex.set(index);
+  }
+  toggleTimer() {
+    this.running.update((v) => !v);
+    if (this.running()) this.timer = setInterval(() => this.seconds.update((v) => v + 1), 1000);
+    else clearInterval(this.timer);
+  }
 
   @HostListener('window:keydown', ['$event'])
   handleShortcut(event: KeyboardEvent) {
     if ((event.target as HTMLElement).matches('input, textarea')) return;
     if (/^[0-5]$/.test(event.key)) this.setScore(this.activeIndex(), Number(event.key));
     if (event.key.toLowerCase() === 'n') this.setNotEvaluated(this.activeIndex());
-    if (event.key === 'ArrowDown') this.activeIndex.update(i => Math.min(i + 1, this.skills().length - 1));
-    if (event.key === 'ArrowUp') this.activeIndex.update(i => Math.max(i - 1, 0));
+    if (event.key === 'ArrowDown')
+      this.activeIndex.update((i) => Math.min(i + 1, this.skills().length - 1));
+    if (event.key === 'ArrowUp') this.activeIndex.update((i) => Math.max(i - 1, 0));
   }
-  private patchSkill(index: number, patch: Partial<Skill>) { this.skills.update(items => items.map((item, i) => i === index ? { ...item, ...patch } : item)); this.markSaving(); }
-  private markSaving() { this.saveState.set('Não salvo — somente nesta aba'); }
-  private hasTechnology(name: string) { return this.selectedTechnologies().some(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(name)); }
-  private normalizeTechnology(name: string) { return name.trim().toLocaleLowerCase('pt-BR'); }
+  private patchSkill(index: number, patch: Partial<Skill>) {
+    this.skills.update((items) =>
+      items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+    this.markSaving();
+  }
+  private markSaving() {
+    this.saveState.set('Não salvo — somente nesta aba');
+  }
+  private hasTechnology(name: string) {
+    return this.selectedTechnologies().some(
+      (item) => this.normalizeTechnology(item.name) === this.normalizeTechnology(name),
+    );
+  }
+  private normalizeTechnology(name: string) {
+    return name.trim().toLocaleLowerCase('pt-BR');
+  }
 }
