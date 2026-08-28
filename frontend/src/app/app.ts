@@ -391,7 +391,7 @@ export class InterviewPage {
     this.reviewing.set(false);
   }
 
-  async exportPdf() {
+  async exportPdf(download = true) {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
     const left = 16,
@@ -410,6 +410,14 @@ export class InterviewPage {
     };
     const textLines = (text: string, maxWidth = width - 8) =>
       pdf.splitTextToSize(text.trim() || 'Não informado.', maxWidth);
+    const fitText = (text: string, maxWidth: number) => {
+      const value = text.trim() || 'Não informado.';
+      if (pdf.getTextWidth(value) <= maxWidth) return value;
+      let shortened = value;
+      while (shortened.length > 1 && pdf.getTextWidth(`${shortened}...`) > maxWidth)
+        shortened = shortened.slice(0, -1);
+      return `${shortened}...`;
+    };
     const section = (title: string) => {
       ensureSpace(14);
       border();
@@ -421,17 +429,33 @@ export class InterviewPage {
       pdf.text(title, left + 2, y + 5.5);
       y += 8;
     };
-    const paragraphBox = (text: string, minimumHeight = 18) => {
-      const lines = textLines(text);
-      const height = Math.max(minimumHeight, lines.length * 4.3 + 8);
-      ensureSpace(height);
-      border();
-      pdf.setTextColor(20);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      pdf.rect(left, y, width, height);
-      pdf.text(lines, left + 4, y + 6);
-      y += height;
+    const paragraphBox = (text: string, minimumHeight = 18, continuationTitle = 'Continuação') => {
+      const remaining = [...textLines(text)];
+      const lineHeight = 4.3;
+      ensureSpace(Math.min(minimumHeight, 264));
+      while (remaining.length) {
+        const available = 280 - y;
+        const maxLines = Math.max(1, Math.floor((available - 8) / lineHeight));
+        const lines = remaining.splice(0, maxLines);
+        const naturalHeight = lines.length * lineHeight + 8;
+        const height = remaining.length ? naturalHeight : Math.max(minimumHeight, naturalHeight);
+        border();
+        pdf.setTextColor(20);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.rect(left, y, width, height);
+        pdf.text(lines, left + 4, y + 6, { lineHeightFactor: 1.2 });
+        y += height;
+        if (remaining.length) {
+          pdf.addPage();
+          y = 16;
+          pdf.setTextColor(80);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9);
+          pdf.text(`${continuationTitle} (continuação)`, left, y + 3);
+          y += 7;
+        }
+      }
     };
 
     border();
@@ -452,8 +476,8 @@ export class InterviewPage {
       pdf.text(leftLabel, left + 1.5, y + 5.3);
       pdf.text(rightLabel, rightColumn + 1.5, y + 5.3);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(leftValue, left + 40, y + 5.3);
-      pdf.text(rightValue, rightColumn + 26, y + 5.3);
+      pdf.text(fitText(leftValue, rightColumn - left - 42), left + 40, y + 5.3);
+      pdf.text(fitText(rightValue, left + width - rightColumn - 28), rightColumn + 26, y + 5.3);
       y += 8;
     };
     row('Pessoa Candidata:', this.candidate(), 'Data:', new Date().toLocaleDateString('pt-BR'));
@@ -466,18 +490,19 @@ export class InterviewPage {
     row('Senioridade:', this.seniority(), 'Template:', this.template());
 
     section('Cultura Técnica');
-    paragraphBox(this.technicalCultureForPdf(), 30);
+    paragraphBox(this.technicalCultureForPdf(), 30, 'Cultura Técnica');
 
     section('Tecnologias e Habilidades');
-    paragraphBox(this.technologiesAndSkillsTextForPdf(), 24);
+    paragraphBox(this.technologiesAndSkillsTextForPdf(), 24, 'Tecnologias e Habilidades');
 
     section('Feedback');
-    paragraphBox(this.feedbackForPdf(), 24);
+    paragraphBox(this.feedbackForPdf(), 24, 'Feedback');
 
     section('Conclusão: recomenda a contratação? Para qual perfil e com qual senioridade?');
     paragraphBox(
       `Recomendação: ${this.recommendation()}\nMédia ponderada: ${this.average()} / 5\nSenioridade avaliada: ${this.seniority()}`,
       26,
+      'Conclusão',
     );
 
     const pages = pdf.getNumberOfPages();
@@ -487,13 +512,17 @@ export class InterviewPage {
       pdf.setTextColor(110);
       pdf.text(`Página ${page} de ${pages}`, 105, 290, { align: 'center' });
     }
-    pdf.save(
-      `parecer-${
-        this.candidate()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-') || 'entrevista'
-      }.pdf`,
-    );
+    if (download)
+      pdf.save(
+        `parecer-${
+          this.candidate()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-') || 'entrevista'
+        }.pdf`,
+      );
+    return pdf;
   }
 
   private buildAssessmentDraft() {

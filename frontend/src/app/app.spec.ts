@@ -385,6 +385,25 @@ describe('App', () => {
     expect(text).not.toContain('Avaliação');
   });
 
+  it('paginates a high-volume PDF without silently clipping long sections', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.candidate.set('José da Silva com um nome profissional muito extenso para o cabeçalho');
+    app.quickNotes.set(
+      Array.from({ length: 180 }, (_, index) =>
+        `Observação ${index + 1}: experiência com integração, segurança, APIs e aplicações legadas.`
+      ).join('\n'),
+    );
+    app.strengths.set('Comunicação clara e sólida experiência prática. '.repeat(80));
+    app.concerns.set('Necessita aprofundamento em observabilidade e mensageria. '.repeat(80));
+    seedSkills(app);
+
+    const pdf = await app.exportPdf(false);
+    const bytes = pdf.output('arraybuffer') as ArrayBuffer;
+
+    expect(pdf.getNumberOfPages()).toBeGreaterThan(3);
+    expect(bytes.byteLength).toBeGreaterThan(10_000);
+  });
+
   it('records behavioral skills without creating scored evaluations', () => {
     const app = TestBed.createComponent(App).componentInstance;
     seedSkills(app);
