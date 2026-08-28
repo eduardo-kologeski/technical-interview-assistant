@@ -22,6 +22,7 @@ frontend/.angular/
 
 # Local runtime artifacts that may contain candidate data
 tmp/
+backups/
 
 # Generated documents
 *.pdf
