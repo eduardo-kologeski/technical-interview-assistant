@@ -45,6 +45,8 @@ frontend: npm ci && npm test -- --watch=false && npm run build
 
 O pipeline deve produzir imagens uma única vez, identificadas por SHA. A mesma imagem aprovada em homologação deve ser promovida para produção. Não reconstruir entre ambientes e não usar tags mutáveis como única referência.
 
+As imagens-base dos Dockerfiles e o PostgreSQL do Compose são fixados por digest. Atualizações devem vir por PR revisada, reconstruir e escanear as imagens e atualizar o comentário/tag de referência junto do digest; nunca trocar apenas para uma tag flutuante.
+
 `/actuator/info` expõe `info.app.version` e `info.app.git-sha` apenas a clientes autenticados. A release deve usar SemVer em `APP_VERSION` e o commit imutável em `GIT_SHA`; ambos precisam coincidir com o artefato promovido.
 
 ## Banco e migrations
