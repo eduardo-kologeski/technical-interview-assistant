@@ -31,7 +31,7 @@ export class App {
   readonly activeIndex = signal(0);
   readonly seconds = signal(1938);
   readonly running = signal(false);
-  readonly saveState = signal<'Salvo' | 'Salvando...'>('Salvo');
+  readonly saveState = signal('Não salvo — somente nesta aba');
   readonly quickNotes = signal('');
   readonly skills = signal<Skill[]>([
     { name: 'C# / .NET', category: 'Backend', weight: 5, importance: 'Obrigatória', expected: 4, score: null, skipped: false, comment: '' },
@@ -58,7 +58,6 @@ export class App {
     return this.selectedTechnologies().filter(technology => !evaluated.has(this.normalizeTechnology(technology.name)));
   });
   private timer?: ReturnType<typeof setInterval>;
-  private saveTimer?: ReturnType<typeof setTimeout>;
 
   startInterview() {
     if (!this.candidate().trim()) return;
@@ -205,7 +204,7 @@ export class App {
     if (event.key === 'ArrowUp') this.activeIndex.update(i => Math.max(i - 1, 0));
   }
   private patchSkill(index: number, patch: Partial<Skill>) { this.skills.update(items => items.map((item, i) => i === index ? { ...item, ...patch } : item)); this.markSaving(); }
-  private markSaving() { this.saveState.set('Salvando...'); clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => this.saveState.set('Salvo'), 450); }
+  private markSaving() { this.saveState.set('Não salvo — somente nesta aba'); }
   private hasTechnology(name: string) { return this.selectedTechnologies().some(item => this.normalizeTechnology(item.name) === this.normalizeTechnology(name)); }
   private normalizeTechnology(name: string) { return name.trim().toLocaleLowerCase('pt-BR'); }
 }
