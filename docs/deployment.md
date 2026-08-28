@@ -19,6 +19,10 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `DATABASE_USER` | sim | Usuário de aplicação com privilégio mínimo |
 | `DATABASE_PASSWORD` | sim | Secret manager; nunca arquivo versionado |
 | `SERVER_PORT` | não | Padrão interno da imagem: 8080 |
+| `SERVER_CONNECTION_TIMEOUT` | não | Conexão Tomcat; padrão `5s` |
+| `SERVER_KEEP_ALIVE_TIMEOUT` | não | Keep-alive Tomcat; padrão `20s` |
+| `SERVER_MAX_CONNECTIONS` | não | Limite Tomcat; padrão `200` |
+| `SERVER_MAX_THREADS` | não | Workers Tomcat; padrão `100` |
 | `APP_VERSION` | sim | SemVer e/ou SHA imutável da imagem |
 | `GIT_SHA` | sim | SHA completo do commit contido na imagem |
 | `CORS_ALLOWED_ORIGINS` | sim | Lista de origens HTTPS explícitas, separadas por vírgula |
@@ -48,6 +52,8 @@ O pipeline deve produzir imagens uma única vez, identificadas por SHA. A mesma 
 As imagens-base dos Dockerfiles e o PostgreSQL do Compose são fixados por digest. Atualizações devem vir por PR revisada, reconstruir e escanear as imagens e atualizar o comentário/tag de referência junto do digest; nunca trocar apenas para uma tag flutuante.
 
 `/actuator/info` expõe `info.app.version` e `info.app.git-sha` apenas a clientes autenticados. A release deve usar SemVer em `APP_VERSION` e o commit imutável em `GIT_SHA`; ambos precisam coincidir com o artefato promovido.
+
+Cada linha de log inclui os mesmos `appVersion` e `gitSha`, permitindo correlacionar incidente e artefato sem consultar conteúdo de entrevistas. O Nginx limita conexão ao backend a 5 s e leitura/escrita a 60 s; valores maiores exigem evidência de carga e não devem substituir correção de lentidão.
 
 ## Banco e migrations
 

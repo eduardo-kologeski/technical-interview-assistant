@@ -56,5 +56,5 @@ info:
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%p correlationId=%X{correlationId:-none} logger=%logger{36} message=%msg%n"
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%p appVersion=${APP_VERSION:dev} gitSha=${GIT_SHA:local} correlationId=%X{correlationId:-none} logger=%logger{36} message=%msg%n"
 

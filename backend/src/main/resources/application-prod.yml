@@ -18,6 +18,14 @@ spring:
     enabled: true
     validate-on-migrate: true
 
+server:
+  tomcat:
+    connection-timeout: ${SERVER_CONNECTION_TIMEOUT:5s}
+    keep-alive-timeout: ${SERVER_KEEP_ALIVE_TIMEOUT:20s}
+    max-connections: ${SERVER_MAX_CONNECTIONS:200}
+    threads:
+      max: ${SERVER_MAX_THREADS:100}
+
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
