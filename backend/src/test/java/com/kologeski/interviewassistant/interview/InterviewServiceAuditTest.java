@@ -145,4 +145,27 @@ class InterviewServiceAuditTest {
                 .isInstanceOf(InterviewService.StaleInterviewException.class)
                 .hasMessageContaining("Recarregue");
     }
+
+    @Test
+    void allowsReviewEditsAfterCompletionButLocksTheFinalizedAssessment() {
+        var interviewRepository = mock(InterviewRepository.class);
+        var vacancyRepository = mock(JobVacancyRepository.class);
+        when(interviewRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(interviewRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var vacancy = new JobVacancy("Backend", List.of("Java"), "creator", Instant.EPOCH);
+        when(vacancyRepository.findById(vacancy.id())).thenReturn(Optional.of(vacancy));
+        var service = new InterviewService(interviewRepository, vacancyRepository,
+                new MutableActor("interviewer"), new MutableClock(Instant.parse("2026-08-26T10:00:00Z")));
+        var interview = service.createAndStart(vacancy.id(), "Candidato", "");
+        when(interviewRepository.findById(interview.id())).thenReturn(Optional.of(interview));
+
+        service.complete(interview.id());
+        service.saveAssessment(interview.id(), 0, "{\"strengths\":\"Boa experiência\"}");
+        assertThat(interview.assessmentData()).contains("Boa experiência");
+
+        service.finalizeAssessment(interview.id());
+        assertThatThrownBy(() -> service.saveAssessment(interview.id(), 0, "{}"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("finalized");
+    }
 }

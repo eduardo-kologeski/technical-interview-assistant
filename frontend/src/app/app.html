@@ -289,6 +289,10 @@
         <p>Revise o conteúdo antes de exportar. A recomendação sempre pertence ao entrevistador.</p>
       </div>
       <div class="session-actions">
+        <span class="save" role="status" aria-live="polite">● {{ saveState() }}</span>
+        @if (saveState() === 'Falha ao salvar') {
+          <button class="retry-save" type="button" (click)="retryAutosave()">Tentar novamente</button>
+        }
         <button class="timer" type="button" (click)="backToInterview()">← Voltar à entrevista</button
         ><button class="finish" type="button" (click)="exportPdf()">Exportar PDF</button>
       </div>

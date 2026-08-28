@@ -101,8 +101,10 @@ public class Interview extends AuditableEntity {
     }
 
     public void saveAssessment(String assessmentData, String actorId, Instant now) {
-        if (status != InterviewStatus.IN_PROGRESS)
-            throw new IllegalStateException("only an interview in progress can be saved");
+        if (status != InterviewStatus.IN_PROGRESS && status != InterviewStatus.COMPLETED)
+            throw new IllegalStateException("only an active interview can be saved");
+        if (assessmentFinalizedAt != null)
+            throw new IllegalStateException("a finalized assessment cannot be changed");
         if (assessmentData == null || assessmentData.isBlank())
             throw new IllegalArgumentException("assessmentData is required");
         if (assessmentData.length() > 1_000_000)
