@@ -12,4 +12,6 @@ Configuração recomendada para `develop` e `main` no GitHub:
 - restringir bypass a responsáveis de incidente, com auditoria;
 - não habilitar auto-merge para atualizações de dependência.
 
+Actions de terceiros e oficiais devem ser referenciadas por SHA completo, com comentário da versão correspondente. Atualizações passam por Dependabot/revisão e nunca trocam automaticamente um SHA apenas porque uma tag mutável foi movida.
+
 `main` recebe somente releases aprovadas a partir de `develop`. A configuração é controle externo e deve ser verificada no GitHub antes do go-live.
