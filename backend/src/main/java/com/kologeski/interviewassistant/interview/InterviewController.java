@@ -29,13 +29,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Validated
 public class InterviewController {
     private final InterviewService service;
+    private final InterviewCollaborationService collaboration;
 
-    public InterviewController(InterviewService service) { this.service = service; }
+    public InterviewController(InterviewService service, InterviewCollaborationService collaboration) { this.service = service; this.collaboration = collaboration; }
 
     @PostMapping
     InterviewResponse create(@Valid @RequestBody CreateInterviewCommand command) {
-        return InterviewResponse.from(service.createAndStart(command.jobPositionId(), command.candidateName(), command.clientCompany()));
+        Interview interview = service.createAndStart(command.jobPositionId(), command.candidateName(), command.clientCompany());
+        collaboration.register(interview, command.participantUserIds());
+        return InterviewResponse.from(interview);
     }
+
+    @GetMapping("/{id}/workspace") WorkspaceResponse workspace(@PathVariable UUID id) { return WorkspaceResponse.from(collaboration.workspace(id)); }
+    @PatchMapping("/{id}/workspace") WorkspaceResponse saveWorkspace(@PathVariable UUID id, @Valid @RequestBody SaveAssessmentCommand command) { return WorkspaceResponse.from(collaboration.save(id, command.version(), command.assessmentData())); }
+    @PatchMapping("/{id}/workspace/complete") WorkspaceResponse completeWorkspace(@PathVariable UUID id) { return WorkspaceResponse.from(collaboration.complete(id)); }
 
     @GetMapping("/{id}") InterviewResponse get(@PathVariable UUID id) { return InterviewResponse.from(service.get(id)); }
 
@@ -72,7 +79,8 @@ public class InterviewController {
 
     public record CreateInterviewCommand(@NotNull UUID jobPositionId,
                                          @NotBlank @Size(max = 160) String candidateName,
-                                         @Size(max = 160) String clientCompany) { }
+                                         @Size(max = 160) String clientCompany,
+                                         @Size(max = 9) List<Long> participantUserIds) { }
     public record SaveAssessmentCommand(@PositiveOrZero long version,
                                         @NotBlank @Size(max = 1_000_000) String assessmentData) { }
 
@@ -94,6 +102,19 @@ public class InterviewController {
                     interview.lastPdfGeneratedAt(), interview.lastPdfGeneratedBy(), interview.createdAt(),
                     interview.createdBy(), interview.updatedAt(), interview.updatedBy(), interview.version(),
                     interview.assessmentData());
+        }
+    }
+
+    public record WorkspaceResponse(UUID id, UUID vacancyId, String candidateName, String vacancyTitleSnapshot,
+            String senioritySnapshot, String clientCompany, List<String> requirementSnapshot, String interviewerId,
+            InterviewStatus status, Instant startedAt, long version, String assessmentData,
+            List<InterviewCollaborationService.ParticipantSummary> participants) {
+        static WorkspaceResponse from(InterviewCollaborationService.Workspace workspace) {
+            Interview interview = workspace.interview();
+            return new WorkspaceResponse(interview.id(), interview.vacancyId(), interview.candidateName(),
+                    interview.vacancyTitleSnapshot(), interview.senioritySnapshot(), interview.clientCompany(),
+                    interview.requirementSnapshot(), interview.interviewerId(), workspace.status(), interview.startedAt(),
+                    workspace.version(), workspace.assessmentData(), workspace.participants());
         }
     }
 }

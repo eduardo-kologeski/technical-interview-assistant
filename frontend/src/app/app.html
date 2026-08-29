@@ -64,10 +64,21 @@
           placeholder="Opcional"
       /></label>
       <div class="authenticated-interviewer">
-        <span>Entrevistador</span
+        <span>Entrevistador responsável</span
         ><strong>{{ loadingUser() ? 'Carregando usuário...' : authenticatedUserName() }}</strong
         ><small>Identificado automaticamente pela sessão autenticada.</small>
       </div>
+      @if (companyInterviewers().length) {
+        <fieldset class="full participant-picker">
+          <legend>Entrevistadores participantes</legend>
+          <p>Selecione quem também realizará esta entrevista. Cada pessoa produzirá seu próprio parecer.</p>
+          <div>
+            @for (person of companyInterviewers(); track person.id) {
+              <label><input type="checkbox" [checked]="selectedParticipantIds().includes(person.id)" (change)="toggleParticipant(person.id, $any($event.target).checked)" /><span><strong>{{ person.name }}</strong><small>{{ person.email }}</small></span></label>
+            }
+          </div>
+        </fieldset>
+      }
       @if (selectedVacancyId()) {
         <div class="full vacancy-preview">
           <strong>{{ template() }}</strong
@@ -100,7 +111,7 @@
         <h1>{{ candidate() }}</h1>
         <p>
           {{ role() || 'Vaga não informada' }} · {{ company() || 'Empresa não informada' }} ·
-          Entrevistador: {{ authenticatedUserName() }}
+          Parecer de: {{ authenticatedUserName() }}
         </p>
       </div>
       <div class="session-actions">

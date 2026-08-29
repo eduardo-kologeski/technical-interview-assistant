@@ -48,7 +48,7 @@ class CompanyIsolationIntegrationTest {
         UUID companyA = createCompany(adminA, "Empresa A");
         UUID companyB = createCompany(adminB, "Empresa B");
 
-        createVacancy(adminA, companyA, "Backend Empresa A");
+        String vacancyA = createVacancy(adminA, companyA, "Backend Empresa A");
         createVacancy(adminB, companyB, "Frontend Empresa B");
 
         mvc.perform(get("/api/job-positions").header("Authorization", bearer(adminA))
@@ -94,6 +94,24 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[?(@.email == 'entrevistador@empresa-a.com')].role").value("INTERVIEWER"));
 
+        Long interviewerId = jdbc.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, "entrevistador@empresa-a.com");
+        MvcResult createdInterview = mvc.perform(post("/api/interviews").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"jobPositionId\":\"%s\",\"candidateName\":\"Candidato compartilhado\",\"participantUserIds\":[%d]}".formatted(vacancyA, interviewerId)))
+                .andExpect(status().isOk()).andReturn();
+        String interviewId = body(createdInterview).get("id").asText();
+
+        mvc.perform(patch("/api/interviews/{id}/workspace", interviewId).header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"assessmentData\":\"{\\\"finalAssessment\\\":\\\"Parecer do gestor\\\"}\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.assessmentData").value("{\"finalAssessment\":\"Parecer do gestor\"}"));
+
+        mvc.perform(get("/api/interviews/{id}/workspace", interviewId).header("Authorization", bearer(interviewer))
+                        .header("X-Company-Id", companyA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(0))
+                .andExpect(jsonPath("$.assessmentData").value("{}"))
+                .andExpect(jsonPath("$.participants.length()").value(2));
+
         mvc.perform(post("/api/companies/invitations/accept")
                         .header("Authorization", bearer(interviewer))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -117,12 +135,13 @@ class CompanyIsolationIntegrationTest {
         return UUID.fromString(body(result).get("id").asText());
     }
 
-    private void createVacancy(String token, UUID companyId, String title) throws Exception {
-        mvc.perform(post("/api/job-positions").header("Authorization", bearer(token))
+    private String createVacancy(String token, UUID companyId, String title) throws Exception {
+        MvcResult result = mvc.perform(post("/api/job-positions").header("Authorization", bearer(token))
                         .header("X-Company-Id", companyId).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"%s\",\"seniority\":\"Pleno\",\"requirements\":[\"Java\"]}"
                                 .formatted(title)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk()).andReturn();
+        return body(result).get("id").asText();
     }
 
     private String bearer(String token) { return "Bearer " + token; }

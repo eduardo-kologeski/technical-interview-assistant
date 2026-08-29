@@ -5,6 +5,7 @@ import { EvaluationSource, SkillEvaluationCardComponent } from './skill-evaluati
 import { JobPosition, JobPositionService } from './job-position.service';
 import { InterviewService } from './interview.service';
 import { AuthService } from './auth.service';
+import { CompanyMember, CompanyService } from './company.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, Subject, catchError, concatMap, debounceTime, tap } from 'rxjs';
 
@@ -51,6 +52,7 @@ export class InterviewPage {
   private readonly jobPositions = inject(JobPositionService);
   private readonly interviews = inject(InterviewService);
   private readonly auth = inject(AuthService);
+  private readonly companies = inject(CompanyService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly vacancies = signal<JobPosition[]>([]);
@@ -67,6 +69,8 @@ export class InterviewPage {
   readonly role = signal('');
   readonly company = signal('');
   readonly authenticatedUserName = computed(() => this.auth.user()?.name || '');
+  readonly companyInterviewers = signal<CompanyMember[]>([]);
+  readonly selectedParticipantIds = signal<number[]>([]);
   readonly loadingUser = computed(() => !this.auth.user());
   readonly seniority = signal('');
   readonly template = signal('');
@@ -280,7 +284,18 @@ export class InterviewPage {
       this.auth.loadUser().subscribe({ error: () => this.router.navigateByUrl('/auth/login') });
     const interviewId = this.route.snapshot.paramMap.get('id');
     if (interviewId) this.loadInterview(interviewId);
-    else this.loadVacancies();
+    else { this.loadVacancies(); this.loadCompanyInterviewers(); }
+  }
+
+  private loadCompanyInterviewers() {
+    this.companies.members().subscribe({
+      next: members => this.companyInterviewers.set(members.filter(member => member.id !== this.auth.user()?.id)),
+      error: () => this.companyInterviewers.set([]),
+    });
+  }
+
+  toggleParticipant(id: number, selected: boolean) {
+    this.selectedParticipantIds.update(ids => selected ? [...ids, id] : ids.filter(value => value !== id));
   }
 
   loadVacancies() {
@@ -325,7 +340,7 @@ export class InterviewPage {
     }
     this.creatingInterview.set(true);
     this.interviews
-      .create(this.candidate().trim(), this.selectedVacancyId(), this.company().trim())
+      .create(this.candidate().trim(), this.selectedVacancyId(), this.company().trim(), this.selectedParticipantIds())
       .subscribe({
         next: (interview) => this.router.navigate(['/interviews', interview.id]),
         error: () => {
