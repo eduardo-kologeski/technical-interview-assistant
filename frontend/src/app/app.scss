@@ -11,6 +11,7 @@ textarea {
 }
 button {
   cursor: pointer;
+  white-space: nowrap;
 }
 main {
   max-width: 1320px;
@@ -96,6 +97,12 @@ h1 {
   grid-template-columns: minmax(0, 1fr) minmax(300px, 330px);
   gap: 24px;
   align-items: start;
+}
+.workspace > *,
+.review-grid > *,
+.interview-header > *,
+.skill-heading > * {
+  min-width: 0;
 }
 .skills-panel > h2 {
   margin: 26px 0 10px;
@@ -202,6 +209,7 @@ textarea:focus {
 }
 .quick-tags {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 9px;
 }
@@ -335,7 +343,7 @@ aside section {
 .stat strong.attention {
   color: #c56031;
 }
-@media (max-width: 1080px) {
+@media (max-width: 860px) {
   .workspace {
     grid-template-columns: 1fr;
   }
@@ -367,7 +375,12 @@ aside section {
   h1 { font-size: 23px; }
   .interview-header { gap: 14px; }
   .interview-header p { font-size: 12px; line-height: 1.45; }
-  .session-actions { width: 100%; gap: 7px; }
+  .session-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 7px;
+  }
   .timer,
   .finish { min-height: 38px; padding: 8px 10px; font-size: 12px; }
   .progress-row { margin: 16px 0 14px; padding: 12px; }
@@ -377,11 +390,23 @@ aside section {
   .rating { gap: 5px; margin: 12px 0; }
   .rating button { width: 34px; height: 34px; }
   .rating .na { width: 44px; margin-left: 0; }
-  .quick-tags { max-height: 82px; overflow-y: auto; flex-wrap: wrap; }
+  .quick-tags,
+  .compact-suggestions,
+  .compact-selected,
+  .support-results {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+  .quick-tags button,
+  .compact-suggestions button,
+  .compact-selected button,
+  .support-results button { flex: 0 0 auto; }
   .support-panel { gap: 8px; }
   .support-panel .support-card { padding: 10px; }
-  .compact-suggestions,
-  .support-results { max-height: 92px; overflow-y: auto; align-content: start; }
   .compact-suggestions button,
   .compact-selected button { min-height: 26px; padding: 3px 6px; font-size: 9px; }
   .support-notes textarea,
@@ -400,8 +425,17 @@ aside section {
     flex-wrap: wrap;
   }
   .session-actions .save {
+    grid-column: 1 / -1;
     width: 100%;
   }
+}
+
+@media (max-width: 360px) {
+  main { padding-right: 8px; padding-left: 8px; }
+  .skill-card { padding: 11px; }
+  .rating { gap: 4px; }
+  .rating button { width: 31px; height: 32px; }
+  .rating .na { width: 41px; }
 }
 
 input[type='date']::selection,
