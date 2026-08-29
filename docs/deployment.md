@@ -19,9 +19,26 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `DATABASE_USER` | sim | Usuário de aplicação com privilégio mínimo |
 | `DATABASE_PASSWORD` | sim | Secret manager; nunca arquivo versionado |
 | `SERVER_PORT` | não | Padrão interno da imagem: 8080 |
+| `SERVER_CONNECTION_TIMEOUT` | não | Conexão Tomcat; padrão `5s` |
+| `SERVER_KEEP_ALIVE_TIMEOUT` | não | Keep-alive Tomcat; padrão `20s` |
+| `SERVER_MAX_CONNECTIONS` | não | Limite Tomcat; padrão `200` |
+| `SERVER_MAX_THREADS` | não | Workers Tomcat; padrão `100` |
 | `APP_VERSION` | sim | SemVer e/ou SHA imutável da imagem |
+| `GIT_SHA` | sim | SHA completo do commit contido na imagem |
+| `CORS_ALLOWED_ORIGINS` | sim | Lista de origens HTTPS explícitas, separadas por vírgula |
+| `JWT_SECRET` | sim | Chave Base64 forte fornecida pelo secret manager |
+| `JWT_ACCESS_EXPIRATION` | não | Validade curta do access token; padrão `15m` |
+| `JWT_REFRESH_EXPIRATION` | não | Validade do refresh token; padrão `7d` |
+| `JWT_REFRESH_CLEANUP_RETENTION` | não | Retenção após expiração/revogação; padrão `P30D` |
+| `JWT_REFRESH_CLEANUP_INTERVAL` | não | Intervalo idempotente de limpeza; padrão `PT6H` |
+| `AUTH_RATE_LIMIT_WINDOW` | não | Janela local dos limites; padrão `60s` |
+| `AUTH_LOGIN_RATE_LIMIT` | não | Tentativas de login por origem/janela; padrão `10` |
+| `AUTH_REGISTER_RATE_LIMIT` | não | Cadastros por origem/janela; padrão `5` |
+| `AUTH_REFRESH_RATE_LIMIT` | não | Refreshes por origem/janela; padrão `30` |
 
-Quando autenticação for integrada, também serão obrigatórios JWT/keys, CORS explícito e parâmetros de expiração. A lista deve ser atualizada junto com a feature; não reutilizar secrets entre ambientes.
+Não reutilizar secrets entre ambientes. A aplicação com profile `prod` deve falhar na inicialização quando banco, origem CORS ou chave JWT não forem fornecidos.
+
+O rate limiting atual é mantido na memória de cada instância. Ele é adequado para uma única instância e reduz abuso acidental, mas não fornece limite global em escala horizontal. Antes de executar múltiplas réplicas, aplicar limite compartilhado no gateway/ingress ou adotar armazenamento distribuído; não aumentar os valores apenas para ocultar respostas `429`.
 
 ## Build e artefatos
 
@@ -31,6 +48,16 @@ frontend: npm ci && npm test -- --watch=false && npm run build
 ```
 
 O pipeline deve produzir imagens uma única vez, identificadas por SHA. A mesma imagem aprovada em homologação deve ser promovida para produção. Não reconstruir entre ambientes e não usar tags mutáveis como única referência.
+
+As imagens-base dos Dockerfiles e o PostgreSQL do Compose são fixados por digest. Atualizações devem vir por PR revisada, reconstruir e escanear as imagens e atualizar o comentário/tag de referência junto do digest; nunca trocar apenas para uma tag flutuante.
+
+Os estágios runtime Alpine aplicam atualizações de segurança disponíveis durante o build e voltam ao usuário não privilegiado. Por isso a imagem final, não apenas o digest-base, é a unidade imutável que deve ser promovida e novamente analisada pelo scanner.
+
+O runtime Nginx remove `curl`, o módulo opcional `nginx-module-image-filter` e sua dependência `tiff`, herdados da imagem-base mas desnecessários para servir o frontend. O healthcheck utiliza o `wget` do BusyBox; não reinstalar ferramentas de diagnóstico na imagem final — depuração deve ocorrer em container efêmero separado.
+
+`/actuator/info` expõe `info.app.version` e `info.app.git-sha` apenas a clientes autenticados. A release deve usar SemVer em `APP_VERSION` e o commit imutável em `GIT_SHA`; ambos precisam coincidir com o artefato promovido.
+
+Cada linha de log inclui os mesmos `appVersion` e `gitSha`, permitindo correlacionar incidente e artefato sem consultar conteúdo de entrevistas. O Nginx limita conexão ao backend a 5 s e leitura/escrita a 60 s; valores maiores exigem evidência de carga e não devem substituir correção de lentidão.
 
 ## Banco e migrations
 
@@ -112,6 +139,8 @@ Smoke mínimo, sempre com dados sintéticos identificados:
 5. salvar uma avaliação e recarregar;
 6. finalizar e gerar PDF;
 7. remover/expirar os dados sintéticos conforme política.
+
+O CI inicia PostgreSQL, backend e frontend com as imagens já construídas por SHA, aguarda todos os healthchecks e verifica o health da API e a raiz do Nginx. Esse smoke prova a topologia local da release, mas não substitui E2E nem a validação de TLS/ingress em homologação.
 
 Na baseline auditada somente o health genérico existe; os demais passos dependem dos P0 funcionais.
 

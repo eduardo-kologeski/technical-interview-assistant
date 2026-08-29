@@ -10,15 +10,18 @@ public final class ScoringService {
     private static final int SCALE = 2;
 
     public ScoreSummary summarize(List<SkillEvaluation> evaluations) {
-        var scored = evaluations.stream().filter(e -> e.status() == EvaluationStatus.SCORED).toList();
+        var requirements = evaluations.stream()
+                .filter(e -> e.source() == EvaluationSource.JOB_REQUIREMENT)
+                .toList();
+        var scored = requirements.stream().filter(e -> e.status() == EvaluationStatus.SCORED).toList();
         var simple = average(scored);
         var weighted = weightedAverage(scored);
         Map<String, BigDecimal> categories = new LinkedHashMap<>();
-        evaluations.stream().map(SkillEvaluation::category).distinct().forEach(category -> {
+        requirements.stream().map(SkillEvaluation::category).distinct().forEach(category -> {
             var categoryScores = scored.stream().filter(e -> e.category().equals(category)).toList();
             if (!categoryScores.isEmpty()) categories.put(category, weightedAverage(categoryScores));
         });
-        return new ScoreSummary(simple, weighted, Map.copyOf(categories), scored.size(), evaluations.size());
+        return new ScoreSummary(simple, weighted, Map.copyOf(categories), scored.size(), requirements.size());
     }
 
     private BigDecimal average(List<SkillEvaluation> values) {

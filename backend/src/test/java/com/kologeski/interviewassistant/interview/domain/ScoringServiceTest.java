@@ -48,6 +48,22 @@ class ScoringServiceTest {
         assertThat(summary.categoryAverages()).isEmpty();
     }
 
+    @Test
+    void excludesComplementaryExperienceFromJobScore() {
+        var requirement = evaluation("Backend", "Java", 5, 3);
+        var complementary = new SkillEvaluation("Complementar", "PHP", 5, SkillImportance.OPTIONAL, null,
+                EvaluationSource.COMPLEMENTARY_EXPERIENCE);
+        complementary.score(5, "Quatro anos de experiência");
+
+        var summary = service.summarize(List.of(requirement, complementary));
+
+        assertThat(summary.simpleAverage()).isEqualByComparingTo("3.00");
+        assertThat(summary.weightedAverage()).isEqualByComparingTo("3.00");
+        assertThat(summary.evaluatedSkills()).isOne();
+        assertThat(summary.totalSkills()).isOne();
+        assertThat(complementary.source()).isEqualTo(EvaluationSource.COMPLEMENTARY_EXPERIENCE);
+    }
+
     private SkillEvaluation evaluation(String category, String skill, int weight, int score) {
         var evaluation = new SkillEvaluation(category, skill, weight, SkillImportance.REQUIRED, 4);
         evaluation.score(score, "evidence");

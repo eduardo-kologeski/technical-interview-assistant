@@ -1,12 +1,18 @@
-FROM node:24-alpine AS build
+FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:1.29-alpine
+FROM nginxinc/nginx-unprivileged:1.29-alpine@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
+USER root
+RUN apk upgrade --no-cache \
+    && apk del curl nginx-module-image-filter tiff
+USER 101
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/frontend/browser /usr/share/nginx/html
 EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
+  CMD busybox wget --spider --quiet http://127.0.0.1:8080/ || exit 1
 

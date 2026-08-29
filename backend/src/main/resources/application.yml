@@ -15,8 +15,27 @@ spring:
     timeout-per-shutdown-phase: 30s
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
   shutdown: graceful
+
+app:
+  time-zone: ${APP_TIME_ZONE:America/Sao_Paulo}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  jwt:
+    secret: ${JWT_SECRET:V7l3Z4qB6uS8yC2dE9gH1jK5mN7pQ3rT6vW8xY0zA2bC4dE6fG8hI0jK2lM4nO6p}
+    access-expiration: ${JWT_ACCESS_EXPIRATION:15m}
+  refresh-token:
+    expiration: ${JWT_REFRESH_EXPIRATION:7d}
+    cleanup-retention: ${JWT_REFRESH_CLEANUP_RETENTION:P30D}
+    cleanup-interval: ${JWT_REFRESH_CLEANUP_INTERVAL:PT6H}
+    cleanup-initial-delay: ${JWT_REFRESH_CLEANUP_INITIAL_DELAY:PT5M}
+  security:
+    rate-limit:
+      window: ${AUTH_RATE_LIMIT_WINDOW:60s}
+      login: ${AUTH_LOGIN_RATE_LIMIT:10}
+      register: ${AUTH_REGISTER_RATE_LIMIT:5}
+      refresh: ${AUTH_REFRESH_RATE_LIMIT:30}
 
 management:
   endpoint:
@@ -27,10 +46,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 
 info:
   app:
     name: ${spring.application.name}
     version: ${APP_VERSION:dev}
+    git-sha: ${GIT_SHA:local}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%p appVersion=${APP_VERSION:dev} gitSha=${GIT_SHA:local} correlationId=%X{correlationId:-none} logger=%logger{36} message=%msg%n"
 

@@ -18,11 +18,15 @@ backend/data/
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/
 *.log
 
 # Local runtime artifacts that may contain candidate data
 tmp/
+backups/
 
 # Generated documents
 *.pdf
-
+tmp/

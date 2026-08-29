@@ -18,6 +18,26 @@ spring:
     enabled: true
     validate-on-migrate: true
 
+server:
+  tomcat:
+    connection-timeout: ${SERVER_CONNECTION_TIMEOUT:5s}
+    keep-alive-timeout: ${SERVER_KEEP_ALIVE_TIMEOUT:20s}
+    max-connections: ${SERVER_MAX_CONNECTIONS:200}
+    threads:
+      max: ${SERVER_MAX_THREADS:100}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  jwt:
+    secret: ${JWT_SECRET}
+    access-expiration: ${JWT_ACCESS_EXPIRATION:15m}
+  refresh-token:
+    expiration: ${JWT_REFRESH_EXPIRATION:7d}
+    cleanup-retention: ${JWT_REFRESH_CLEANUP_RETENTION:P30D}
+    cleanup-interval: ${JWT_REFRESH_CLEANUP_INTERVAL:PT6H}
+    cleanup-initial-delay: ${JWT_REFRESH_CLEANUP_INITIAL_DELAY:PT5M}
+
 management:
   endpoint:
     health:
@@ -27,4 +47,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus

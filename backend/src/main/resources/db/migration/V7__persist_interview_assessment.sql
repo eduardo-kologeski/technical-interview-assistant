@@ -1,0 +1,4 @@
+ALTER TABLE interviews
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN assessment_data TEXT NOT NULL DEFAULT '{}';
+
