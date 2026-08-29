@@ -49,6 +49,15 @@ frontend: npm ci && npm test -- --watch=false && npm run build
 
 O pipeline deve produzir imagens uma única vez, identificadas por SHA. A mesma imagem aprovada em homologação deve ser promovida para produção. Não reconstruir entre ambientes e não usar tags mutáveis como única referência.
 
+O workflow `Release immutable images` publica no GitHub Container Registry as imagens com a versão SemVer e com `sha-<commit completo>`. Ele recusa uma versão SemVer já existente. A promoção para `homolog` apenas move o alias para os digests publicados, usando `docker buildx imagetools create`; não há rebuild. O artefato `release-manifest-<versão>` registra os nomes completos por digest e deve ser a fonte para implantações:
+
+```text
+ghcr.io/eduardo-kologeski/technical-interview-assistant-backend@sha256:...
+ghcr.io/eduardo-kologeski/technical-interview-assistant-frontend@sha256:...
+```
+
+Para a primeira release, executar manualmente o workflow na referência `develop`, informar `0.1.0` e selecionar `homolog`. Promoção posterior para produção deve usar os digests do manifesto aprovado, nunca reconstruir a tag SemVer.
+
 As imagens-base dos Dockerfiles e o PostgreSQL do Compose são fixados por digest. Atualizações devem vir por PR revisada, reconstruir e escanear as imagens e atualizar o comentário/tag de referência junto do digest; nunca trocar apenas para uma tag flutuante.
 
 Os estágios runtime Alpine aplicam atualizações de segurança disponíveis durante o build e voltam ao usuário não privilegiado. Por isso a imagem final, não apenas o digest-base, é a unidade imutável que deve ser promovida e novamente analisada pelo scanner.

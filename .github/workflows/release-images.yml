@@ -1,0 +1,150 @@
+name: Release immutable images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer without the v prefix (for example, 0.1.0)
+        required: true
+        type: string
+      promote_to:
+        description: Environment alias to move to the published digests
+        required: true
+        default: homolog
+        type: choice
+        options:
+          - homolog
+          - none
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/technical-interview-assistant-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/technical-interview-assistant-frontend
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      backend_digest: ${{ steps.backend.outputs.digest }}
+      frontend_digest: ${{ steps.frontend.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Resolve and validate release identity
+        id: release
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="${REQUESTED_VERSION}"
+          fi
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid SemVer: ${version}" >&2
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "sha_tag=sha-${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Reject an existing immutable version
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          for image in "${BACKEND_IMAGE}" "${FRONTEND_IMAGE}"; do
+            if docker buildx imagetools inspect "${image}:${VERSION}" >/dev/null 2>&1; then
+              echo "Immutable tag already exists: ${image}:${VERSION}" >&2
+              exit 1
+            fi
+          done
+      - name: Build and publish backend once
+        id: backend
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ./backend
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            APP_VERSION=${{ steps.release.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ steps.release.outputs.version }}
+            ${{ env.BACKEND_IMAGE }}:${{ steps.release.outputs.sha_tag }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Build and publish frontend once
+        id: frontend
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ./frontend
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.release.outputs.version }}
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.release.outputs.sha_tag }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Write immutable release manifest
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
+          FRONTEND_DIGEST: ${{ steps.frontend.outputs.digest }}
+        run: |
+          jq -n \
+            --arg version "${VERSION}" \
+            --arg gitSha "${GITHUB_SHA}" \
+            --arg backend "${BACKEND_IMAGE}@${BACKEND_DIGEST}" \
+            --arg frontend "${FRONTEND_IMAGE}@${FRONTEND_DIGEST}" \
+            '{version: $version, gitSha: $gitSha, backend: $backend, frontend: $frontend}' \
+            > release-manifest.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-manifest-${{ steps.release.outputs.version }}
+          path: release-manifest.json
+          if-no-files-found: error
+
+  promote-homolog:
+    if: ${{ inputs.promote_to == 'homolog' }}
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Promote the published digests without rebuilding
+        run: |
+          docker buildx imagetools create \
+            --tag "${BACKEND_IMAGE}:homolog" \
+            "${BACKEND_IMAGE}@${{ needs.publish.outputs.backend_digest }}"
+          docker buildx imagetools create \
+            --tag "${FRONTEND_IMAGE}:homolog" \
+            "${FRONTEND_IMAGE}@${{ needs.publish.outputs.frontend_digest }}"
+      - name: Verify promoted digests
+        run: |
+          backend_promoted="$(docker buildx imagetools inspect "${BACKEND_IMAGE}:homolog" --format '{{.Manifest.Digest}}')"
+          frontend_promoted="$(docker buildx imagetools inspect "${FRONTEND_IMAGE}:homolog" --format '{{.Manifest.Digest}}')"
+          test "${backend_promoted}" = "${{ needs.publish.outputs.backend_digest }}"
+          test "${frontend_promoted}" = "${{ needs.publish.outputs.frontend_digest }}"
