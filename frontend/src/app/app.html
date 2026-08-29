@@ -277,7 +277,11 @@
     </section>
     <div class="review-grid">
       <section class="assessment-card">
-        <section class="review-evaluations">
+        <div class="technical-review-heading">
+          <span class="eyebrow">TECNOLOGIAS E HABILIDADES</span>
+          <p>Edite avaliações e comentários exatamente como serão usados no parecer.</p>
+        </div>
+        <section class="review-evaluations requirement-review-list">
           <span class="eyebrow">REQUISITOS DA VAGA</span>
           @for (skill of skills(); track skill.name; let index = $index) {
             <app-skill-evaluation-card
@@ -339,7 +343,7 @@
             <p class="empty-review">Nenhuma experiência complementar adicionada.</p>
           }
         </section>
-        <section class="pdf-section-editor">
+        <section class="pdf-section-editor culture-editor">
           <span class="eyebrow">CULTURA TÉCNICA</span>
           <label>Anotações da entrevista
             <textarea
@@ -357,8 +361,8 @@
             ></textarea>
           </label>
         </section>
-        <section class="pdf-section-editor">
-          <span class="eyebrow">TECNOLOGIAS E HABILIDADES</span>
+        <section class="pdf-section-editor technical-notes-editor">
+          <span class="eyebrow">OBSERVAÇÕES DA SEÇÃO</span>
           <label>Observações sobre habilidades técnicas
             <textarea
               rows="5"
@@ -369,7 +373,7 @@
           </label>
           <small>As avaliações e os comentários de cada tecnologia acima também serão exibidos nesta seção.</small>
         </section>
-        <section class="pdf-section-editor">
+        <section class="pdf-section-editor feedback-editor">
           <span class="eyebrow review-feedback-heading">FEEDBACK</span>
           <label>Anotações para feedback
             <textarea

@@ -12,6 +12,15 @@ body {
 .field-purpose,
 .pdf-section-editor > small { display: block; margin-top: 6px; color: #687681; font-size: 10px; line-height: 1.4; }
 .pdf-section-editor { display: grid; gap: 14px; margin-top: 18px; padding: 20px; border: 1px solid #d7e0e4; border-radius: 9px; background: #f8fafb; }
+.assessment-card { display: flex; flex-direction: column; }
+.culture-editor { order: 1; }
+.technical-review-heading { order: 2; margin-top: 24px; padding: 0 2px; }
+.technical-review-heading p { margin: 5px 0 0; color: #687681; font-size: 12px; }
+.requirement-review-list { order: 3; }
+.complementary-review-list { order: 4; }
+.technical-notes-editor { order: 5; }
+.feedback-editor { order: 6; }
+.conclusion-editor { order: 7; }
 .pdf-section-editor label { display: grid; }
 .decision-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .decision-fields select { width: 100%; margin-top: 7px; padding: 10px 11px; border: 1px solid #d9e0e5; border-radius: 7px; background: #fff; color: #263640; }

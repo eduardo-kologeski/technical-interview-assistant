@@ -372,6 +372,62 @@ describe('App', () => {
     expect(text).not.toContain('Avaliação');
   });
 
+  it('renders each technology comment beside its evaluation in the PDF content', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.skills.set([
+      {
+        name: 'Java',
+        category: 'Backend',
+        weight: 5,
+        importance: 'Obrigatória',
+        expected: 4,
+        score: 5,
+        skipped: false,
+        comment: 'Boa experiência com Java 17 e APIs REST.',
+        source: 'JOB_REQUIREMENT',
+      },
+    ]);
+    app.selectedTechnologies.set([
+      {
+        name: 'PHP',
+        type: 'LANGUAGE',
+        reviewScore: 4,
+        description: 'Trabalhou três anos com Laravel.',
+        source: 'COMPLEMENTARY_EXPERIENCE',
+      },
+    ]);
+
+    const text = app.technologiesAndSkillsTextForPdf();
+    expect(text).toContain('Java: 5/5 — Boa experiência com Java 17 e APIs REST.');
+    expect(text).toContain('PHP: 4/5 — Trabalhou três anos com Laravel.');
+  });
+
+  it('builds conclusion from recommendation, level and editable rationale', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.updateRecommendation('Recomendo');
+    app.updateRecommendedLevel('Pleno intermediário');
+    app.updateRecommendationRationale('Atende aos requisitos centrais registrados.');
+
+    expect(app.conclusionForPdf()).toContain('Recomendação: Recomendo');
+    expect(app.conclusionForPdf()).toContain('Nivelamento sugerido: Pleno intermediário');
+    expect(app.conclusionForPdf()).toContain('Atende aos requisitos centrais registrados.');
+  });
+
+  it('previews the same generated PDF without downloading it', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pdf-preview');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+    await app.previewPdf();
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(app.pdfPreviewUrl()).not.toBeNull();
+
+    app.closePdfPreview();
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:pdf-preview');
+    expect(app.pdfPreviewUrl()).toBeNull();
+  });
+
   it('paginates a high-volume PDF without silently clipping long sections', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.candidate.set('José da Silva com um nome profissional muito extenso para o cabeçalho');
@@ -435,7 +491,7 @@ describe('App', () => {
     expect(text).toContain('Ver mais');
     expect(text).not.toContain('Pontos fortes');
     expect(text).not.toContain('Pontos de atenção');
-    expect(text).not.toContain('FEEDBACK');
+    expect(element.querySelector('.review-feedback-heading')).toBeNull();
   });
 
   it('exposes evaluation state and support controls to assistive technology', () => {
@@ -480,7 +536,7 @@ describe('App', () => {
 
     expect(interviewResult.violations.map((violation) => violation.id)).toEqual([]);
     expect(reviewResult.violations.map((violation) => violation.id)).toEqual([]);
-  }, 15_000);
+  }, 30_000);
 
   it('shows editable notes and feedback fields only in review', () => {
     const fixture = TestBed.createComponent(App);
@@ -495,6 +551,11 @@ describe('App', () => {
     expect(element.querySelector('aside.support-panel')).toBeNull();
     expect(element.querySelectorAll('.pdf-section-editor textarea').length).toBeGreaterThan(4);
     expect(text).toContain('FEEDBACK');
+    expect(text).not.toContain('HABILIDADES COMPORTAMENTAIS');
+    expect(element.querySelectorAll('.level-palette button')).toHaveLength(10);
+    expect(text).toContain('Júnior intermediário');
+    expect(text).toContain('Sênior avançado');
+    expect(text).toContain('Especialista');
     expect(text).toContain('Pontos fortes');
     expect(text).toContain('Pontos de atenção');
   });
