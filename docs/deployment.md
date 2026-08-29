@@ -56,7 +56,7 @@ ghcr.io/eduardo-kologeski/technical-interview-assistant-backend@sha256:...
 ghcr.io/eduardo-kologeski/technical-interview-assistant-frontend@sha256:...
 ```
 
-Para a primeira release, executar manualmente o workflow na referência `develop`, informar `0.1.0` e selecionar `homolog`. Promoção posterior para produção deve usar os digests do manifesto aprovado, nunca reconstruir a tag SemVer.
+Para a primeira release sem levar o workflow à branch padrão, criar a tag anotada `v0.1.0` sobre o commit aprovado da `develop`. O evento da tag publica e promove para `homolog`. Quando o workflow existir na branch padrão, também poderá ser executado manualmente informando a versão e o destino. Promoção posterior para produção deve usar os digests do manifesto aprovado, nunca reconstruir a tag SemVer.
 
 As imagens-base dos Dockerfiles e o PostgreSQL do Compose são fixados por digest. Atualizações devem vir por PR revisada, reconstruir e escanear as imagens e atualizar o comentário/tag de referência junto do digest; nunca trocar apenas para uma tag flutuante.
 

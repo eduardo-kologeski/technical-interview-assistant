@@ -124,7 +124,7 @@ jobs:
           if-no-files-found: error
 
   promote-homolog:
-    if: ${{ inputs.promote_to == 'homolog' }}
+    if: ${{ github.event_name == 'push' || inputs.promote_to == 'homolog' }}
     needs: publish
     runs-on: ubuntu-24.04
     steps:
