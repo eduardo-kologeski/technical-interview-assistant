@@ -24,6 +24,8 @@ docker compose up --build --wait
 
 Serviços: frontend em `http://localhost:4200`, API em `http://localhost:8081` e PostgreSQL interno ao Compose. O Compose recusa iniciar sem `DATABASE_PASSWORD` e `JWT_SECRET`; nunca reutilize os valores locais em produção.
 
+Para utilizar um computador Windows como servidor de piloto na rede local, consulte o [guia de servidor local](docs/local-server.md). O guia contém os comandos para ligar, verificar, reiniciar e desligar os serviços sem versionar segredos.
+
 ## Status
 
 O projeto está em construção. O desenho do produto, a arquitetura, o domínio e o backlog estão em [`docs/architecture.md`](docs/architecture.md).
