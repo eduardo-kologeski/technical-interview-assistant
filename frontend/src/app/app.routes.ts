@@ -7,8 +7,10 @@ import { JobPositionsComponent } from './job-positions.component';
 import { ShellComponent } from './shell.component';
 import { ProfileComponent } from './profile.component';
 import { InterviewersComponent } from './interviewers.component';
+import { LandingPageComponent } from './landing-page.component';
 
 export const routes: Routes = [
+  { path: '', pathMatch: 'full', component: LandingPageComponent },
   { path: 'auth/login', component: AuthPageComponent },
   { path: 'auth/register', component: AuthPageComponent },
   {
@@ -22,8 +24,7 @@ export const routes: Routes = [
       { path: 'profile', component: ProfileComponent },
       { path: 'interviews/:id', component: InterviewPage },
       { path: 'interviews', component: InterviewPage },
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },
-  { path: '**', redirectTo: 'dashboard' },
+  { path: '**', redirectTo: '' },
 ];
