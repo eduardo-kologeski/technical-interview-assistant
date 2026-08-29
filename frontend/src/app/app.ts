@@ -7,6 +7,7 @@ import { InterviewService } from './interview.service';
 import { AuthService } from './auth.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, Subject, catchError, concatMap, debounceTime, tap } from 'rxjs';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
 type Skill = {
@@ -32,11 +33,15 @@ type Technology = {
 type InterviewAssessment = {
   requiredSkills: Skill[];
   complementaryTechnologies: Technology[];
-  behavioralSkills: string[];
+  behavioralSkills?: string[];
   interviewNotes: string;
+  feedbackNotes: string;
   strengths: string;
   concerns: string;
   recommendation: string;
+  recommendedLevel: string;
+  technicalSkillsNotes: string;
+  recommendationRationale: string;
   finalAssessment: string;
 };
 type AutosaveRequest = { sequence: number; assessment: InterviewAssessment };
@@ -53,6 +58,7 @@ export class InterviewPage {
   private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly sanitizer = inject(DomSanitizer);
   readonly vacancies = signal<JobPosition[]>([]);
   readonly loadingVacancies = signal(true);
   readonly vacanciesError = signal(false);
@@ -70,45 +76,32 @@ export class InterviewPage {
   readonly loadingUser = computed(() => !this.auth.user());
   readonly seniority = signal('');
   readonly template = signal('');
-  readonly recommendation = signal('Sem recomendação');
+  readonly recommendation = signal('Requer avaliação adicional');
+  readonly recommendedLevel = signal('');
+  readonly feedbackNotes = signal('');
+  readonly technicalSkillsNotes = signal('');
+  readonly recommendationRationale = signal('');
   readonly strengths = signal('');
   readonly concerns = signal('');
   readonly finalAssessment = signal('');
   readonly technologySearch = signal('');
   readonly selectedTechnologies = signal<Technology[]>([]);
-  readonly behavioralSearch = signal('');
   readonly lastSupportMessage = signal('');
   readonly technologySuggestionsExpanded = signal(false);
-  readonly behavioralSuggestionsExpanded = signal(false);
-  readonly selectedBehavioralSkills = signal<string[]>([]);
-  readonly behavioralCatalog = [
-    'Comunicação',
-    'Trabalho em equipe',
-    'Proatividade',
-    'Autonomia',
-    'Organização',
-    'Adaptabilidade',
-    'Capacidade analítica',
-    'Resolução de problemas',
-    'Colaboração',
-    'Clareza na comunicação',
+  readonly pdfPreviewUrl = signal<SafeResourceUrl | null>(null);
+  private pdfPreviewObjectUrl?: string;
+  readonly levelOptions = [
+    { value: 'Júnior inicial', className: 'level-junior-initial' },
+    { value: 'Júnior intermediário', className: 'level-junior-intermediate' },
+    { value: 'Júnior avançado', className: 'level-junior-advanced' },
+    { value: 'Pleno inicial', className: 'level-mid-initial' },
+    { value: 'Pleno intermediário', className: 'level-mid-intermediate' },
+    { value: 'Pleno avançado', className: 'level-mid-advanced' },
+    { value: 'Sênior inicial', className: 'level-senior-initial' },
+    { value: 'Sênior intermediário', className: 'level-senior-intermediate' },
+    { value: 'Sênior avançado', className: 'level-senior-advanced' },
+    { value: 'Especialista', className: 'level-specialist' },
   ];
-  readonly behavioralResults = computed(() => {
-    const query = this.normalizeTechnology(this.behavioralSearch());
-    return this.behavioralCatalog
-      .filter(
-        (item) => this.normalizeTechnology(item).includes(query) && !this.hasBehavioralSkill(item),
-      )
-      .slice(0, 8);
-  });
-  readonly availableBehavioralSuggestions = computed(() =>
-    this.behavioralCatalog.filter((item) => !this.hasBehavioralSkill(item)),
-  );
-  readonly visibleBehavioralSuggestions = computed(() => {
-    if (this.behavioralSearch().trim()) return this.behavioralResults();
-    const suggestions = this.availableBehavioralSuggestions();
-    return this.behavioralSuggestionsExpanded() ? suggestions : suggestions.slice(0, 4);
-  });
   readonly technologyCatalog: Technology[] = [
     ...[
       'Java',
@@ -384,11 +377,30 @@ export class InterviewPage {
     this.finishingInterview.set(true);
     this.finishRequested = true;
     this.finalAssessment.set(this.buildAssessmentDraft());
+    if (!this.recommendationRationale().trim())
+      this.recommendationRationale.set(this.buildRecommendationDraft());
     this.finishSequence = this.markSaving();
   }
 
   backToInterview() {
+    this.closePdfPreview();
     this.reviewing.set(false);
+  }
+
+  async previewPdf() {
+    this.closePdfPreview();
+    const pdf = await this.exportPdf(false);
+    const blob = pdf.output('blob');
+    this.pdfPreviewObjectUrl = URL.createObjectURL(blob);
+    this.pdfPreviewUrl.set(
+      this.sanitizer.bypassSecurityTrustResourceUrl(this.pdfPreviewObjectUrl),
+    );
+  }
+
+  closePdfPreview() {
+    this.pdfPreviewUrl.set(null);
+    if (this.pdfPreviewObjectUrl) URL.revokeObjectURL(this.pdfPreviewObjectUrl);
+    this.pdfPreviewObjectUrl = undefined;
   }
 
   async exportPdf(download = true) {
@@ -499,11 +511,7 @@ export class InterviewPage {
     paragraphBox(this.feedbackForPdf(), 24, 'Feedback');
 
     section('Conclusão: recomenda a contratação? Para qual perfil e com qual senioridade?');
-    paragraphBox(
-      `Recomendação: ${this.recommendation()}\nMédia ponderada: ${this.average()} / 5\nSenioridade avaliada: ${this.seniority()}`,
-      26,
-      'Conclusão',
-    );
+    paragraphBox(this.conclusionForPdf(), 26, 'Conclusão');
 
     const pages = pdf.getNumberOfPages();
     for (let page = 1; page <= pages; page++) {
@@ -556,11 +564,17 @@ export class InterviewPage {
         `Como experiências tecnológicas complementares, foram registradas: ${details.join(', ')}.`,
       );
     }
-    if (this.selectedBehavioralSkills().length)
-      parts.push(
-        `Como habilidades comportamentais, foram registradas: ${this.selectedBehavioralSkills().join(', ')}.`,
-      );
     return parts.join(' ');
+  }
+
+  private buildRecommendationDraft() {
+    const level = this.recommendedLevel();
+    const subject = level ? ` para o nível ${level}` : '';
+    if (this.recommendation() === 'Recomendo')
+      return `Recomendo o candidato${subject}, considerando as evidências registradas durante a entrevista.`;
+    if (this.recommendation() === 'Não recomendo')
+      return `Não recomendo o candidato${subject} neste momento, considerando os pontos de atenção registrados durante a entrevista.`;
+    return `Requer avaliação adicional${subject}, pois os dados registrados ainda não sustentam uma decisão definitiva.`;
   }
 
   feedbackForPdf() {
@@ -569,6 +583,7 @@ export class InterviewPage {
     const concerns = this.formatList(this.concerns());
     if (strengths) blocks.push(`Pontos fortes\n${strengths}`);
     if (concerns) blocks.push(`Pontos fracos e de atenção\n${concerns}`);
+    if (this.feedbackNotes().trim()) blocks.push(`Feedback complementar\n${this.feedbackNotes().trim()}`);
     return blocks.join('\n\n') || 'Nenhum feedback registrado.';
   }
 
@@ -584,6 +599,7 @@ export class InterviewPage {
         : skill.score === null
           ? 'Não avaliado'
           : `${skill.score}/5`,
+      comment: skill.comment.trim(),
     }));
     const complementary = this.complementaryTechnologiesForReport().map((item) => ({
       name: item.name,
@@ -592,13 +608,12 @@ export class InterviewPage {
         : item.reviewScore == null
           ? 'Sem nota'
           : `${item.reviewScore}/5`,
+      comment: item.description?.trim() || '',
     }));
-    const behavioral = this.selectedBehavioralSkills().map((name) => ({ name, evaluation: '-' }));
 
     return [
       { category: 'REQUISITOS DA VAGA', items: requirements },
       { category: 'EXPERIÊNCIAS COMPLEMENTARES', items: complementary },
-      { category: 'HABILIDADES COMPORTAMENTAIS', items: behavioral },
     ];
   }
 
@@ -606,18 +621,31 @@ export class InterviewPage {
     const labels: Record<string, string> = {
       'REQUISITOS DA VAGA': 'Requisitos da vaga:',
       'EXPERIÊNCIAS COMPLEMENTARES': 'Experiências complementares:',
-      'HABILIDADES COMPORTAMENTAIS': 'Habilidades comportamentais:',
     };
 
-    return this.technologiesAndSkillsForPdf()
+    const structured = this.technologiesAndSkillsForPdf()
       .filter((group) => group.items.length)
       .map((group) => {
-        const items = group.items.map((item) =>
-          item.evaluation === '-' ? item.name : `${item.name}: ${item.evaluation}`,
+        const items = group.items.map(
+          (item) => `${item.name}: ${item.evaluation}${item.comment ? ` — ${item.comment}` : ''}`,
         );
         return `${labels[group.category]}\n${items.join('\n')}`;
       })
       .join('\n\n');
+    const notes = this.technicalSkillsNotes().trim();
+    return [structured, notes ? `Observações sobre habilidades técnicas\n${notes}` : '']
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
+  conclusionForPdf() {
+    const lines = [
+      `Recomendação: ${this.recommendation()}`,
+      `Média ponderada: ${this.average()} / 5`,
+      `Nivelamento sugerido: ${this.recommendedLevel() || 'Não definido'}`,
+    ];
+    if (this.recommendationRationale().trim()) lines.push(this.recommendationRationale().trim());
+    return lines.join('\n');
   }
 
   private formatList(text: string) {
@@ -700,24 +728,6 @@ export class InterviewPage {
       description: `${current}${current ? ' ' : ''}${suggestion}`,
     });
   }
-  addBehavioralSkill(name = this.behavioralSearch()) {
-    const value = name.trim();
-    if (value && !this.hasBehavioralSkill(value))
-      this.selectedBehavioralSkills.update((items) => [...items, value]);
-    this.behavioralSearch.set('');
-    this.markSaving();
-  }
-  removeBehavioralSkill(name: string) {
-    this.selectedBehavioralSkills.update((items) =>
-      items.filter((item) => this.normalizeTechnology(item) !== this.normalizeTechnology(name)),
-    );
-    this.markSaving();
-  }
-  hasBehavioralSkill(name: string) {
-    return this.selectedBehavioralSkills().some(
-      (item) => this.normalizeTechnology(item) === this.normalizeTechnology(name),
-    );
-  }
   select(index: number) {
     this.activeIndex.set(index);
   }
@@ -769,6 +779,22 @@ export class InterviewPage {
     this.recommendation.set(value);
     this.markSaving();
   }
+  updateRecommendedLevel(value: string) {
+    this.recommendedLevel.set(value);
+    this.markSaving();
+  }
+  updateFeedbackNotes(value: string) {
+    this.feedbackNotes.set(value);
+    this.markSaving();
+  }
+  updateTechnicalSkillsNotes(value: string) {
+    this.technicalSkillsNotes.set(value);
+    this.markSaving();
+  }
+  updateRecommendationRationale(value: string) {
+    this.recommendationRationale.set(value);
+    this.markSaving();
+  }
   retryAutosave() {
     if (!this.failedAssessment) return;
     this.saveState.set('Salvando...');
@@ -799,11 +825,14 @@ export class InterviewPage {
     return {
       requiredSkills: this.skills(),
       complementaryTechnologies: this.selectedTechnologies(),
-      behavioralSkills: this.selectedBehavioralSkills(),
       interviewNotes: this.quickNotes(),
+      feedbackNotes: this.feedbackNotes(),
       strengths: this.strengths(),
       concerns: this.concerns(),
       recommendation: this.recommendation(),
+      recommendedLevel: this.recommendedLevel(),
+      technicalSkillsNotes: this.technicalSkillsNotes(),
+      recommendationRationale: this.recommendationRationale(),
       finalAssessment: this.finalAssessment(),
     };
   }
@@ -814,12 +843,14 @@ export class InterviewPage {
       if (Array.isArray(assessment.requiredSkills)) this.skills.set(assessment.requiredSkills);
       if (Array.isArray(assessment.complementaryTechnologies))
         this.selectedTechnologies.set(assessment.complementaryTechnologies);
-      if (Array.isArray(assessment.behavioralSkills))
-        this.selectedBehavioralSkills.set(assessment.behavioralSkills);
       this.quickNotes.set(assessment.interviewNotes || '');
+      this.feedbackNotes.set(assessment.feedbackNotes || '');
       this.strengths.set(assessment.strengths || '');
       this.concerns.set(assessment.concerns || '');
-      this.recommendation.set(assessment.recommendation || 'Sem recomendação');
+      this.recommendation.set(assessment.recommendation || 'Requer avaliação adicional');
+      this.recommendedLevel.set(assessment.recommendedLevel || '');
+      this.technicalSkillsNotes.set(assessment.technicalSkillsNotes || '');
+      this.recommendationRationale.set(assessment.recommendationRationale || '');
       this.finalAssessment.set(assessment.finalAssessment || '');
     } catch {
       this.formError.set('Os dados salvos da entrevista estão inválidos. Recarregue a página.');

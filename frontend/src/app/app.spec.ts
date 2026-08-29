@@ -174,31 +174,24 @@ describe('App', () => {
     expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
   });
 
-  it('expands and collapses compact technical and behavioral suggestions', () => {
+  it('expands and collapses compact technical suggestions', () => {
     const app = TestBed.createComponent(App).componentInstance;
 
     expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
-    expect(app.visibleBehavioralSuggestions()).toHaveLength(4);
 
     app.technologySuggestionsExpanded.set(true);
-    app.behavioralSuggestionsExpanded.set(true);
     expect(app.visibleQuickTechnologySuggestions().length).toBeGreaterThan(6);
-    expect(app.visibleBehavioralSuggestions().length).toBeGreaterThan(6);
 
     app.technologySuggestionsExpanded.set(false);
-    app.behavioralSuggestionsExpanded.set(false);
     expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
-    expect(app.visibleBehavioralSuggestions()).toHaveLength(4);
   });
 
-  it('removes selected technologies and behavioral skills from support suggestions', () => {
+  it('removes selected technologies from support suggestions', () => {
     const app = TestBed.createComponent(App).componentInstance;
 
     app.selectSuggestedTechnology('Java');
-    app.addBehavioralSkill('Comunicação');
 
     expect(app.availableQuickTechnologySuggestions()).not.toContain('Java');
-    expect(app.availableBehavioralSuggestions()).not.toContain('Comunicação');
   });
 
   it('keeps duplicate complementary data available for review but removes it from reports', () => {
@@ -305,7 +298,7 @@ describe('App', () => {
     expect(app.feedbackForPdf()).toBe('Pontos fracos e de atenção\n- Necessita aprofundamento');
   });
 
-  it('builds one PDF technologies table with three groups and presentation-only deduplication', () => {
+  it('builds the PDF technologies content with two groups and presentation-only deduplication', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.skills.set([
       {
@@ -336,19 +329,12 @@ describe('App', () => {
       { name: 'PHP', type: 'LANGUAGE', reviewScore: 4, source: 'COMPLEMENTARY_EXPERIENCE' },
       { name: 'Angular', type: 'FRAMEWORK', reviewScore: 3, source: 'COMPLEMENTARY_EXPERIENCE' },
     ]);
-    app.selectedBehavioralSkills.set(['Comunicação', 'Proatividade']);
-
     const groups = app.technologiesAndSkillsForPdf();
     expect(groups.map((group) => group.category)).toEqual([
       'REQUISITOS DA VAGA',
       'EXPERIÊNCIAS COMPLEMENTARES',
-      'HABILIDADES COMPORTAMENTAIS',
     ]);
     expect(groups[1].items.map((item) => item.name)).toEqual(['PHP', 'Angular']);
-    expect(groups[2].items).toEqual([
-      { name: 'Comunicação', evaluation: '-' },
-      { name: 'Proatividade', evaluation: '-' },
-    ]);
     expect(app.selectedTechnologies()).toHaveLength(3);
   });
 
@@ -408,14 +394,13 @@ describe('App', () => {
     expect(durationMs).toBeLessThan(5_000);
   });
 
-  it('records behavioral skills without creating scored evaluations', () => {
+  it('records feedback notes without changing scored evaluations', () => {
     const app = TestBed.createComponent(App).componentInstance;
     seedSkills(app);
     const averageBefore = app.average();
-    app.addBehavioralSkill('Comunicação');
-    app.addBehavioralSkill('Proatividade');
+    app.updateFeedbackNotes('Boa comunicação e clareza durante a entrevista.');
 
-    expect(app.selectedBehavioralSkills()).toEqual(['Comunicação', 'Proatividade']);
+    expect(app.feedbackNotes()).toContain('Boa comunicação');
     expect(app.average()).toBe(averageBefore);
     expect(app.skills()).toHaveLength(3);
   });
@@ -441,14 +426,12 @@ describe('App', () => {
     expect(sections.map((section) => section.classList[1])).toEqual([
       'support-notes',
       'complementary-support',
-      'behavioral-support',
+      'feedback-notes-support',
     ]);
     expect(
       element.querySelectorAll('.complementary-support .compact-suggestions button'),
     ).toHaveLength(6);
-    expect(
-      element.querySelectorAll('.behavioral-support .compact-suggestions button'),
-    ).toHaveLength(4);
+    expect(element.querySelectorAll('.feedback-notes-support textarea')).toHaveLength(1);
     expect(text).toContain('Ver mais');
     expect(text).not.toContain('Pontos fortes');
     expect(text).not.toContain('Pontos de atenção');
@@ -510,7 +493,7 @@ describe('App', () => {
     const text = element.textContent || '';
 
     expect(element.querySelector('aside.support-panel')).toBeNull();
-    expect(element.querySelectorAll('.review-notes textarea')).toHaveLength(1);
+    expect(element.querySelectorAll('.pdf-section-editor textarea').length).toBeGreaterThan(4);
     expect(text).toContain('FEEDBACK');
     expect(text).toContain('Pontos fortes');
     expect(text).toContain('Pontos de atenção');
