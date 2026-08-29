@@ -24,6 +24,8 @@ docker compose up --build --wait
 
 Serviços: frontend em `http://localhost:4200`, API em `http://localhost:8081` e PostgreSQL interno ao Compose. O Compose recusa iniciar sem `DATABASE_PASSWORD` e `JWT_SECRET`; nunca reutilize os valores locais em produção.
 
+Para uma demonstração pública temporária e sem abrir portas no roteador, consulte o [runbook do Cloudflare Quick Tunnel](docs/quick-tunnel.md).
+
 ## Status
 
 O projeto está em construção. O desenho do produto, a arquitetura, o domínio e o backlog estão em [`docs/architecture.md`](docs/architecture.md).
