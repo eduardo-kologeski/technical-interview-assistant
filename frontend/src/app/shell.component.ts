@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './auth.service';
+import { CompanyService } from './company.service';
 @Component({
   selector: 'app-shell',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
@@ -11,9 +12,15 @@ import { AuthService } from './auth.service';
         ><a routerLink="/interviews" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistas</a
         ><a routerLink="/job-positions" routerLinkActive="active" ariaCurrentWhenActive="page">Vagas</a
         ><a routerLink="/interviewers" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistadores</a
+        ><a routerLink="/company" routerLinkActive="active" ariaCurrentWhenActive="page">Empresa</a
         ><a routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page">Perfil</a>
       </nav>
       <div class="user">
+        @if (companies.companies().length > 1) {
+          <select aria-label="Empresa ativa" [value]="companies.activeCompanyId() || ''" (change)="selectCompany($event)">
+            @for (company of companies.companies(); track company.id) { <option [value]="company.id">{{ company.name }}</option> }
+          </select>
+        } @else if (companies.activeCompany()) { <strong>{{ companies.activeCompany()?.name }}</strong> }
         <span>{{ auth.user()?.name || 'Usuário' }}</span
         ><button (click)="logout()">Sair</button>
       </div>
@@ -95,6 +102,8 @@ import { AuthService } from './auth.service';
         background: transparent;
         color: #a34a3f;
       }
+      .user select { max-width: 190px; padding: 7px 9px; border: 1px solid #d4dfe3; border-radius: 7px; background: #fff; color: #30444d; }
+      .user strong { color: #176b66; font-size: 11px; white-space: nowrap; }
       @media (max-width: 900px) {
         header {
           gap: 15px;
@@ -117,10 +126,14 @@ import { AuthService } from './auth.service';
 })
 export class ShellComponent {
   auth = inject(AuthService);
+  companies = inject(CompanyService);
   private router = inject(Router);
   constructor() {
-    if (!this.auth.user()) this.auth.loadUser().subscribe({ error: () => this.logout() });
+    const loadCompanies = () => this.companies.load().subscribe({ error: () => undefined });
+    if (!this.auth.user()) this.auth.loadUser().subscribe({ next: loadCompanies, error: () => this.logout() });
+    else loadCompanies();
   }
+  selectCompany(event: Event) { this.companies.select((event.target as HTMLSelectElement).value); location.reload(); }
   logout() {
     this.auth.logout();
     this.router.navigateByUrl('/auth/login');

@@ -8,7 +8,7 @@ import { RouterLink } from '@angular/router';
     <main>
       <nav>
         <a class="brand" routerLink="/"><b>T</b><span>Technical Interview Assistant</span></a>
-        <div><a class="login" routerLink="/auth/login">Entrar</a><a class="primary compact" routerLink="/auth/register">Cadastrar empresa</a></div>
+        <div><a class="login" routerLink="/auth/login">Entrar</a><a class="primary compact" routerLink="/auth/register" [queryParams]="{ company: true }">Cadastrar empresa</a></div>
       </nav>
 
       <section class="hero">
@@ -16,7 +16,7 @@ import { RouterLink } from '@angular/router';
           <p class="eyebrow">GESTÃO DE ENTREVISTAS PARA EMPRESAS</p>
           <h1>Decisões técnicas mais consistentes, do briefing ao parecer.</h1>
           <p class="lead">Centralize vagas, conduza avaliações padronizadas e transforme evidências da entrevista em pareceres claros e rastreáveis.</p>
-          <div class="actions"><a class="primary" routerLink="/auth/register">Cadastrar minha empresa</a><a class="secondary" routerLink="/auth/login">Já recebeu um convite? Entrar</a></div>
+          <div class="actions"><a class="primary" routerLink="/auth/register" [queryParams]="{ company: true }">Cadastrar minha empresa</a><a class="secondary" routerLink="/auth/login">Já recebeu um convite? Entrar</a></div>
           <small>Entrevistadores acessam o ambiente da empresa somente após convite do gestor.</small>
         </div>
         <aside aria-label="Fluxo da plataforma">

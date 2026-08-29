@@ -42,4 +42,31 @@ public class CompanyInvitation {
     public CompanyRole role() { return role; }
     public InvitationStatus status() { return status; }
     public Instant expiresAt() { return expiresAt; }
+    public Long invitedByUserId() { return invitedByUserId; }
+
+    public void accept(Instant now) {
+        requirePending(now);
+        status = InvitationStatus.ACCEPTED;
+        acceptedAt = now;
+        updatedAt = now;
+    }
+
+    public void revoke(Instant now) {
+        if (status != InvitationStatus.PENDING) throw new IllegalStateException("only a pending invitation can be revoked");
+        status = InvitationStatus.REVOKED;
+        revokedAt = now;
+        updatedAt = now;
+    }
+
+    public void expire(Instant now) {
+        if (status == InvitationStatus.PENDING && !expiresAt.isAfter(now)) {
+            status = InvitationStatus.EXPIRED;
+            updatedAt = now;
+        }
+    }
+
+    private void requirePending(Instant now) {
+        expire(now);
+        if (status != InvitationStatus.PENDING) throw new IllegalStateException("invitation is not available");
+    }
 }

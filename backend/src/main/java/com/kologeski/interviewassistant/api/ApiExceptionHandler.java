@@ -9,6 +9,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.kologeski.interviewassistant.auth.AuthenticationService;
 import com.kologeski.interviewassistant.interview.InterviewService;
 import com.kologeski.interviewassistant.vacancy.JobVacancyService;
+import com.kologeski.interviewassistant.company.CompanyContext;
+import com.kologeski.interviewassistant.company.InvitationService;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import jakarta.validation.ConstraintViolationException;
@@ -71,6 +73,22 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     ProblemDetail forbidden(AccessDeniedException exception) {
         return problem(HttpStatus.FORBIDDEN, "Acesso negado.");
+    }
+
+    @ExceptionHandler({CompanyContext.CompanyAccessDeniedException.class,
+            InvitationService.InvitationEmailMismatchException.class})
+    ProblemDetail companyForbidden(RuntimeException exception) {
+        return problem(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
+    @ExceptionHandler(CompanyContext.CompanySelectionRequiredException.class)
+    ProblemDetail companyRequired(CompanyContext.CompanySelectionRequiredException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(InvitationService.InvitationUnavailableException.class)
+    ProblemDetail invitationNotFound(InvitationService.InvitationUnavailableException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

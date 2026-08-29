@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.kologeski.interviewassistant.company.*;
+import com.kologeski.interviewassistant.vacancy.JobVacancy;
 
 @Service
 public class AuthenticationService {
@@ -16,10 +18,13 @@ public class AuthenticationService {
     private final PasswordEncoder passwords;
     private final JwtService jwt;
     private final RefreshTokenService refreshTokens;
+    private final CompanyMembershipRepository memberships;
 
     public AuthenticationService(UserRepository users, PasswordEncoder passwords,
-                                 JwtService jwt, RefreshTokenService refreshTokens) {
+                                 JwtService jwt, RefreshTokenService refreshTokens,
+                                 CompanyMembershipRepository memberships) {
         this.users = users; this.passwords = passwords; this.jwt = jwt; this.refreshTokens = refreshTokens;
+        this.memberships = memberships;
     }
 
     @Transactional
@@ -28,6 +33,8 @@ public class AuthenticationService {
         if (users.existsByEmail(email)) throw new DuplicateEmailException();
         User user = users.save(new User(request.name().trim(), email,
                 passwords.encode(request.password()), Instant.now()));
+        memberships.save(new CompanyMembership(JobVacancy.LEGACY_COMPANY_ID, user.getId(),
+                CompanyRole.INTERVIEWER, Instant.now()));
         log.info("event=user_registered userId={} rememberMe={}", user.getId(), Boolean.TRUE.equals(request.rememberMe()));
         return session(user, Boolean.TRUE.equals(request.rememberMe()), metadata);
     }

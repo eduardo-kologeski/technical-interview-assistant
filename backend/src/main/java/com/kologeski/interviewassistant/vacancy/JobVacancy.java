@@ -19,7 +19,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "job_vacancies")
 public class JobVacancy extends AuditableEntity {
+    public static final UUID LEGACY_COMPANY_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     @Id private UUID id;
+    @Column(name = "company_id", nullable = false, updatable = false) private UUID companyId;
     @Column(nullable = false) private String title;
     @Column(nullable = false) private String seniority;
     @Column(columnDefinition = "text") private String description;
@@ -39,7 +41,13 @@ public class JobVacancy extends AuditableEntity {
     }
 
     public JobVacancy(String title, String seniority, String description, List<String> requirements, String actorId, Instant now) {
+        this(LEGACY_COMPANY_ID, title, seniority, description, requirements, actorId, now);
+    }
+
+    public JobVacancy(UUID companyId, String title, String seniority, String description,
+                      List<String> requirements, String actorId, Instant now) {
         this.id = UUID.randomUUID();
+        this.companyId = java.util.Objects.requireNonNull(companyId, "companyId");
         this.title = requiredText(title, "title");
         this.seniority = requiredText(seniority, "seniority");
         this.description = description == null ? "" : description.trim();
@@ -72,6 +80,7 @@ public class JobVacancy extends AuditableEntity {
     }
 
     public UUID id() { return id; }
+    public UUID companyId() { return companyId; }
     public String title() { return title; }
     public String seniority() { return seniority; }
     public String description() { return description; }

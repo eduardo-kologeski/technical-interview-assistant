@@ -8,17 +8,25 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import java.time.*;
 import java.util.*;
+import com.kologeski.interviewassistant.company.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class InterviewerSearchService {
     private final ProfileService profiles;
     private final JobVacancyService vacancies;
     private final Clock clock;
+    private final CompanyContext companyContext;
+    private final CompanyMembershipRepository memberships;
 
+    @Autowired
+    public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies, Clock clock,
+                                    CompanyContext companyContext, CompanyMembershipRepository memberships) {
+        this.profiles = profiles; this.vacancies = vacancies; this.clock = clock;
+        this.companyContext = companyContext; this.memberships = memberships;
+    }
     public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies, Clock clock) {
-        this.profiles = profiles;
-        this.vacancies = vacancies;
-        this.clock = clock;
+        this(profiles, vacancies, clock, null, null);
     }
 
     @Transactional(readOnly = true)
@@ -26,8 +34,15 @@ public class InterviewerSearchService {
                                           Pageable pageable) {
         List<String> requirements = vacancyId == null ? List.of() : vacancies.get(vacancyId).requirements();
         String technologyFilter = technology == null ? "" : ProfileService.normalize(technology);
-        Page<ProfileService.ProfileSnapshot> profilesPage = profiles.professionalProfiles(
-                technologyFilter, date, time, pageable);
+        Page<ProfileService.ProfileSnapshot> profilesPage;
+        if (companyContext == null) {
+            profilesPage = profiles.professionalProfiles(technologyFilter, date, time, pageable);
+        } else {
+            UUID companyId = companyContext.required().companyId();
+            List<Long> userIds = memberships.findByCompanyIdAndActiveTrueOrderByCreatedAtAsc(companyId)
+                    .stream().map(CompanyMembership::userId).toList();
+            profilesPage = profiles.professionalProfiles(userIds, technologyFilter, date, time, pageable);
+        }
         List<InterviewerResult> results = profilesPage.getContent().stream()
                 .map(profile -> result(profile, requirements, date))
                 .sorted(Comparator.comparingInt(InterviewerResult::matchedCount).reversed()

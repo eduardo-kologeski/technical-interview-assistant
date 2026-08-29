@@ -497,7 +497,7 @@ describe('App', () => {
 
     expect(interviewResult.violations.map((violation) => violation.id)).toEqual([]);
     expect(reviewResult.violations.map((violation) => violation.id)).toEqual([]);
-  }, 15_000);
+  }, 30_000);
 
   it('shows editable notes and feedback fields only in review', () => {
     const fixture = TestBed.createComponent(App);

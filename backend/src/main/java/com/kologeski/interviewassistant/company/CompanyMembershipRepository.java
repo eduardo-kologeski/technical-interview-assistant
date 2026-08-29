@@ -7,4 +7,5 @@ public interface CompanyMembershipRepository extends JpaRepository<CompanyMember
     List<CompanyMembership> findByUserIdAndActiveTrueOrderByCreatedAtAsc(Long userId);
     Optional<CompanyMembership> findByCompanyIdAndUserIdAndActiveTrue(UUID companyId, Long userId);
     boolean existsByCompanyIdAndUserIdAndActiveTrue(UUID companyId, Long userId);
+    List<CompanyMembership> findByCompanyIdAndActiveTrueOrderByCreatedAtAsc(UUID companyId);
 }
