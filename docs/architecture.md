@@ -52,10 +52,11 @@ Decisões principais:
 - perguntas reutilizáveis com título, descrição, dificuldade, senioridade esperada e tags;
 - relação N:N com skills de template.
 
-**User** (V2)
+**User / identidade autenticada**
 
-- identidade e papéis `ADMIN`/`INTERVIEWER`;
-- entrevistas registram o identificador do autor para auditoria.
+- todos os usuários autenticados acessam as mesmas funcionalidades;
+- não há autorização por papel para vagas, entrevistas ou pareceres;
+- vagas e entrevistas registram autorias e datas para auditoria, nunca para definir propriedade.
 
 ### Relacionamentos
 
@@ -101,7 +102,7 @@ Escritas de autosave são idempotentes. Erros seguem Problem Details (RFC 9457),
 
 ## 4. Telas
 
-1. Login (preparado; autenticação completa na V2).
+1. Login obrigatório, sem diferenciação funcional por perfil.
 2. Dashboard enxuto.
 3. Histórico de entrevistas.
 4. Nova entrevista: escolha de template e cadastro mínimo.
@@ -187,4 +188,3 @@ O entrevistador escolhe um template, informa ao menos o candidato e inicia a ses
 - testes unitários para cálculo/parecer e integração para persistência/API;
 - testes de componentes e fluxos críticos no frontend;
 - dependências fixadas por lockfiles e verificadas no CI.
-
