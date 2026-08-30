@@ -8,33 +8,72 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.time.*;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class InvitationService {
+    private static final Logger log = LoggerFactory.getLogger(InvitationService.class);
     private final CompanyInvitationRepository invitations;
     private final CompanyMembershipRepository memberships;
     private final UserRepository users;
     private final CompanyContext context;
     private final CurrentActor actor;
     private final Clock clock;
+    private final CompanyRepository companies;
+    private final InvitationDelivery delivery;
     private final SecureRandom random = new SecureRandom();
 
     public InvitationService(CompanyInvitationRepository invitations, CompanyMembershipRepository memberships,
-                             UserRepository users, CompanyContext context, CurrentActor actor, Clock clock) {
+                             UserRepository users, CompanyContext context, CurrentActor actor, Clock clock,
+                             CompanyRepository companies, InvitationDelivery delivery) {
         this.invitations = invitations; this.memberships = memberships; this.users = users;
         this.context = context; this.actor = actor; this.clock = clock;
+        this.companies = companies; this.delivery = delivery;
     }
 
     @Transactional
     public CreatedInvitation invite(String email, CompanyRole role) {
         CompanyContext.ActiveCompany active = context.requiredAdmin();
         String normalizedEmail = normalize(email);
-        byte[] bytes = new byte[32]; random.nextBytes(bytes);
-        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant now = Instant.now(clock);
-        CompanyInvitation invitation = invitations.save(new CompanyInvitation(active.companyId(), normalizedEmail,
-                role == null ? CompanyRole.INTERVIEWER : role, hash(token), active.userId(), now, now.plus(Duration.ofDays(7))));
-        return new CreatedInvitation(invitation.id(), token, invitation.email(), invitation.role(), invitation.expiresAt());
+        invitations.lockPendingByCompanyAndEmail(active.companyId(), normalizedEmail)
+                .forEach(item -> { item.revoke(now); invitations.save(item); });
+        return createAndDeliver(active, normalizedEmail, role == null ? CompanyRole.INTERVIEWER : role, now);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InvitationSummary> list() {
+        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        Instant now = Instant.now(clock);
+        return invitations.findByCompanyIdOrderByCreatedAtDesc(active.companyId()).stream()
+                .map(item -> new InvitationSummary(item.id(), item.email(), item.role(),
+                        item.status() == InvitationStatus.PENDING && !item.expiresAt().isAfter(now)
+                                ? InvitationStatus.EXPIRED : item.status(), item.expiresAt(), item.createdAt()))
+                .toList();
+    }
+
+    @Transactional
+    public void revoke(UUID id) {
+        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        CompanyInvitation invitation = invitations.lockByIdAndCompanyId(id, active.companyId())
+                .orElseThrow(InvitationUnavailableException::new);
+        invitation.revoke(Instant.now(clock));
+        invitations.save(invitation);
+        log.info("event=company_invitation_revoked companyId={} invitationId={} actorId={}",
+                active.companyId(), id, active.userId());
+    }
+
+    @Transactional
+    public CreatedInvitation resend(UUID id) {
+        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        CompanyInvitation previous = invitations.lockByIdAndCompanyId(id, active.companyId())
+                .orElseThrow(InvitationUnavailableException::new);
+        Instant now = Instant.now(clock);
+        if (previous.status() == InvitationStatus.PENDING) previous.revoke(now);
+        else if (previous.status() != InvitationStatus.EXPIRED) throw new InvitationUnavailableException();
+        invitations.save(previous);
+        return createAndDeliver(active, previous.email(), previous.role(), now);
     }
 
     @Transactional(readOnly = true)
@@ -50,7 +89,7 @@ public class InvitationService {
     public UUID accept(String token) {
         Long userId = Long.valueOf(actor.required().id());
         User user = users.findById(userId).orElseThrow();
-        CompanyInvitation invitation = invitations.findByTokenHash(hash(token))
+        CompanyInvitation invitation = invitations.lockByTokenHash(hash(token))
                 .orElseThrow(InvitationUnavailableException::new);
         if (!normalize(user.getEmail()).equals(invitation.email())) throw new InvitationEmailMismatchException();
         Instant now = Instant.now(clock);
@@ -59,6 +98,20 @@ public class InvitationService {
             memberships.save(new CompanyMembership(invitation.companyId(), userId, invitation.role(), now));
         invitations.save(invitation);
         return invitation.companyId();
+    }
+
+    private CreatedInvitation createAndDeliver(CompanyContext.ActiveCompany active, String email, CompanyRole role, Instant now) {
+        byte[] bytes = new byte[32]; random.nextBytes(bytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        CompanyInvitation invitation = invitations.save(new CompanyInvitation(active.companyId(), email, role,
+                hash(token), active.userId(), now, now.plus(Duration.ofDays(7))));
+        String companyName = companies.findById(active.companyId()).orElseThrow().name();
+        InvitationDelivery.DeliveryReceipt receipt = delivery.deliver(new InvitationDelivery.InvitationMessage(
+                invitation.id(), invitation.email(), companyName, token, invitation.expiresAt()));
+        log.info("event=company_invitation_created companyId={} invitationId={} actorId={} deliveryStatus={}",
+                active.companyId(), invitation.id(), active.userId(), receipt.status());
+        return new CreatedInvitation(invitation.id(), invitation.email(), invitation.role(), invitation.expiresAt(),
+                receipt.status(), receipt.developmentPath());
     }
 
     private String normalize(String email) {
@@ -72,7 +125,10 @@ public class InvitationService {
         } catch (NoSuchAlgorithmException error) { throw new IllegalStateException(error); }
     }
 
-    public record CreatedInvitation(UUID id, String token, String email, CompanyRole role, Instant expiresAt) { }
+    public record CreatedInvitation(UUID id, String email, CompanyRole role, Instant expiresAt,
+                                    String deliveryStatus, String developmentPath) { }
+    public record InvitationSummary(UUID id, String email, CompanyRole role, InvitationStatus status,
+                                    Instant expiresAt, Instant createdAt) { }
     public record InvitationDetails(String email, CompanyRole role, Instant expiresAt) { }
     public static final class InvitationUnavailableException extends RuntimeException {
         public InvitationUnavailableException() { super("Convite inválido ou expirado."); }

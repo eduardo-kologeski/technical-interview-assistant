@@ -130,7 +130,7 @@ test('keeps the invitation through registration and enters as a read-only interv
   await page.getByRole('link', { name: 'Empresa', exact: true }).click();
   await page.getByRole('button', { name: 'Equipe', exact: true }).click();
   await page.getByLabel('E-mail corporativo').fill(interviewerEmail);
-  await page.getByRole('button', { name: 'Gerar link de convite' }).click();
+  await page.getByRole('button', { name: 'Enviar convite' }).click();
   const inviteUrl = await page.locator('input[readonly]').inputValue();
   expect(inviteUrl).toContain('/invites/');
 

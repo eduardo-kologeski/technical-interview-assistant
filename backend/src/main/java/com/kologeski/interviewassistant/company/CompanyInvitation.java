@@ -43,6 +43,7 @@ public class CompanyInvitation {
     public InvitationStatus status() { return status; }
     public Instant expiresAt() { return expiresAt; }
     public Long invitedByUserId() { return invitedByUserId; }
+    public Instant createdAt() { return createdAt; }
 
     public void accept(Instant now) {
         requirePending(now);
@@ -52,7 +53,7 @@ public class CompanyInvitation {
     }
 
     public void revoke(Instant now) {
-        if (status != InvitationStatus.PENDING) throw new IllegalStateException("only a pending invitation can be revoked");
+        if (status != InvitationStatus.PENDING) throw new InvitationService.InvitationUnavailableException();
         status = InvitationStatus.REVOKED;
         revokedAt = now;
         updatedAt = now;
