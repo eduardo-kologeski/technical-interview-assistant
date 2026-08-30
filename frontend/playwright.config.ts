@@ -39,6 +39,7 @@ export default defineConfig({
         AUTH_REGISTER_RATE_LIMIT: '1000',
         AUTH_REFRESH_RATE_LIMIT: '1000',
         INVITATION_EXPOSE_DEVELOPMENT_LINK: 'true',
+        IDENTITY_EXPOSE_DEVELOPMENT_LINK: 'true',
       },
     },
     {

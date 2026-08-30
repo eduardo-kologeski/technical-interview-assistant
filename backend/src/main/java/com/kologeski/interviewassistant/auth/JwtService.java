@@ -25,14 +25,17 @@ public class JwtService {
         Instant now = Instant.now();
         return Jwts.builder().subject(user.getEmail())
                 .claim("userId", user.getId()).claim("name", user.getName())
+                .claim("sessionVersion", user.getSessionVersion())
                 .issuedAt(Date.from(now)).expiration(Date.from(now.plus(expiration)))
                 .signWith(key).compact();
     }
 
     public String subject(String token) { return claims(token).getSubject(); }
-    public boolean isValid(String token, String email) {
+    public boolean isValid(String token, User user) {
         Claims claims = claims(token);
-        return email.equals(claims.getSubject()) && claims.getExpiration().after(new Date());
+        Number version = claims.get("sessionVersion", Number.class);
+        return user.getEmail().equals(claims.getSubject()) && claims.getExpiration().after(new Date())
+                && version != null && version.longValue() == user.getSessionVersion();
     }
     public long expirationSeconds() { return expiration.toSeconds(); }
     private Claims claims(String token) {

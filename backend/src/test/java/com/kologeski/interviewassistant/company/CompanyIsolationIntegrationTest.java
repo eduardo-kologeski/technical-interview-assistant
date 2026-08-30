@@ -29,6 +29,7 @@ class CompanyIsolationIntegrationTest {
 
     @BeforeEach
     void clean() {
+        jdbc.update("DELETE FROM identity_tokens");
         jdbc.update("DELETE FROM refresh_tokens");
         jdbc.update("DELETE FROM interview_requirement_snapshots");
         jdbc.update("DELETE FROM interviews");
@@ -96,6 +97,11 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(jsonPath("$.email").value("entrevistador@empresa-a.com"));
 
         String interviewer = register("entrevistador@empresa-a.com");
+        mvc.perform(post("/api/companies/invitations/accept")
+                        .header("Authorization", bearer(interviewer)).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", invitationToken))))
+                .andExpect(status().isForbidden());
+        verifyEmail(interviewer);
         mvc.perform(post("/api/companies/invitations/accept")
                         .header("Authorization", bearer(interviewer))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -281,6 +287,16 @@ class CompanyIsolationIntegrationTest {
     }
 
     private String bearer(String token) { return "Bearer " + token; }
+    private void verifyEmail(String accessToken) throws Exception {
+        MvcResult requested = mvc.perform(post("/api/auth/email-verification/request")
+                        .header("Authorization", bearer(accessToken)))
+                .andExpect(status().isAccepted()).andReturn();
+        String path = body(requested).get("developmentPath").asText();
+        String token = path.substring(path.lastIndexOf('/') + 1);
+        mvc.perform(post("/api/auth/email-verification/confirm").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("token", token))))
+                .andExpect(status().isNoContent());
+    }
     private JsonNode body(MvcResult result) throws Exception {
         return json.readTree(result.getResponse().getContentAsString());
     }

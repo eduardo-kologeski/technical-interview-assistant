@@ -89,6 +89,7 @@ public class InvitationService {
     public UUID accept(String token) {
         Long userId = Long.valueOf(actor.required().id());
         User user = users.findById(userId).orElseThrow();
+        if (!user.isEmailVerified()) throw new EmailVerificationRequiredException();
         CompanyInvitation invitation = invitations.lockByTokenHash(hash(token))
                 .orElseThrow(InvitationUnavailableException::new);
         if (!normalize(user.getEmail()).equals(invitation.email())) throw new InvitationEmailMismatchException();
@@ -135,5 +136,8 @@ public class InvitationService {
     }
     public static final class InvitationEmailMismatchException extends RuntimeException {
         public InvitationEmailMismatchException() { super("Entre com o mesmo e-mail que recebeu o convite."); }
+    }
+    public static final class EmailVerificationRequiredException extends RuntimeException {
+        public EmailVerificationRequiredException() { super("Verifique seu e-mail antes de aceitar o convite."); }
     }
 }

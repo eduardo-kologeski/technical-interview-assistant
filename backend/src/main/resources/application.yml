@@ -19,6 +19,8 @@ server:
   shutdown: graceful
 
 app:
+  identity:
+    expose-development-link: ${IDENTITY_EXPOSE_DEVELOPMENT_LINK:false}
   invitation:
     expose-development-link: ${INVITATION_EXPOSE_DEVELOPMENT_LINK:false}
   time-zone: ${APP_TIME_ZONE:America/Sao_Paulo}

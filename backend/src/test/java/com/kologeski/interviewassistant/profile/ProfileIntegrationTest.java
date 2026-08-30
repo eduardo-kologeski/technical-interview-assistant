@@ -2,6 +2,7 @@ package com.kologeski.interviewassistant.profile;
 
 import com.fasterxml.jackson.databind.*;
 import com.kologeski.interviewassistant.auth.RefreshTokenRepository;
+import com.kologeski.interviewassistant.auth.IdentityTokenRepository;
 import com.kologeski.interviewassistant.user.UserRepository;
 import com.kologeski.interviewassistant.company.*;
 import org.junit.jupiter.api.*;
@@ -21,6 +22,7 @@ class ProfileIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired IdentityTokenRepository identityTokens;
     @Autowired UserTechnicalSkillRepository skills;
     @Autowired InterviewAvailabilityRepository availability;
     @Autowired Clock clock;
@@ -31,6 +33,7 @@ class ProfileIntegrationTest {
     @BeforeEach void clean() {
         availability.deleteAll();
         skills.deleteAll();
+        identityTokens.deleteAll();
         refreshTokens.deleteAll();
         users.deleteAll();
     }
