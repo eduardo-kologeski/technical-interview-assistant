@@ -123,6 +123,7 @@ SSO/SCIM, MFA enforcement, domain verification, audit export, retenção customi
 ## Completed
 
 - #101 — respostas gerais sem avaliações de participantes, mutações legadas protegidas e regressões de peeking/tenant escape; integrado no PR #100.
+- #102 — revogação tenant-scoped de membership, proteção do último administrador e invalidação imediata de sessões antigas; integrado no PR #115.
 - Autenticação interna com BCrypt, JWT e refresh rotation.
 - Persistência PostgreSQL/Flyway, optimistic locking e autosave.
 - Backup/restore com validação, observabilidade básica, CI e supply-chain scans.

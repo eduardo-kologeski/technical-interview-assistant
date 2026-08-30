@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -66,9 +67,9 @@ class CompanyIsolationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"entrevistador@empresa-a.com\",\"role\":\"INTERVIEWER\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.path").isNotEmpty())
+                .andExpect(jsonPath("$.developmentPath").isNotEmpty())
                 .andReturn();
-        String path = body(invitation).get("path").asText();
+        String path = body(invitation).get("developmentPath").asText();
         String invitationToken = path.substring(path.lastIndexOf('/') + 1);
 
         mvc.perform(get("/api/public/invitations/{token}", invitationToken))
@@ -137,6 +138,42 @@ class CompanyIsolationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(java.util.Map.of("token", invitationToken))))
                 .andExpect(status().isConflict());
+
+        MvcResult lifecycleInvitation = mvc.perform(post("/api/companies/invitations")
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"lifecycle@empresa-a.com\",\"role\":\"INTERVIEWER\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String lifecycleId = body(lifecycleInvitation).get("id").asText();
+        String lifecyclePath = body(lifecycleInvitation).get("developmentPath").asText();
+        String lifecycleToken = lifecyclePath.substring(lifecyclePath.lastIndexOf('/') + 1);
+
+        mvc.perform(delete("/api/companies/invitations/{id}", lifecycleId)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete("/api/companies/invitations/{id}", lifecycleId)
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/public/invitations/{token}", lifecycleToken)).andExpect(status().isNotFound());
+
+        MvcResult replacement = mvc.perform(post("/api/companies/invitations")
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"resend@empresa-a.com\",\"role\":\"INTERVIEWER\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String replacementId = body(replacement).get("id").asText();
+        String oldReplacementToken = body(replacement).get("developmentPath").asText().replaceFirst(".*/", "");
+        MvcResult resent = mvc.perform(post("/api/companies/invitations/{id}/resend", replacementId)
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
+                .andExpect(status().isOk()).andReturn();
+        String newReplacementToken = body(resent).get("developmentPath").asText().replaceFirst(".*/", "");
+        mvc.perform(get("/api/public/invitations/{token}", oldReplacementToken)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/public/invitations/{token}", newReplacementToken)).andExpect(status().isOk());
+        mvc.perform(get("/api/companies/invitations").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.email == 'resend@empresa-a.com')].status")
+                        .value(containsInAnyOrder("PENDING", "REVOKED")));
 
         mvc.perform(delete("/api/companies/members/{userId}", interviewerId)
                         .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))

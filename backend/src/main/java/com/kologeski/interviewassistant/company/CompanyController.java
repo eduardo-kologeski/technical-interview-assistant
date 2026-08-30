@@ -2,7 +2,6 @@ package com.kologeski.interviewassistant.company;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import java.net.URI;
 import java.util.*;
 
 @RestController
@@ -34,7 +33,20 @@ public class CompanyController {
     public InvitationResponse invite(@RequestBody InviteRequest request) {
         var invitation = invitations.invite(request.email(), request.role());
         return new InvitationResponse(invitation.id(), invitation.email(), invitation.role(), invitation.expiresAt(),
-                URI.create("/invites/" + invitation.token()).toString());
+                invitation.deliveryStatus(), invitation.developmentPath());
+    }
+
+    @GetMapping("/invitations")
+    public List<InvitationService.InvitationSummary> invitations() { return invitations.list(); }
+
+    @DeleteMapping("/invitations/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeInvitation(@PathVariable UUID id) { invitations.revoke(id); }
+
+    @PostMapping("/invitations/{id}/resend")
+    public InvitationResponse resendInvitation(@PathVariable UUID id) {
+        var invitation = invitations.resend(id);
+        return new InvitationResponse(invitation.id(), invitation.email(), invitation.role(), invitation.expiresAt(),
+                invitation.deliveryStatus(), invitation.developmentPath());
     }
 
     @PostMapping("/invitations/accept")
@@ -46,5 +58,6 @@ public class CompanyController {
     public record InviteRequest(String email, CompanyRole role) { }
     public record AcceptRequest(String token) { }
     public record AcceptResponse(UUID companyId) { }
-    public record InvitationResponse(UUID id, String email, CompanyRole role, java.time.Instant expiresAt, String path) { }
+    public record InvitationResponse(UUID id, String email, CompanyRole role, java.time.Instant expiresAt,
+                                     String deliveryStatus, String developmentPath) { }
 }
