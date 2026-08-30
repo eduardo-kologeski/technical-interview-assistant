@@ -24,6 +24,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestParam;
 import com.kologeski.interviewassistant.company.CompanyContext;
+import com.kologeski.interviewassistant.company.CompanyAuthorizationPolicy;
+import com.kologeski.interviewassistant.company.CompanyCapability;
 
 @RestController
 @RequestMapping("/api/interviews")
@@ -31,18 +33,18 @@ import com.kologeski.interviewassistant.company.CompanyContext;
 public class InterviewController {
     private final InterviewService service;
     private final InterviewCollaborationService collaboration;
-    private final CompanyContext companyContext;
+    private final CompanyAuthorizationPolicy authorization;
 
     public InterviewController(InterviewService service, InterviewCollaborationService collaboration,
-                               CompanyContext companyContext) {
+                               CompanyAuthorizationPolicy authorization) {
         this.service = service;
         this.collaboration = collaboration;
-        this.companyContext = companyContext;
+        this.authorization = authorization;
     }
 
     @PostMapping
     InterviewResponse create(@Valid @RequestBody CreateInterviewCommand command) {
-        companyContext.requiredAdmin();
+        authorization.require(CompanyCapability.MANAGE_INTERVIEWS);
         Interview interview = service.createAndStart(command.jobPositionId(), command.candidateName(), command.clientCompany());
         collaboration.register(interview, command.participantUserIds());
         return InterviewResponse.from(interview);
@@ -52,45 +54,49 @@ public class InterviewController {
     @PatchMapping("/{id}/workspace") WorkspaceResponse saveWorkspace(@PathVariable UUID id, @Valid @RequestBody SaveAssessmentCommand command) { return WorkspaceResponse.from(collaboration.save(id, command.version(), command.assessmentData())); }
     @PatchMapping("/{id}/workspace/complete") WorkspaceResponse completeWorkspace(@PathVariable UUID id) { return WorkspaceResponse.from(collaboration.complete(id)); }
 
-    @GetMapping("/{id}") InterviewResponse get(@PathVariable UUID id) { return InterviewResponse.from(service.get(id)); }
+    @GetMapping("/{id}") InterviewResponse get(@PathVariable UUID id) {
+        authorization.require(CompanyCapability.VIEW_INTERVIEWS);
+        return InterviewResponse.from(service.get(id));
+    }
 
     @GetMapping
     PageResponse<InterviewResponse> list(
             @RequestParam(required = false) InterviewStatus status,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        authorization.require(CompanyCapability.VIEW_INTERVIEWS);
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
         return PageResponse.from(service.list(status, pageable), InterviewResponse::from);
     }
 
     @PatchMapping("/{id}/start")
     InterviewResponse start(@PathVariable UUID id) {
-        companyContext.requiredAdmin();
+        authorization.require(CompanyCapability.MANAGE_INTERVIEWS);
         return InterviewResponse.from(service.start(id));
     }
 
     @PatchMapping("/{id}/complete")
     InterviewResponse complete(@PathVariable UUID id) {
-        companyContext.requiredAdmin();
+        authorization.require(CompanyCapability.MANAGE_INTERVIEWS);
         return InterviewResponse.from(service.complete(id));
     }
 
     @PatchMapping("/{id}/assessment/finalize")
     InterviewResponse finalizeAssessment(@PathVariable UUID id) {
-        companyContext.requiredAdmin();
+        authorization.require(CompanyCapability.MANAGE_INTERVIEWS);
         return InterviewResponse.from(service.finalizeAssessment(id));
     }
 
     @PatchMapping("/{id}/assessment")
     InterviewResponse saveAssessment(@PathVariable UUID id,
                                      @Valid @RequestBody SaveAssessmentCommand command) {
-        companyContext.requiredAdmin();
+        authorization.require(CompanyCapability.MANAGE_INTERVIEWS);
         return InterviewResponse.from(service.saveAssessment(id, command.version(), command.assessmentData()));
     }
 
     @PostMapping("/{id}/pdf-generation")
     InterviewResponse registerPdfGeneration(@PathVariable UUID id) {
-        companyContext.requiredAdmin();
+        authorization.require(CompanyCapability.MANAGE_INTERVIEWS);
         return InterviewResponse.from(service.registerPdfGeneration(id));
     }
 

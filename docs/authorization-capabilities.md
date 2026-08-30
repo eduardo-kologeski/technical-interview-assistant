@@ -1,25 +1,23 @@
-# Evolução de autorização por capacidades
+# Authorization capabilities
 
-O modelo atual autentica usuários e preserva autoria/auditoria, sem diferenciar permissões funcionais. Esta decisão é intencional até que os papéis do negócio sejam aprovados; não se deve inferir que todo usuário terá acesso irrestrito em produção.
+Authorization is evaluated server-side against the authenticated user's active tenant membership. `X-Company-Id`
+only selects one of that user's active memberships and never grants access.
 
-## Modelo proposto
+| Capability | COMPANY_ADMIN | INTERVIEWER |
+| --- | --- | --- |
+| View members | Allow | Allow |
+| Manage members | Allow | Deny |
+| Manage invitations | Allow | Deny |
+| View vacancies | Allow | Allow |
+| Manage vacancies | Allow | Deny |
+| View interviews | Allow | Allow |
+| Manage interviews | Allow | Deny |
+| Conduct assigned interview | Allow | Allow, participant check also required |
+| Search interviewers | Allow | Allow |
 
-Capacidades independentes, atribuídas por política externa ou papel:
+The policy is default-deny: a role receives only the explicitly mapped capabilities. Resource ownership and
+participant checks remain mandatory in addition to capabilities. A capability never replaces tenant-scoped
+repository queries.
 
-- `VACANCY_READ`, `VACANCY_WRITE`, `VACANCY_DEACTIVATE`;
-- `INTERVIEW_READ`, `INTERVIEW_CONDUCT`, `INTERVIEW_REVIEW`;
-- `REPORT_GENERATE`;
-- `PROFILE_READ`, `PROFILE_WRITE`;
-- `AUDIT_READ` para acesso operacional excepcional.
-
-Aplicar autorização no backend por recurso e contexto, nunca apenas escondendo controles no frontend. Preservar criador, último editor e entrevistador real. Mudanças de capacidade precisam de auditoria, menor privilégio, revisão e testes positivos/negativos.
-
-## Decisões pendentes
-
-- papéis organizacionais e responsáveis por concessão/revogação;
-- escopo por equipe, vaga e entrevista;
-- acesso de suporte e prazo de expiração;
-- tratamento de desligamento e mudança de função;
-- retenção e acesso ao log de auditoria.
-
-Até essas decisões, a aplicação não deve declarar isolamento multiempresa nem RBAC completo.
+New roles such as recruiter or hiring manager are intentionally deferred until their product workflows justify a
+distinct least-privilege grant set. Custom enterprise RBAC is outside this baseline.

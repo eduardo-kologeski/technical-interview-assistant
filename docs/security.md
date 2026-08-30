@@ -11,6 +11,7 @@ Delivery is provider-abstracted. `IDENTITY_EXPOSE_DEVELOPMENT_LINK` and `INVITAT
 ## Authorization
 
 Authorization is enforced server-side from the authenticated identity, active company membership and tenant-scoped resource lookup. See [multi-tenancy.md](multi-tenancy.md) for the regression matrix.
+Role grants and the endpoint capability matrix are documented in [authorization-capabilities.md](authorization-capabilities.md).
 
 ## Future controls
 

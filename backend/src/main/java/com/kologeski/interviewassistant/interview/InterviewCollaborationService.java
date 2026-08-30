@@ -18,17 +18,19 @@ public class InterviewCollaborationService {
     private final CompanyContext companyContext;
     private final CurrentActor actor;
     private final Clock clock;
+    private final CompanyAuthorizationPolicy authorization;
 
     public InterviewCollaborationService(InterviewRepository interviews, InterviewParticipantRepository participants,
             CompanyMembershipRepository memberships, UserRepository users, CompanyContext companyContext,
-            CurrentActor actor, Clock clock) {
+            CurrentActor actor, Clock clock, CompanyAuthorizationPolicy authorization) {
         this.interviews = interviews; this.participants = participants; this.memberships = memberships;
         this.users = users; this.companyContext = companyContext; this.actor = actor; this.clock = clock;
+        this.authorization = authorization;
     }
 
     @Transactional
     public void register(Interview interview, Collection<Long> invitedUserIds) {
-        var active = companyContext.required();
+        var active = authorization.require(CompanyCapability.MANAGE_INTERVIEWS);
         LinkedHashSet<Long> ids = new LinkedHashSet<>(); ids.add(active.userId());
         if (invitedUserIds != null) ids.addAll(invitedUserIds);
         if (ids.size() > 10) throw new IllegalArgumentException("Uma entrevista pode ter no máximo 10 entrevistadores.");
@@ -42,6 +44,7 @@ public class InterviewCollaborationService {
 
     @Transactional(readOnly = true)
     public Workspace workspace(UUID interviewId) {
+        authorization.require(CompanyCapability.CONDUCT_ASSIGNED_INTERVIEW);
         Interview interview = requiredInterview(interviewId);
         InterviewParticipant own = requiredParticipant(interviewId);
         return view(interview, own);
@@ -49,6 +52,7 @@ public class InterviewCollaborationService {
 
     @Transactional
     public Workspace save(UUID interviewId, long expectedVersion, String assessmentData) {
+        authorization.require(CompanyCapability.CONDUCT_ASSIGNED_INTERVIEW);
         Interview interview = requiredInterview(interviewId);
         InterviewParticipant own = requiredParticipant(interviewId);
         if (own.version() != expectedVersion) throw new InterviewService.StaleInterviewException();
@@ -58,6 +62,7 @@ public class InterviewCollaborationService {
 
     @Transactional
     public Workspace complete(UUID interviewId) {
+        authorization.require(CompanyCapability.CONDUCT_ASSIGNED_INTERVIEW);
         Interview interview = requiredInterview(interviewId);
         InterviewParticipant own = requiredParticipant(interviewId);
         own.complete(Instant.now(clock)); participants.saveAndFlush(own);
