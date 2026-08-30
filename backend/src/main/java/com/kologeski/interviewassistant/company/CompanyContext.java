@@ -37,12 +37,6 @@ public class CompanyContext {
         return new ActiveCompany(membership.companyId(), userId, membership.role());
     }
 
-    public ActiveCompany requiredAdmin() {
-        ActiveCompany active = required();
-        if (active.role() != CompanyRole.COMPANY_ADMIN) throw new CompanyAccessDeniedException();
-        return active;
-    }
-
     public record ActiveCompany(UUID companyId, Long userId, CompanyRole role) { }
     public static final class CompanyAccessDeniedException extends RuntimeException {
         public CompanyAccessDeniedException() { super("Acesso à empresa negado."); }

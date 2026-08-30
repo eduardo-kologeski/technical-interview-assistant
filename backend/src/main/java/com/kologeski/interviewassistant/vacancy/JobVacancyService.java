@@ -14,6 +14,8 @@ import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.kologeski.interviewassistant.company.CompanyContext;
+import com.kologeski.interviewassistant.company.CompanyAuthorizationPolicy;
+import com.kologeski.interviewassistant.company.CompanyCapability;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
@@ -23,20 +25,21 @@ public class JobVacancyService {
     private final CurrentActor currentActor;
     private final Clock clock;
     private final CompanyContext companyContext;
+    private final CompanyAuthorizationPolicy authorization;
 
     @Autowired
     public JobVacancyService(JobVacancyRepository repository, CurrentActor currentActor, Clock clock,
-                             CompanyContext companyContext) {
+                             CompanyContext companyContext, CompanyAuthorizationPolicy authorization) {
         this.repository = repository; this.currentActor = currentActor; this.clock = clock;
-        this.companyContext = companyContext;
+        this.companyContext = companyContext; this.authorization = authorization;
     }
     public JobVacancyService(JobVacancyRepository repository, CurrentActor currentActor, Clock clock) {
-        this(repository, currentActor, clock, null);
+        this(repository, currentActor, clock, null, null);
     }
 
     @Transactional
     public JobVacancy create(String title, String seniority, String description, List<String> requirements) {
-        requireAdmin();
+        require(CompanyCapability.MANAGE_VACANCIES);
         var actor = currentActor.required();
         var saved = repository.save(new JobVacancy(companyId(), title, seniority, description, requirements, actor.id(), Instant.now(clock)));
         log.info("event=vacancy_created vacancyId={} actorId={}", saved.id(), actor.id());
@@ -60,7 +63,7 @@ public class JobVacancyService {
 
     @Transactional
     public JobVacancy update(UUID id, long expectedVersion, String title, String seniority, String description, List<String> requirements) {
-        requireAdmin();
+        require(CompanyCapability.MANAGE_VACANCIES);
         var vacancy = required(id);
         requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
@@ -76,7 +79,7 @@ public class JobVacancyService {
 
     @Transactional
     public JobVacancy deactivate(UUID id, long expectedVersion) {
-        requireAdmin();
+        require(CompanyCapability.MANAGE_VACANCIES);
         var vacancy = required(id);
         requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
@@ -92,11 +95,12 @@ public class JobVacancyService {
     }
 
     private UUID companyId() {
-        return companyContext == null ? JobVacancy.LEGACY_COMPANY_ID : companyContext.required().companyId();
+        return companyContext == null ? JobVacancy.LEGACY_COMPANY_ID
+                : authorization.require(CompanyCapability.VIEW_VACANCIES).companyId();
     }
 
-    private void requireAdmin() {
-        if (companyContext != null) companyContext.requiredAdmin();
+    private void require(CompanyCapability capability) {
+        if (authorization != null) authorization.require(capability);
     }
 
     private void requireVersion(JobVacancy vacancy, long expectedVersion) {

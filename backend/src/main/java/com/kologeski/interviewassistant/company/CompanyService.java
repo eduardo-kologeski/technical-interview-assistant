@@ -18,11 +18,13 @@ public class CompanyService {
     private final UserRepository users;
     private final CurrentActor actor;
     private final Clock clock;
+    private final CompanyAuthorizationPolicy authorization;
 
     public CompanyService(CompanyRepository companies, CompanyMembershipRepository memberships,
-                          UserRepository users, CurrentActor actor, Clock clock) {
+                          UserRepository users, CurrentActor actor, Clock clock,
+                          CompanyAuthorizationPolicy authorization) {
         this.companies = companies; this.memberships = memberships; this.users = users;
-        this.actor = actor; this.clock = clock;
+        this.actor = actor; this.clock = clock; this.authorization = authorization;
     }
 
     @Transactional
@@ -51,7 +53,7 @@ public class CompanyService {
 
     @Transactional(readOnly = true)
     public List<CompanyMemberSummary> members(CompanyContext context) {
-        CompanyContext.ActiveCompany active = context.required();
+        CompanyContext.ActiveCompany active = authorization.require(CompanyCapability.VIEW_MEMBERS);
         return memberships.findByCompanyIdAndActiveTrueOrderByCreatedAtAsc(active.companyId()).stream()
                 .map(membership -> {
                     User user = users.findById(membership.userId()).orElseThrow();
@@ -61,7 +63,7 @@ public class CompanyService {
 
     @Transactional
     public void revokeMember(CompanyContext context, Long userId) {
-        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        CompanyContext.ActiveCompany active = authorization.require(CompanyCapability.MANAGE_MEMBERS);
         List<CompanyMembership> locked = memberships.lockActiveByCompanyId(active.companyId());
         CompanyMembership target = locked.stream().filter(item -> item.userId().equals(userId)).findFirst()
                 .orElseThrow(() -> new com.kologeski.interviewassistant.api.ResourceNotFoundException("Membro não encontrado."));

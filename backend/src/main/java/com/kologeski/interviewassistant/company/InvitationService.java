@@ -22,19 +22,21 @@ public class InvitationService {
     private final Clock clock;
     private final CompanyRepository companies;
     private final InvitationDelivery delivery;
+    private final CompanyAuthorizationPolicy authorization;
     private final SecureRandom random = new SecureRandom();
 
     public InvitationService(CompanyInvitationRepository invitations, CompanyMembershipRepository memberships,
                              UserRepository users, CompanyContext context, CurrentActor actor, Clock clock,
-                             CompanyRepository companies, InvitationDelivery delivery) {
+                             CompanyRepository companies, InvitationDelivery delivery,
+                             CompanyAuthorizationPolicy authorization) {
         this.invitations = invitations; this.memberships = memberships; this.users = users;
         this.context = context; this.actor = actor; this.clock = clock;
-        this.companies = companies; this.delivery = delivery;
+        this.companies = companies; this.delivery = delivery; this.authorization = authorization;
     }
 
     @Transactional
     public CreatedInvitation invite(String email, CompanyRole role) {
-        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        CompanyContext.ActiveCompany active = authorization.require(CompanyCapability.MANAGE_INVITATIONS);
         String normalizedEmail = normalize(email);
         Instant now = Instant.now(clock);
         invitations.lockPendingByCompanyAndEmail(active.companyId(), normalizedEmail)
@@ -44,7 +46,7 @@ public class InvitationService {
 
     @Transactional(readOnly = true)
     public List<InvitationSummary> list() {
-        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        CompanyContext.ActiveCompany active = authorization.require(CompanyCapability.MANAGE_INVITATIONS);
         Instant now = Instant.now(clock);
         return invitations.findByCompanyIdOrderByCreatedAtDesc(active.companyId()).stream()
                 .map(item -> new InvitationSummary(item.id(), item.email(), item.role(),
@@ -55,7 +57,7 @@ public class InvitationService {
 
     @Transactional
     public void revoke(UUID id) {
-        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        CompanyContext.ActiveCompany active = authorization.require(CompanyCapability.MANAGE_INVITATIONS);
         CompanyInvitation invitation = invitations.lockByIdAndCompanyId(id, active.companyId())
                 .orElseThrow(InvitationUnavailableException::new);
         invitation.revoke(Instant.now(clock));
@@ -66,7 +68,7 @@ public class InvitationService {
 
     @Transactional
     public CreatedInvitation resend(UUID id) {
-        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        CompanyContext.ActiveCompany active = authorization.require(CompanyCapability.MANAGE_INVITATIONS);
         CompanyInvitation previous = invitations.lockByIdAndCompanyId(id, active.companyId())
                 .orElseThrow(InvitationUnavailableException::new);
         Instant now = Instant.now(clock);

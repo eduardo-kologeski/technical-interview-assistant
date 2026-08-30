@@ -18,21 +18,24 @@ public class InterviewerSearchService {
     private final Clock clock;
     private final CompanyContext companyContext;
     private final CompanyMembershipRepository memberships;
+    private final CompanyAuthorizationPolicy authorization;
 
     @Autowired
     public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies, Clock clock,
-                                    CompanyContext companyContext, CompanyMembershipRepository memberships) {
+                                    CompanyContext companyContext, CompanyMembershipRepository memberships,
+                                    CompanyAuthorizationPolicy authorization) {
         this.profiles = profiles; this.vacancies = vacancies; this.clock = clock;
-        this.companyContext = companyContext; this.memberships = memberships;
+        this.companyContext = companyContext; this.memberships = memberships; this.authorization = authorization;
     }
     public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies, Clock clock) {
-        this(profiles, vacancies, clock, null, null);
+        this(profiles, vacancies, clock, null, null, null);
     }
 
     @Transactional(readOnly = true)
     public Page<InterviewerResult> search(UUID vacancyId, String technology, LocalDate date, LocalTime time,
                                           Pageable pageable) {
         List<String> requirements = vacancyId == null ? List.of() : vacancies.get(vacancyId).requirements();
+        if (authorization != null) authorization.require(CompanyCapability.SEARCH_INTERVIEWERS);
         String technologyFilter = technology == null ? "" : ProfileService.normalize(technology);
         Page<ProfileService.ProfileSnapshot> profilesPage;
         if (companyContext == null) {
