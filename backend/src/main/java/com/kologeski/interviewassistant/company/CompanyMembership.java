@@ -31,4 +31,9 @@ public class CompanyMembership {
     public Long userId() { return userId; }
     public CompanyRole role() { return role; }
     public boolean active() { return active; }
+
+    public void deactivate(Instant now) {
+        active = false;
+        updatedAt = now;
+    }
 }

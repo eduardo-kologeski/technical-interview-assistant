@@ -137,6 +137,27 @@ class CompanyIsolationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(java.util.Map.of("token", invitationToken))))
                 .andExpect(status().isConflict());
+
+        mvc.perform(delete("/api/companies/members/{userId}", interviewerId)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(delete("/api/companies/members/{userId}", interviewerId)
+                        .header("Authorization", bearer(interviewer)).header("X-Company-Id", companyA))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(delete("/api/companies/members/{userId}", interviewerId)
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/job-positions").header("Authorization", bearer(interviewer))
+                        .header("X-Company-Id", companyA).param("page", "0").param("size", "10"))
+                .andExpect(status().isForbidden());
+
+        Long adminAId = jdbc.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, "admin-a@empresa-a.com");
+        mvc.perform(delete("/api/companies/members/{userId}", adminAId)
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
+                .andExpect(status().isConflict());
     }
 
     private String register(String email) throws Exception {

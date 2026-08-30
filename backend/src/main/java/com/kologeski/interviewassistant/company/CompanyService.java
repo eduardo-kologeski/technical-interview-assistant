@@ -7,9 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.text.Normalizer;
 import java.time.*;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class CompanyService {
+    private static final Logger log = LoggerFactory.getLogger(CompanyService.class);
     private final CompanyRepository companies;
     private final CompanyMembershipRepository memberships;
     private final UserRepository users;
@@ -56,6 +59,21 @@ public class CompanyService {
                 }).toList();
     }
 
+    @Transactional
+    public void revokeMember(CompanyContext context, Long userId) {
+        CompanyContext.ActiveCompany active = context.requiredAdmin();
+        List<CompanyMembership> locked = memberships.lockActiveByCompanyId(active.companyId());
+        CompanyMembership target = locked.stream().filter(item -> item.userId().equals(userId)).findFirst()
+                .orElseThrow(() -> new com.kologeski.interviewassistant.api.ResourceNotFoundException("Membro não encontrado."));
+        long administrators = locked.stream().filter(item -> item.role() == CompanyRole.COMPANY_ADMIN).count();
+        if (target.role() == CompanyRole.COMPANY_ADMIN && administrators == 1)
+            throw new LastCompanyAdministratorException();
+        target.deactivate(Instant.now(clock));
+        memberships.save(target);
+        log.info("event=company_membership_revoked companyId={} targetUserId={} actorId={}",
+                active.companyId(), userId, active.userId());
+    }
+
     private String slug(String value) {
         String normalized = Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT)
@@ -66,4 +84,7 @@ public class CompanyService {
 
     public record CompanySummary(UUID id, String name, String slug, CompanyRole role) { }
     public record CompanyMemberSummary(Long id, String name, String email, CompanyRole role) { }
+    public static final class LastCompanyAdministratorException extends IllegalStateException {
+        public LastCompanyAdministratorException() { super("A empresa precisa manter pelo menos um administrador ativo."); }
+    }
 }

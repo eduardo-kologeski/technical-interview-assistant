@@ -122,10 +122,11 @@ SSO/SCIM, MFA enforcement, domain verification, audit export, retenção customi
 
 ## Completed
 
+- #101 — respostas gerais sem avaliações de participantes, mutações legadas protegidas e regressões de peeking/tenant escape; integrado no PR #100.
 - Autenticação interna com BCrypt, JWT e refresh rotation.
 - Persistência PostgreSQL/Flyway, optimistic locking e autosave.
 - Backup/restore com validação, observabilidade básica, CI e supply-chain scans.
-- Fundação inicial Company/Membership/Invitation e participantes independentes implementada no PR #100, ainda não integrada.
+- Fundação inicial Company/Membership/Invitation e participantes independentes integrada em `develop` pelo PR #100.
 - Issue #96 / PR #97 reutilizados para mobile e revisão/PDF; permanecem em andamento e não são duplicados.
 
 ## Blocked
