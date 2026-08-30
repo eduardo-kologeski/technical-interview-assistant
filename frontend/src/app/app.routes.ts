@@ -7,8 +7,14 @@ import { JobPositionsComponent } from './job-positions.component';
 import { ShellComponent } from './shell.component';
 import { ProfileComponent } from './profile.component';
 import { InterviewersComponent } from './interviewers.component';
+import { LandingPageComponent } from './landing-page.component';
+import { InvitationPageComponent } from './invitation-page.component';
+import { CompanyAdminComponent } from './company-admin.component';
+import { InterviewsWorkspaceComponent } from './interviews-workspace.component';
 
 export const routes: Routes = [
+  { path: '', pathMatch: 'full', component: LandingPageComponent },
+  { path: 'invites/:token', component: InvitationPageComponent },
   { path: 'auth/login', component: AuthPageComponent },
   { path: 'auth/register', component: AuthPageComponent },
   {
@@ -18,12 +24,13 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'job-positions', component: JobPositionsComponent },
-      { path: 'interviewers', component: InterviewersComponent },
-      { path: 'profile', component: ProfileComponent },
+      { path: 'interviewers', redirectTo: 'interviews' },
+      { path: 'profile', redirectTo: 'interviews' },
+      { path: 'company', component: CompanyAdminComponent },
+      { path: 'interviews/new', component: InterviewPage },
       { path: 'interviews/:id', component: InterviewPage },
-      { path: 'interviews', component: InterviewPage },
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      { path: 'interviews', component: InterviewsWorkspaceComponent },
     ],
   },
-  { path: '**', redirectTo: 'dashboard' },
+  { path: '**', redirectTo: '' },
 ];

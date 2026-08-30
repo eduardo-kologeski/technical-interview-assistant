@@ -13,6 +13,8 @@ import java.util.UUID;
 import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.kologeski.interviewassistant.company.CompanyContext;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class JobVacancyService {
@@ -20,17 +22,23 @@ public class JobVacancyService {
     private final JobVacancyRepository repository;
     private final CurrentActor currentActor;
     private final Clock clock;
+    private final CompanyContext companyContext;
 
+    @Autowired
+    public JobVacancyService(JobVacancyRepository repository, CurrentActor currentActor, Clock clock,
+                             CompanyContext companyContext) {
+        this.repository = repository; this.currentActor = currentActor; this.clock = clock;
+        this.companyContext = companyContext;
+    }
     public JobVacancyService(JobVacancyRepository repository, CurrentActor currentActor, Clock clock) {
-        this.repository = repository;
-        this.currentActor = currentActor;
-        this.clock = clock;
+        this(repository, currentActor, clock, null);
     }
 
     @Transactional
     public JobVacancy create(String title, String seniority, String description, List<String> requirements) {
+        requireAdmin();
         var actor = currentActor.required();
-        var saved = repository.save(new JobVacancy(title, seniority, description, requirements, actor.id(), Instant.now(clock)));
+        var saved = repository.save(new JobVacancy(companyId(), title, seniority, description, requirements, actor.id(), Instant.now(clock)));
         log.info("event=vacancy_created vacancyId={} actorId={}", saved.id(), actor.id());
         return saved;
     }
@@ -38,18 +46,21 @@ public class JobVacancyService {
         return create(title, "Não informada", "", requirements);
     }
 
-    @Transactional(readOnly = true) public List<JobVacancy> list() { return repository.findAll(); }
+    @Transactional(readOnly = true) public List<JobVacancy> list() {
+        return companyContext == null ? repository.findAll() : repository.findAllByCompanyId(companyId());
+    }
     @Transactional(readOnly = true) public List<JobVacancy> list(Boolean active) {
-        return repository.findAll().stream().filter(item -> active == null || item.active() == active).toList();
+        return list().stream().filter(item -> active == null || item.active() == active).toList();
     }
     @Transactional(readOnly = true)
     public Page<JobVacancy> list(Boolean active, String query, Pageable pageable) {
-        return repository.search(active, query == null ? "" : query.trim(), pageable);
+        return repository.search(companyId(), active, query == null ? "" : query.trim(), pageable);
     }
     @Transactional(readOnly = true) public JobVacancy get(UUID id) { return required(id); }
 
     @Transactional
     public JobVacancy update(UUID id, long expectedVersion, String title, String seniority, String description, List<String> requirements) {
+        requireAdmin();
         var vacancy = required(id);
         requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
@@ -65,6 +76,7 @@ public class JobVacancyService {
 
     @Transactional
     public JobVacancy deactivate(UUID id, long expectedVersion) {
+        requireAdmin();
         var vacancy = required(id);
         requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
@@ -75,7 +87,16 @@ public class JobVacancyService {
     }
 
     private JobVacancy required(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
+        return (companyContext == null ? repository.findById(id) : repository.findByIdAndCompanyId(id, companyId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
+    }
+
+    private UUID companyId() {
+        return companyContext == null ? JobVacancy.LEGACY_COMPANY_ID : companyContext.required().companyId();
+    }
+
+    private void requireAdmin() {
+        if (companyContext != null) companyContext.requiredAdmin();
     }
 
     private void requireVersion(JobVacancy vacancy, long expectedVersion) {

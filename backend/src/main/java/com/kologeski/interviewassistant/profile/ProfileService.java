@@ -101,6 +101,18 @@ public class ProfileService {
                                                       Pageable pageable) {
         LocalDate today = LocalDate.now(clock);
         Page<User> page = users.searchInterviewers(technology, today, date, time, pageable);
+        return professionalProfiles(page, today);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProfileSnapshot> professionalProfiles(Collection<Long> userIds, String technology,
+                                                       LocalDate date, LocalTime time, Pageable pageable) {
+        if (userIds.isEmpty()) return Page.empty(pageable);
+        LocalDate today = LocalDate.now(clock);
+        return professionalProfiles(users.searchCompanyInterviewers(userIds, technology, today, date, time, pageable), today);
+    }
+
+    private Page<ProfileSnapshot> professionalProfiles(Page<User> page, LocalDate today) {
         List<Long> ids = page.getContent().stream().map(User::getId).toList();
         if (ids.isEmpty()) return page.map(user -> snapshot(user, false));
         Map<Long, List<SkillSnapshot>> skillsByUser = skills
