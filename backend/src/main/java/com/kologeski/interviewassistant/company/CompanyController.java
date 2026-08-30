@@ -21,6 +21,9 @@ public class CompanyController {
     @GetMapping("/members")
     public List<CompanyService.CompanyMemberSummary> members() { return companies.members(context); }
 
+    @DeleteMapping("/members/{userId}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeMember(@PathVariable Long userId) { companies.revokeMember(context, userId); }
+
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public CompanyService.CompanySummary create(@RequestBody CreateCompanyRequest request) {
         Company company = companies.create(request.name());
