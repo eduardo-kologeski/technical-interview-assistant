@@ -173,15 +173,14 @@ test('uses a responsive work-week grid for interviewer availability', async ({ p
   await page.locator('.date-trigger').click();
   await expect(page.getByRole('region', { name: 'Escolher uma data' })).toBeVisible();
   await page.getByRole('button', { name: 'Minimizar' }).click();
-  await page.getByRole('button', { name: 'Próxima semana' }).click();
+  await page.getByRole('button', { name: 'Próxima semana', exact: true }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('.mobile-day-strip')).toBeVisible();
   await expect(page.locator('.day-header:visible')).toHaveCount(1);
   await page.getByRole('button', { name: /Selecionar .* às 09:30/ }).click();
-  await expect(page.getByText('NOVA DISPONIBILIDADE')).toBeVisible();
-  await expect(page.getByLabel('Início')).toHaveValue('09:30');
-  await expect(page.getByLabel('Fim')).toHaveValue('09:45');
+  await expect(page.getByText('HORÁRIOS SELECIONADOS')).toBeVisible();
+  await expect(page.locator('.selection-summary')).toContainText('1 blocos de 15 min');
   await page.getByRole('button', { name: /Selecionar .* às 10:15/ }).click();
-  await expect(page.getByLabel('Fim')).toHaveValue('10:30');
+  await expect(page.locator('.selection-summary')).toContainText('4 blocos de 15 min');
 });

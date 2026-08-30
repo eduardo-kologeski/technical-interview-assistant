@@ -918,15 +918,18 @@ export class ProfileComponent {
       this.editAvailability(slot);
       return;
     }
+    const extendsCurrentSelection = this.editingDate === date && !this.editingAvailabilityId;
+    const currentStart = this.startTime;
     this.error.set('');
     this.selectedDay.set(date);
     this.editingDate = date;
     this.editingAvailabilityId = null;
     this.selectionDragActive = true;
     this.selectionDragDate = date;
-    this.selectionDragAnchor = time;
-    this.startTime = time;
+    this.selectionDragAnchor = extendsCurrentSelection ? currentStart : time;
+    this.startTime = this.selectionDragAnchor;
     this.endTime = this.addMinutes(time, 15);
+    this.continueSelectionDrag(date, time, false);
   }
   continueSelectionDrag(date: string, time: string, past: boolean, slot?: Availability) {
     if (!this.selectionDragActive || past || slot || date !== this.selectionDragDate) return;
