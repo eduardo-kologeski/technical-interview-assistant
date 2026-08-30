@@ -42,6 +42,27 @@ describe('App', () => {
     expect(app.saveState()).toBe('Não salvo — somente nesta aba');
   });
 
+  it('opens a completed interview directly in its read-only summary for reprinting', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const http = TestBed.inject(HttpTestingController);
+    flushInitialRequests(http);
+    (app as any).loadInterview('completed-1');
+    http.expectOne('/api/interviews/completed-1/workspace').flush({
+      id: 'completed-1', vacancyId: 'vacancy-1', candidateName: 'Pessoa Candidata',
+      vacancyTitleSnapshot: 'Backend Pleno', senioritySnapshot: 'Pleno', clientCompany: 'Empresa',
+      requirementSnapshot: ['Java'], interviewerId: '1', status: 'COMPLETED', startedAt: new Date().toISOString(),
+      version: 2, assessmentData: JSON.stringify({ finalAssessment: 'Parecer final', strengths: 'Java' }), participants: []
+    });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(app.reviewing()).toBe(true);
+    expect(element.textContent).toContain('REVISÃO DO PARECER');
+    expect(element.textContent).toContain('Imprimir parecer novamente');
+    expect((element.querySelector('.assessment-card textarea') as HTMLTextAreaElement).readOnly).toBe(true);
+    expect(element.textContent).not.toContain('Voltar à entrevista');
+  });
+
   it('shows saved only after the backend confirms autosave', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
@@ -83,7 +104,7 @@ describe('App', () => {
     expect(app.saveState()).toBe('Salvo');
   });
 
-  it('waits for the latest autosave before completing once', async () => {
+  it('waits for the latest autosave before opening review without completing early', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
     flushInitialRequests(http);
@@ -104,8 +125,7 @@ describe('App', () => {
     expect(latest.request.body.version).toBe(1);
     expect(JSON.parse(latest.request.body.assessmentData).interviewNotes).toBe('Versão final');
     latest.flush({ version: 2 });
-    const complete = http.expectOne('/api/interviews/interview-3/workspace/complete');
-    complete.flush({ version: 3, status: 'COMPLETED' });
+    expect(http.match('/api/interviews/interview-3/workspace/complete')).toHaveLength(0);
 
     expect(app.reviewing()).toBe(true);
     expect(app.finishingInterview()).toBe(false);
@@ -499,7 +519,7 @@ describe('App', () => {
     expect(reviewResult.violations.map((violation) => violation.id)).toEqual([]);
   }, 30_000);
 
-  it('shows editable notes and feedback fields only in review', () => {
+  it('shows only the document fields in the compact review', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
     seedSkills(app);
@@ -510,7 +530,8 @@ describe('App', () => {
     const text = element.textContent || '';
 
     expect(element.querySelector('aside.support-panel')).toBeNull();
-    expect(element.querySelectorAll('.review-notes textarea')).toHaveLength(1);
+    expect(element.querySelector('.review-notes')).toBeNull();
+    expect(text).toContain('somente o conteúdo que aparecerá no documento');
     expect(text).toContain('FEEDBACK');
     expect(text).toContain('Pontos fortes');
     expect(text).toContain('Pontos de atenção');

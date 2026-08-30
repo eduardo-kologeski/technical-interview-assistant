@@ -88,6 +88,11 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].title").value("Backend Empresa A"));
 
+        mvc.perform(post("/api/job-positions").header("Authorization", bearer(interviewer))
+                        .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Alteração indevida\",\"seniority\":\"Pleno\",\"requirements\":[\"Java\"]}"))
+                .andExpect(status().isForbidden());
+
         mvc.perform(get("/api/companies/members").header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyA))
                 .andExpect(status().isOk())
@@ -111,6 +116,21 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(0))
                 .andExpect(jsonPath("$.assessmentData").value("{}"))
                 .andExpect(jsonPath("$.participants.length()").value(2));
+
+        mvc.perform(get("/api/interviews/{id}", interviewId).header("Authorization", bearer(interviewer))
+                        .header("X-Company-Id", companyA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assessmentData").doesNotExist());
+
+        mvc.perform(patch("/api/interviews/{id}/assessment", interviewId)
+                        .header("Authorization", bearer(interviewer)).header("X-Company-Id", companyA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"assessmentData\":\"{\\\"finalAssessment\\\":\\\"Tentativa indevida\\\"}\"}"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/interviews/{id}/workspace", interviewId).header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB))
+                .andExpect(status().isNotFound());
 
         mvc.perform(post("/api/companies/invitations/accept")
                         .header("Authorization", bearer(interviewer))

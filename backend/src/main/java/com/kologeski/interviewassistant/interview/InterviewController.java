@@ -23,6 +23,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestParam;
+import com.kologeski.interviewassistant.company.CompanyContext;
 
 @RestController
 @RequestMapping("/api/interviews")
@@ -30,11 +31,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class InterviewController {
     private final InterviewService service;
     private final InterviewCollaborationService collaboration;
+    private final CompanyContext companyContext;
 
-    public InterviewController(InterviewService service, InterviewCollaborationService collaboration) { this.service = service; this.collaboration = collaboration; }
+    public InterviewController(InterviewService service, InterviewCollaborationService collaboration,
+                               CompanyContext companyContext) {
+        this.service = service;
+        this.collaboration = collaboration;
+        this.companyContext = companyContext;
+    }
 
     @PostMapping
     InterviewResponse create(@Valid @RequestBody CreateInterviewCommand command) {
+        companyContext.requiredAdmin();
         Interview interview = service.createAndStart(command.jobPositionId(), command.candidateName(), command.clientCompany());
         collaboration.register(interview, command.participantUserIds());
         return InterviewResponse.from(interview);
@@ -56,24 +64,33 @@ public class InterviewController {
     }
 
     @PatchMapping("/{id}/start")
-    InterviewResponse start(@PathVariable UUID id) { return InterviewResponse.from(service.start(id)); }
+    InterviewResponse start(@PathVariable UUID id) {
+        companyContext.requiredAdmin();
+        return InterviewResponse.from(service.start(id));
+    }
 
     @PatchMapping("/{id}/complete")
-    InterviewResponse complete(@PathVariable UUID id) { return InterviewResponse.from(service.complete(id)); }
+    InterviewResponse complete(@PathVariable UUID id) {
+        companyContext.requiredAdmin();
+        return InterviewResponse.from(service.complete(id));
+    }
 
     @PatchMapping("/{id}/assessment/finalize")
     InterviewResponse finalizeAssessment(@PathVariable UUID id) {
+        companyContext.requiredAdmin();
         return InterviewResponse.from(service.finalizeAssessment(id));
     }
 
     @PatchMapping("/{id}/assessment")
     InterviewResponse saveAssessment(@PathVariable UUID id,
                                      @Valid @RequestBody SaveAssessmentCommand command) {
+        companyContext.requiredAdmin();
         return InterviewResponse.from(service.saveAssessment(id, command.version(), command.assessmentData()));
     }
 
     @PostMapping("/{id}/pdf-generation")
     InterviewResponse registerPdfGeneration(@PathVariable UUID id) {
+        companyContext.requiredAdmin();
         return InterviewResponse.from(service.registerPdfGeneration(id));
     }
 
@@ -91,8 +108,7 @@ public class InterviewController {
                                     Instant completedAt, Instant assessmentFinalizedAt,
                                     String assessmentFinalizedBy, Instant lastPdfGeneratedAt,
                                     String lastPdfGeneratedBy, Instant createdAt, String createdBy,
-                                    Instant updatedAt, String updatedBy, long version,
-                                    String assessmentData) {
+                                    Instant updatedAt, String updatedBy, long version) {
         static InterviewResponse from(Interview interview) {
             return new InterviewResponse(interview.id(), interview.vacancyId(), interview.candidateName(),
                     interview.vacancyTitleSnapshot(), interview.senioritySnapshot(), interview.clientCompany(),
@@ -100,8 +116,7 @@ public class InterviewController {
                     interview.status(), interview.startedAt(), interview.completedAt(),
                     interview.assessmentFinalizedAt(), interview.assessmentFinalizedBy(),
                     interview.lastPdfGeneratedAt(), interview.lastPdfGeneratedBy(), interview.createdAt(),
-                    interview.createdBy(), interview.updatedAt(), interview.updatedBy(), interview.version(),
-                    interview.assessmentData());
+                    interview.createdBy(), interview.updatedAt(), interview.updatedBy(), interview.version());
         }
     }
 

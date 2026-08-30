@@ -8,12 +8,10 @@ import { CompanyService } from './company.service';
   template: `<a class="skip-link" href="#main-content">Pular para o conteúdo principal</a><header>
       <a class="brand" routerLink="/dashboard"><b>T</b><span>Technical Interview</span></a>
       <nav>
-        <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page">Dashboard</a
+        <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page">Início</a
         ><a routerLink="/interviews" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistas</a
         ><a routerLink="/job-positions" routerLinkActive="active" ariaCurrentWhenActive="page">Vagas</a
-        ><a routerLink="/interviewers" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistadores</a
-        ><a routerLink="/company" routerLinkActive="active" ariaCurrentWhenActive="page">Empresa</a
-        ><a routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page">Perfil</a>
+        >@if (companies.activeCompany()?.role !== 'INTERVIEWER') {<a routerLink="/company" routerLinkActive="active" ariaCurrentWhenActive="page">Empresa</a>}
       </nav>
       <div class="user">
         @if (companies.companies().length > 1) {
@@ -21,7 +19,7 @@ import { CompanyService } from './company.service';
             @for (company of companies.companies(); track company.id) { <option [value]="company.id">{{ company.name }}</option> }
           </select>
         } @else if (companies.activeCompany()) { <strong>{{ companies.activeCompany()?.name }}</strong> }
-        <span>{{ auth.user()?.name || 'Usuário' }}</span
+        <a class="profile-link" routerLink="/interviews" title="Perfil e disponibilidade">{{ auth.user()?.name || 'Usuário' }}</a
         ><button (click)="logout()">Sair</button>
       </div>
     </header>
@@ -102,6 +100,7 @@ import { CompanyService } from './company.service';
         background: transparent;
         color: #a34a3f;
       }
+      .profile-link{color:#30444d;text-decoration:none}.profile-link:hover{text-decoration:underline}
       .user select { max-width: 190px; padding: 7px 9px; border: 1px solid #d4dfe3; border-radius: 7px; background: #fff; color: #30444d; }
       .user strong { color: #176b66; font-size: 11px; white-space: nowrap; }
       @media (max-width: 900px) {
@@ -129,7 +128,7 @@ export class ShellComponent {
   companies = inject(CompanyService);
   private router = inject(Router);
   constructor() {
-    const loadCompanies = () => this.companies.load().subscribe({ error: () => undefined });
+    const loadCompanies = () => { if (!this.companies.companies().length) this.companies.load().subscribe({ error: () => undefined }); };
     if (!this.auth.user()) this.auth.loadUser().subscribe({ next: loadCompanies, error: () => this.logout() });
     else loadCompanies();
   }

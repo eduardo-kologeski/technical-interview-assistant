@@ -65,6 +65,7 @@ export class InterviewPage {
   readonly selectedVacancyId = signal('');
   readonly started = signal(false);
   readonly reviewing = signal(false);
+  readonly completedInterview = signal(false);
   readonly candidate = signal('');
   readonly role = signal('');
   readonly company = signal('');
@@ -264,8 +265,7 @@ export class InterviewPage {
             this.assessmentVersion.set(saved.version);
             this.failedAssessment = undefined;
             this.saveState.set('Salvo');
-            if (this.finishRequested && sequence === this.finishSequence)
-              this.completePersistedInterview();
+            if (this.finishRequested && sequence === this.finishSequence) this.enterReview();
           }),
           catchError(() => {
             this.failedAssessment = assessment;
@@ -364,6 +364,8 @@ export class InterviewPage {
         this.skills.set(this.requirementSkills(interview.requirementSnapshot));
         this.restoreAssessment(interview.assessmentData);
         this.started.set(true);
+        this.completedInterview.set(interview.status === 'COMPLETED');
+        this.reviewing.set(interview.status === 'COMPLETED');
         this.seconds.set(
           interview.startedAt
             ? Math.max(0, Math.floor((Date.now() - new Date(interview.startedAt).getTime()) / 1000))
@@ -403,6 +405,7 @@ export class InterviewPage {
   }
 
   backToInterview() {
+    if (this.completedInterview()) return;
     this.reviewing.set(false);
   }
 
@@ -537,6 +540,7 @@ export class InterviewPage {
             .replace(/[^a-z0-9]+/g, '-') || 'entrevista'
         }.pdf`,
       );
+    if (download && this.interviewId()) this.completePersistedInterview();
     return pdf;
   }
 
@@ -809,6 +813,13 @@ export class InterviewPage {
         this.finishError.set('Não foi possível finalizar a entrevista. Tente novamente.');
       },
     });
+  }
+  private enterReview() {
+    this.finishRequested = false;
+    this.finishingInterview.set(false);
+    clearInterval(this.timer);
+    this.running.set(false);
+    this.reviewing.set(true);
   }
   private assessmentSnapshot(): InterviewAssessment {
     return {

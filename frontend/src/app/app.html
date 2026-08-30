@@ -304,117 +304,25 @@
         @if (saveState() === 'Falha ao salvar') {
           <button class="retry-save" type="button" (click)="retryAutosave()">Tentar novamente</button>
         }
-        <button class="timer" type="button" (click)="backToInterview()">← Voltar à entrevista</button
-        ><button class="finish" type="button" (click)="exportPdf()">Exportar PDF</button>
+        @if (!completedInterview()) {<button class="timer" type="button" (click)="backToInterview()">← Voltar à entrevista</button>}
+        <button class="finish" type="button" (click)="exportPdf()">{{completedInterview() ? 'Imprimir parecer novamente' : 'Exportar PDF'}}</button>
       </div>
     </section>
     <div class="review-grid">
       <section class="assessment-card">
-        <section class="review-evaluations">
-          <span class="eyebrow">REQUISITOS DA VAGA</span>
-          @for (skill of skills(); track skill.name; let index = $index) {
-            <app-skill-evaluation-card
-              [name]="skill.name"
-              [source]="skill.source"
-              [score]="skill.score"
-              [notEvaluated]="skill.skipped"
-              [comment]="skill.comment"
-              [compact]="true"
-              (scoreChange)="setScore(index, $event)"
-              (notEvaluatedChange)="setNotEvaluated(index)"
-              (commentChange)="updateComment(index, $event)"
-              (quickOption)="appendSkillComment(index, $event)"
-            />
-          }
-        </section>
-        <section class="review-evaluations complementary-review-list">
-          <span class="eyebrow">EXPERIÊNCIAS COMPLEMENTARES</span>
-          <div class="review-technology-selector technology-card inline-technology-selector">
-            <div class="technology-search">
-              <input
-                aria-label="Pesquisar ou adicionar experiência complementar"
-                [ngModel]="technologySearch()"
-                (ngModelChange)="technologySearch.set($event)"
-                (keydown.enter)="addCustomTechnology(); $event.preventDefault()"
-                placeholder="Pesquisar ou adicionar tecnologia..."
-              />
-            </div>
-            @if (technologySearch()) {
-              <div class="technology-results">
-                @for (technology of technologyResults(); track technology.name) {
-                  <button type="button" (click)="selectTechnology(technology)">{{ technology.name }}</button>
-                }
-                @if (canAddCustomTechnology()) {
-                  <button type="button" class="custom-tech" (click)="addCustomTechnology()">
-                    + Adicionar “{{ technologySearch().trim() }}”
-                  </button>
-                }
-              </div>
-            }
-          </div>
-          @for (technology of selectedTechnologies(); track technology.name) {
-            <app-skill-evaluation-card
-              [name]="technology.name"
-              source="COMPLEMENTARY_EXPERIENCE"
-              [score]="technology.reviewScore ?? null"
-              [notEvaluated]="!!technology.notEvaluated"
-              [comment]="technology.description || ''"
-              [compact]="true"
-              [removable]="true"
-              (scoreChange)="scoreTechnology(technology.name, $event)"
-              (notEvaluatedChange)="skipTechnologyReview(technology.name)"
-              (commentChange)="updateTechnologyReview(technology.name, { description: $event })"
-              (quickOption)="appendTechnologyDescription(technology.name, $event)"
-              (remove)="removeTechnology(technology.name)"
-            />
-          }
-          @if (!selectedTechnologies().length) {
-            <p class="empty-review">Nenhuma experiência complementar adicionada.</p>
-          }
-        </section>
-        <section class="review-evaluations behavioral-review">
-          <span class="eyebrow">HABILIDADES COMPORTAMENTAIS</span>
-          <div class="technology-search">
-            <input
-              aria-label="Pesquisar ou adicionar habilidade comportamental"
-              [ngModel]="behavioralSearch()"
-              (ngModelChange)="behavioralSearch.set($event)"
-              (keydown.enter)="addBehavioralSkill(); $event.preventDefault()"
-              placeholder="Pesquisar ou adicionar habilidade..."
-            />
-          </div>
-          @if (behavioralSearch()) {
-            <div class="technology-suggestions">
-              @for (name of behavioralResults(); track name) {
-                <button type="button" (click)="addBehavioralSkill(name)">+ {{ name }}</button>
-              }
-            </div>
-          }
-          <div class="selected-technologies">
-            @for (name of selectedBehavioralSkills(); track name) {
-              <button type="button" (click)="removeBehavioralSkill(name)" [attr.aria-label]="'Remover habilidade ' + name">
-                {{ name }} <span aria-hidden="true">×</span>
-              </button>
-            } @empty {
-              <p class="empty-review">Nenhuma habilidade comportamental adicionada.</p>
-            }
-          </div>
-        </section>
-        <section class="review-notes">
-          <span class="eyebrow">ANOTAÇÕES DA ENTREVISTA</span
-          ><textarea
-            aria-label="Anotações da entrevista"
-            rows="6"
-            [ngModel]="quickNotes()"
-            (ngModelChange)="updateNotes($event)"
-          ></textarea>
-        </section>
+        <header class="document-heading">
+          <span class="eyebrow">PARECER DE ENTREVISTA TÉCNICA</span>
+          <h2>{{ candidate() }}</h2>
+          <p>{{ role() }} · {{ seniority() }} · {{ company() || 'Empresa selecionada' }}</p>
+        </header>
+        <p class="review-guidance">Abaixo está somente o conteúdo que aparecerá no documento. Para alterar notas e avaliações, volte à entrevista.</p>
         <h2>Parecer técnico</h2>
         <label
           >Resumo técnico editável<textarea
             rows="8"
             [ngModel]="finalAssessment()"
             (ngModelChange)="updateFinalAssessment($event)"
+            [readonly]="completedInterview()"
           ></textarea>
         </label>
         <span class="eyebrow review-feedback-heading">FEEDBACK</span>
@@ -425,6 +333,7 @@
               rows="5"
               [ngModel]="strengths()"
               (ngModelChange)="updateStrengths($event)"
+              [readonly]="completedInterview()"
               placeholder="Um ponto por linha"
             ></textarea></label
           ><label
@@ -433,6 +342,7 @@
               rows="5"
               [ngModel]="concerns()"
               (ngModelChange)="updateConcerns($event)"
+              [readonly]="completedInterview()"
               placeholder="Um ponto por linha"
             ></textarea>
           </label>
@@ -441,6 +351,7 @@
           >Recomendação<select
             [ngModel]="recommendation()"
             (ngModelChange)="updateRecommendation($event)"
+            [disabled]="completedInterview()"
           >
             <option>Sem recomendação</option>
             <option>Fortemente recomendado</option>
@@ -468,7 +379,7 @@
           }
         </section>
         <button class="pdf-cta" type="button" (click)="exportPdf()">
-          <strong>Exportar parecer em PDF</strong><span>Documento A4 pronto para compartilhar</span>
+          <strong>{{completedInterview() ? 'Imprimir parecer novamente' : 'Exportar parecer em PDF'}}</strong><span>Documento A4 pronto para imprimir ou compartilhar</span>
         </button>
       </aside>
     </div>

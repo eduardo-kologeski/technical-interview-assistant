@@ -36,6 +36,7 @@ public class JobVacancyService {
 
     @Transactional
     public JobVacancy create(String title, String seniority, String description, List<String> requirements) {
+        requireAdmin();
         var actor = currentActor.required();
         var saved = repository.save(new JobVacancy(companyId(), title, seniority, description, requirements, actor.id(), Instant.now(clock)));
         log.info("event=vacancy_created vacancyId={} actorId={}", saved.id(), actor.id());
@@ -59,6 +60,7 @@ public class JobVacancyService {
 
     @Transactional
     public JobVacancy update(UUID id, long expectedVersion, String title, String seniority, String description, List<String> requirements) {
+        requireAdmin();
         var vacancy = required(id);
         requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
@@ -74,6 +76,7 @@ public class JobVacancyService {
 
     @Transactional
     public JobVacancy deactivate(UUID id, long expectedVersion) {
+        requireAdmin();
         var vacancy = required(id);
         requireVersion(vacancy, expectedVersion);
         var actor = currentActor.required();
@@ -90,6 +93,10 @@ public class JobVacancyService {
 
     private UUID companyId() {
         return companyContext == null ? JobVacancy.LEGACY_COMPANY_ID : companyContext.required().companyId();
+    }
+
+    private void requireAdmin() {
+        if (companyContext != null) companyContext.requiredAdmin();
     }
 
     private void requireVersion(JobVacancy vacancy, long expectedVersion) {

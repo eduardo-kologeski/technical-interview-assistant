@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { OpenNativePickerDirective } from './open-native-picker.directive';
 import {
   Availability,
@@ -101,61 +102,125 @@ import {
               <span>Informe datas e horários concretos para as próximas entrevistas.</span>
             </div>
           </div>
-          <div class="week-navigation">
-            <button class="secondary" (click)="currentWeek()">Semana atual</button>
-            <div>
-              <button class="icon" aria-label="Semana anterior" (click)="changeWeek(-1)">‹</button
-              ><strong>{{ weekLabel() }}</strong
-              ><button class="icon" aria-label="Próxima semana" (click)="changeWeek(1)">›</button>
-            </div>
-            <label
-              >Ir para data<input
-                type="date"
-                [ngModel]="selectedWeekDate"
-                (ngModelChange)="goToDate($event)"
-            /></label>
+          <div class="calendar-toolbar">
+            <button class="today" (click)="currentWeek()">Hoje</button>
+            <button class="icon" aria-label="Semana anterior" (click)="changeWeek(-1)">‹</button>
+            <button class="icon" aria-label="Próxima semana" (click)="changeWeek(1)">›</button>
+            <button
+              class="date-trigger"
+              (click)="toggleMiniCalendar()"
+              [attr.aria-expanded]="miniCalendarOpen()"
+            >
+              <span>{{ weekLabel() }}</span><b aria-hidden="true">{{ miniCalendarOpen() ? '▴' : '▾' }}</b>
+            </button>
+            <span class="view-label">Semana de trabalho</span>
           </div>
+          @if (miniCalendarOpen()) {
+            <section class="mini-calendar" aria-label="Escolher uma data">
+              <header>
+                <button class="icon" aria-label="Mês anterior" (click)="changeCalendarMonth(-1)">‹</button>
+                <strong>{{ calendarMonthLabel() }}</strong>
+                <button class="icon" aria-label="Próximo mês" (click)="changeCalendarMonth(1)">›</button>
+                <button class="minimize" (click)="toggleMiniCalendar()">Minimizar</button>
+              </header>
+              <div class="mini-weekdays" aria-hidden="true">
+                @for (day of miniWeekdays; track day) { <span>{{ day }}</span> }
+              </div>
+              <div class="mini-days">
+                @for (day of calendarDays(); track day.date) {
+                  <button
+                    [class.outside]="!day.currentMonth"
+                    [class.selected]="day.date === selectedDay()"
+                    [class.today-date]="day.today"
+                    (click)="selectCalendarDate(day.date)"
+                  >{{ day.number }}</button>
+                }
+              </div>
+            </section>
+          }
           @if (error()) {
             <p class="error">{{ error() }}</p>
           }
-          <div class="week-days">
+          @if (weekHasOnlyPastDays()) {
+            <div class="past-week-notice">
+              <span>Esta semana de trabalho já terminou.</span>
+              <button (click)="changeWeek(1)">Abrir próxima semana</button>
+            </div>
+          }
+          <div class="mobile-day-strip" aria-label="Dias da semana">
             @for (dayItem of weekDays(); track dayItem.date) {
-              <article [class.past]="dayItem.past">
-                <header>
-                  <div>
-                    <strong>{{ dayItem.day }}</strong
-                    ><span>{{ dayItem.label }}</span>
-                  </div>
-                  @if (!dayItem.past) {
-                    <button class="add-time" (click)="openAvailability(dayItem.date)">
-                      + Horário
-                    </button>
-                  }
-                </header>
-                <div class="day-slots">
-                  @for (slot of slotsFor(dayItem.date); track slot.id) {
-                    <span class="slot"
-                      ><b>{{ timeLabel(slot.startTime) }} — {{ timeLabel(slot.endTime) }}</b
-                      ><button (click)="editAvailability(slot)">Editar</button
-                      ><button class="remove" (click)="removeAvailability(slot)">
-                        Remover
-                      </button></span
+              <button [class.active]="dayItem.date === selectedDay()" (click)="selectDay(dayItem.date)">
+                <span>{{ dayItem.day }}</span><b>{{ dayItem.dateNumber }}</b>
+              </button>
+            }
+          </div>
+          @if (editingDate) {
+            <div class="availability-editor">
+              <div><small>{{ editingAvailabilityId ? 'EDITAR DISPONIBILIDADE' : 'HORÁRIOS SELECIONADOS' }}</small><strong>{{ editingDateLabel() }}</strong></div>
+              @if (editingAvailabilityId) {
+                <label>Início<input type="time" step="900" [(ngModel)]="startTime" /></label>
+                <label>Fim<input type="time" step="900" [(ngModel)]="endTime" /></label>
+              } @else {
+                <p class="selection-summary"><b>{{ selectedSegments().length }}</b> blocos de 15 min · clique ou arraste para marcar e desmarcar</p>
+              }
+              <button (click)="saveAvailability()">{{ editingAvailabilityId ? 'Atualizar' : 'Salvar todos' }}</button>
+              @if (editingAvailabilityId) { <button class="remove" (click)="removeEditingAvailability()">Excluir</button> }
+              <button class="secondary" (click)="cancelAvailabilityEdit()">Cancelar</button>
+            </div>
+          }
+          <div class="schedule-scroll" aria-label="Grade semanal de disponibilidade" (pointerup)="finishSelectionDrag()" (pointercancel)="finishSelectionDrag()" (pointerleave)="finishSelectionDrag()">
+            <div class="schedule-grid">
+              <div class="corner"></div>
+              @for (dayItem of weekDays(); track dayItem.date) {
+                <button class="day-header" [class.mobile-hidden]="dayItem.date !== selectedDay()" (click)="selectDay(dayItem.date)">
+                  <span>{{ dayItem.day }}</span><strong>{{ dayItem.dateNumber }}</strong>
+                </button>
+              }
+              @for (time of timeSlots; track time) {
+                <div class="time-label" [class.full-hour]="time.endsWith(':00')">{{ time.endsWith(':00') ? time : '' }}</div>
+                @for (dayItem of weekDays(); track dayItem.date) {
+                  @let firstSlot = slotAt(dayItem.date, time);
+                  @let secondTime = addMinutes(time, 15);
+                  @let secondSlot = slotAt(dayItem.date, secondTime);
+                  <div
+                    class="time-cell"
+                    [class.mobile-hidden]="dayItem.date !== selectedDay()"
+                    [class.past]="dayItem.past"
+                  >
+                    <button
+                      class="time-half first"
+                      [class.occupied]="!!firstSlot"
+                      [class.slot-start]="firstSlot && isSlotStart(firstSlot, time)"
+                      [class.selected]="isEditingTime(dayItem.date, time)"
+                      [disabled]="dayItem.past"
+                      [attr.aria-label]="cellLabel(dayItem, time, firstSlot)"
+                      (pointerdown)="startSelectionDrag(dayItem.date, time, dayItem.past, firstSlot, $event)"
+                      (pointerenter)="continueSelectionDrag(dayItem.date, time, dayItem.past, firstSlot)"
+                      (click)="handleSelectionClick(dayItem.date, time, dayItem.past, firstSlot)"
                     >
-                  } @empty {
-                    <small>Nenhum horário cadastrado</small>
-                  }
-                </div>
-                @if (editingDate === dayItem.date) {
-                  <div class="inline-time-form">
-                    <label>Início<input type="time" [(ngModel)]="startTime" /></label
-                    ><label>Fim<input type="time" [(ngModel)]="endTime" /></label
-                    ><button (click)="saveAvailability()">
-                      {{ editingAvailabilityId ? 'Atualizar' : 'Adicionar' }}</button
-                    ><button class="secondary" (click)="cancelAvailabilityEdit()">Cancelar</button>
+                      @if (firstSlot && isSlotStart(firstSlot, time)) {
+                        <span>Disponível</span><b>{{ timeLabel(firstSlot.startTime) }}–{{ timeLabel(firstSlot.endTime) }}</b>
+                      }
+                    </button>
+                    <button
+                      class="time-half second"
+                      [class.occupied]="!!secondSlot"
+                      [class.slot-start]="secondSlot && isSlotStart(secondSlot, secondTime)"
+                      [class.selected]="isEditingTime(dayItem.date, secondTime)"
+                      [disabled]="dayItem.past"
+                      [attr.aria-label]="cellLabel(dayItem, secondTime, secondSlot)"
+                      (pointerdown)="startSelectionDrag(dayItem.date, secondTime, dayItem.past, secondSlot, $event)"
+                      (pointerenter)="continueSelectionDrag(dayItem.date, secondTime, dayItem.past, secondSlot)"
+                      (click)="handleSelectionClick(dayItem.date, secondTime, dayItem.past, secondSlot)"
+                    >
+                      @if (secondSlot && isSlotStart(secondSlot, secondTime)) {
+                        <span>Disponível</span><b>{{ timeLabel(secondSlot.startTime) }}–{{ timeLabel(secondSlot.endTime) }}</b>
+                      }
+                    </button>
                   </div>
                 }
-              </article>
-            }
+              }
+            </div>
           </div>
         </section>
       }
@@ -286,115 +351,234 @@ import {
         color: #5c6973;
         background: #fafcfd;
       }
-      .week-navigation {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        align-items: end;
-        gap: 14px;
-        margin-top: 20px;
-      }
-      .week-navigation > div {
+      .calendar-toolbar {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 14px;
+        gap: 8px;
+        margin-top: 20px;
       }
-      .week-navigation .icon {
+      .calendar-toolbar button,
+      .mini-calendar button,
+      .mobile-day-strip button,
+      .schedule-grid button {
+        font: inherit;
+      }
+      .today {
+        padding: 9px 16px;
+        border: 1px solid #ccd7dc;
+        border-radius: 7px;
+        background: #fff;
+        color: #314750;
+        font-weight: 800;
+      }
+      .icon {
         width: 34px;
         height: 34px;
         border: 1px solid #ccd7dc;
-        border-radius: 50%;
+        border-radius: 7px;
         background: #fff;
         color: #176b66;
         font-size: 22px;
       }
-      .week-days {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 20px;
-      }
-      .week-days article {
-        display: grid;
-        align-content: start;
-        gap: 10px;
-        min-height: 145px;
-        padding: 12px;
-        border: 1px solid #e0e7eb;
-        border-radius: 9px;
-        background: #fbfcfc;
-      }
-      .week-days article.past {
-        opacity: 0.65;
-      }
-      .week-days article > header {
+      .date-trigger {
         display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 8px;
-      }
-      .week-days article > header div {
-        display: grid;
-        gap: 2px;
-      }
-      .week-days article > header strong {
-        font-size: 12px;
-        letter-spacing: 0.07em;
-      }
-      .week-days article > header span {
-        color: #5c6973;
-        font-size: 11px;
-      }
-      .add-time {
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
         border: 0;
+        border-radius: 7px;
         background: transparent;
-        color: #176b66;
-        font-size: 11px;
-        font-weight: 800;
+        color: #263d46;
+        font-weight: 850;
       }
-      .day-slots {
-        display: grid;
-        gap: 6px;
-      }
-      .day-slots small {
-        color: #5c6973;
-      }
-      .inline-time-form {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 7px;
-        padding-top: 8px;
-        border-top: 1px solid #e2e8eb;
-      }
-      .inline-time-form button {
-        padding: 7px;
-        border: 0;
-        border-radius: 6px;
-        background: #165d7a;
-        color: #fff;
+      .date-trigger:hover { background: #f0f5f5; }
+      .view-label {
+        margin-left: auto;
+        color: #63747c;
+        font-size: 12px;
         font-weight: 750;
       }
-      .inline-time-form label {
-        font-size: 10px;
+      .mini-calendar {
+        width: 300px;
+        margin-top: 10px;
+        padding: 14px;
+        border: 1px solid #d4dfe3;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 10px 28px #1737451f;
       }
-      .inline-time-form input {
-        padding: 7px;
-      }
-      .slot {
+      .mini-calendar header {
         display: grid;
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: auto 1fr auto auto;
         align-items: center;
-        gap: 6px;
-        padding: 6px 7px;
-        border-radius: 6px;
-        background: #eef5f5;
-        font-size: 10px;
+        gap: 5px;
       }
-      .slot button {
+      .mini-calendar header strong { text-align: center; font-size: 13px; }
+      .minimize {
         border: 0;
         background: transparent;
         color: #176b66;
+        font-size: 11px !important;
       }
+      .mini-weekdays,
+      .mini-days {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+      }
+      .mini-weekdays { margin: 12px 0 4px; }
+      .mini-weekdays span {
+        color: #708087;
+        font-size: 9px;
+        font-weight: 800;
+        text-align: center;
+      }
+      .mini-days button {
+        aspect-ratio: 1;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: #263d46;
+        font-size: 11px;
+      }
+      .mini-days button:hover { background: #edf5f4; }
+      .mini-days button.outside { color: #a8b2b7; }
+      .mini-days button.today-date { outline: 1px solid #176b66; }
+      .mini-days button.selected { background: #176b66; color: #fff; }
+      .mobile-day-strip { display: none; }
+      .past-week-notice {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 14px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #fff7e6;
+        color: #765a22;
+        font-size: 12px;
+        font-weight: 750;
+      }
+      .past-week-notice button { border: 0; background: transparent; color: #176b66; font-weight: 850; }
+      .availability-editor {
+        display: grid;
+        grid-template-columns: minmax(160px, 1fr) 115px 115px auto auto auto;
+        align-items: end;
+        gap: 9px;
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid #b9d6d3;
+        border-radius: 9px;
+        background: #f2f8f7;
+      }
+      .availability-editor > div {
+        display: grid;
+        gap: 3px;
+      }
+      .availability-editor small { color: #176b66; font-size: 9px; font-weight: 900; }
+      .selection-summary {
+        grid-column: span 2;
+        margin: 0;
+        color: #536970;
+        font-size: 11px;
+      }
+      .selection-summary b { color: #176b66; font-size: 16px; }
+      .availability-editor button {
+        min-height: 38px;
+        padding: 8px 11px;
+        border: 0;
+        border-radius: 7px;
+        background: #165d7a;
+        color: #fff;
+        font-weight: 800;
+      }
+      .schedule-scroll {
+        max-height: 610px;
+        margin-top: 16px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border: 1px solid #dce5e8;
+        border-radius: 9px;
+        scrollbar-color: #aabdc2 #eef3f4;
+      }
+      .schedule-grid {
+        display: grid;
+        grid-template-columns: 62px repeat(5, minmax(112px, 1fr));
+        min-width: 650px;
+      }
+      .corner,
+      .day-header {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        min-height: 62px;
+        border: 0;
+        border-bottom: 1px solid #d5e0e4;
+        background: #fff;
+      }
+      .corner { left: 0; z-index: 4; }
+      .day-header {
+        display: grid;
+        place-content: center;
+        gap: 3px;
+        border-left: 1px solid #e3eaed;
+        color: #435861;
+      }
+      .day-header span { font-size: 10px; font-weight: 850; letter-spacing: .08em; }
+      .day-header strong { font-size: 18px; }
+      .time-label {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        height: 32px;
+        padding: 4px 9px 0 0;
+        border-bottom: 1px solid #edf1f2;
+        background: #fff;
+        color: #65757c;
+        font-size: 10px;
+        text-align: right;
+      }
+      .time-cell {
+        position: relative;
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        height: 32px;
+        border-left: 1px solid #e3eaed;
+        border-bottom: 1px solid #edf1f2;
+        background: #fff;
+      }
+      .time-cell.past { cursor: not-allowed; background: #f6f7f7; }
+      .time-half {
+        position: relative;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #165d7a;
+        text-align: left;
+        user-select: none;
+      }
+      .time-half.first { border-bottom: 1px dotted #e1e8ea; }
+      .time-half:hover:not(:disabled):not(.occupied) {
+        z-index: 1;
+        background: #eef7f6;
+        box-shadow: inset 0 0 0 1px #8bbdb8;
+      }
+      .time-half:disabled { cursor: not-allowed; }
+      .time-half.occupied { background: #dff0ee; }
+      .time-half.slot-start { border-top: 2px solid #24877f; border-left: 4px solid #24877f; }
+      .time-half.selected:not(.occupied) { background: #b8deda; box-shadow: inset 3px 0 #176b66; }
+      .time-half.occupied span,
+      .time-half.occupied b {
+        position: absolute;
+        z-index: 2;
+        display: grid;
+        padding-left: 5px;
+        line-height: 1.15;
+        white-space: nowrap;
+      }
+      .time-half.occupied span { top: 1px; font-size: 8px; font-weight: 850; }
+      .time-half.occupied b { top: 10px; font-size: 8px; }
       .secondary {
         border: 1px solid #ccd7dc !important;
         background: #fff !important;
@@ -417,19 +601,37 @@ import {
         .skill-list article {
           grid-template-columns: 1fr;
         }
-        .week-navigation {
-          grid-template-columns: 1fr;
-          align-items: start;
-        }
-        .week-navigation > div {
-          justify-content: flex-start;
-        }
-        .week-days {
-          grid-template-columns: 1fr;
-        }
         .section-title {
           flex-direction: column;
         }
+        .calendar-toolbar { flex-wrap: wrap; }
+        .date-trigger { order: -1; width: 100%; justify-content: space-between; background: #f4f7f7; }
+        .view-label { display: none; }
+        .mini-calendar { width: 100%; box-sizing: border-box; }
+        .mobile-day-strip {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          margin-top: 14px;
+          border-bottom: 1px solid #dce5e8;
+        }
+        .mobile-day-strip button {
+          display: grid;
+          place-items: center;
+          gap: 4px;
+          padding: 9px 2px;
+          border: 0;
+          border-bottom: 3px solid transparent;
+          background: transparent;
+          color: #63747c;
+        }
+        .mobile-day-strip span { font-size: 9px; font-weight: 850; }
+        .mobile-day-strip b { font-size: 15px; }
+        .mobile-day-strip button.active { border-bottom-color: #176b66; color: #176b66; }
+        .availability-editor { grid-template-columns: 1fr 1fr; }
+        .availability-editor > div { grid-column: 1 / -1; }
+        .schedule-scroll { max-height: 530px; margin-top: 10px; }
+        .schedule-grid { grid-template-columns: 54px minmax(220px, 1fr); min-width: 0; }
+        .schedule-grid .mobile-hidden { display: none; }
       }
     `,
   ],
@@ -451,11 +653,23 @@ export class ProfileComponent {
   skillSearch = '';
   newLevel: ProficiencyLevel = 'INTERMEDIATE';
   readonly weekStart = signal(this.isoDate(this.startOfWeek(new Date())));
+  readonly selectedDay = signal(this.weekStart());
+  readonly miniCalendarOpen = signal(false);
+  readonly calendarMonth = signal(this.weekStart().slice(0, 7));
   selectedWeekDate = this.weekStart();
   editingDate = '';
   startTime = '14:00';
   endTime = '17:00';
   editingAvailabilityId: number | null = null;
+  private selectionDragActive = false;
+  private selectionDragDate = '';
+  private selectionDragAnchor = '';
+  private suppressSelectionClick = false;
+  readonly miniWeekdays = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+  readonly timeSlots = Array.from({ length: 28 }, (_, index) => {
+    const minutes = 7 * 60 + index * 30;
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  });
   readonly catalog = [
     'Java',
     'Spring Boot',
@@ -500,10 +714,26 @@ export class ProfileComponent {
         date: iso,
         day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
         label: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        dateNumber: date.getDate(),
         past: iso < today,
       };
     });
   });
+  readonly calendarDays = computed(() => {
+    const [year, month] = this.calendarMonth().split('-').map(Number);
+    const first = new Date(year, month - 1, 1);
+    const start = new Date(first);
+    const mondayIndex = (first.getDay() + 6) % 7;
+    start.setDate(first.getDate() - mondayIndex);
+    const today = this.isoDate(new Date());
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const iso = this.isoDate(date);
+      return { date: iso, number: date.getDate(), currentMonth: date.getMonth() === month - 1, today: iso === today };
+    });
+  });
+  readonly weekHasOnlyPastDays = computed(() => this.weekDays().every((day) => day.past));
   constructor() {
     this.load();
   }
@@ -639,12 +869,13 @@ export class ProfileComponent {
     this.endTime = '17:00';
   }
   removeAvailability(slot: Availability) {
-    this.service.removeAvailability(slot.id).subscribe(() =>
+    this.service.removeAvailability(slot.id).subscribe(() => {
       this.profile.update((p) => ({
         ...p,
         availability: p.availability.filter((item) => item.id !== slot.id),
-      })),
-    );
+      }));
+      if (this.editingAvailabilityId === slot.id) this.cancelAvailabilityEdit();
+    });
   }
   slotsFor(date: string) {
     return this.profile().availability.filter((slot) => slot.availabilityDate === date);
@@ -655,6 +886,122 @@ export class ProfileComponent {
     this.editingAvailabilityId = null;
     this.startTime = '14:00';
     this.endTime = '17:00';
+  }
+  selectTimeCell(date: string, time: string, past: boolean) {
+    if (past) return;
+    this.error.set('');
+    this.selectedDay.set(date);
+    if (this.editingDate === date && !this.editingAvailabilityId) {
+      if (time < this.startTime) this.startTime = time;
+      else this.endTime = this.addMinutes(time, 15);
+      return;
+    }
+    this.editingDate = date;
+    this.editingAvailabilityId = null;
+    this.startTime = time;
+    this.endTime = this.addMinutes(time, 15);
+  }
+  selectedSegments() {
+    if (!this.editingDate || this.editingAvailabilityId) return [];
+    const segments: string[] = [];
+    for (let time = this.startTime; time < this.endTime; time = this.addMinutes(time, 15)) {
+      segments.push(time);
+      if (time === '21:00') break;
+    }
+    return segments;
+  }
+  startSelectionDrag(date: string, time: string, past: boolean, slot: Availability | undefined, event: PointerEvent) {
+    if (past) return;
+    event.preventDefault();
+    this.suppressSelectionClick = true;
+    if (slot) {
+      this.editAvailability(slot);
+      return;
+    }
+    this.error.set('');
+    this.selectedDay.set(date);
+    this.editingDate = date;
+    this.editingAvailabilityId = null;
+    this.selectionDragActive = true;
+    this.selectionDragDate = date;
+    this.selectionDragAnchor = time;
+    this.startTime = time;
+    this.endTime = this.addMinutes(time, 15);
+  }
+  continueSelectionDrag(date: string, time: string, past: boolean, slot?: Availability) {
+    if (!this.selectionDragActive || past || slot || date !== this.selectionDragDate) return;
+    if (time < this.selectionDragAnchor) {
+      this.startTime = time;
+      this.endTime = this.addMinutes(this.selectionDragAnchor, 15);
+    } else {
+      this.startTime = this.selectionDragAnchor;
+      this.endTime = this.addMinutes(time, 15);
+    }
+  }
+  finishSelectionDrag() {
+    this.selectionDragActive = false;
+    this.selectionDragDate = '';
+    this.selectionDragAnchor = '';
+  }
+  handleSelectionClick(date: string, time: string, past: boolean, slot?: Availability) {
+    if (this.suppressSelectionClick) {
+      this.suppressSelectionClick = false;
+      return;
+    }
+    if (slot) this.editAvailability(slot);
+    else this.selectTimeCell(date, time, past);
+  }
+  selectDay(date: string) {
+    this.selectedDay.set(date);
+  }
+  slotAt(date: string, time: string) {
+    return this.slotsFor(date).find(
+      (slot) => time >= this.timeLabel(slot.startTime) && time < this.timeLabel(slot.endTime),
+    );
+  }
+  isSlotStart(slot: Availability, time: string) {
+    return this.timeLabel(slot.startTime) === time;
+  }
+  isEditingTime(date: string, time: string) {
+    return this.editingDate === date && time >= this.startTime && time < this.endTime;
+  }
+  addMinutes(time: string, amount: number) {
+    const [hours, minutes] = time.split(':').map(Number);
+    const total = Math.min(hours * 60 + minutes + amount, 21 * 60);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }
+  cellLabel(day: { day: string; label: string }, time: string, slot?: Availability) {
+    return slot
+      ? `Disponível em ${day.day}, ${day.label}, das ${this.timeLabel(slot.startTime)} às ${this.timeLabel(slot.endTime)}. Clique para editar.`
+      : `Selecionar ${day.day}, ${day.label}, às ${time}`;
+  }
+  editingDateLabel() {
+    if (!this.editingDate) return '';
+    return this.localDate(this.editingDate).toLocaleDateString('pt-BR', {
+      weekday: 'long', day: '2-digit', month: 'long',
+    });
+  }
+  removeEditingAvailability() {
+    const slot = this.profile().availability.find((item) => item.id === this.editingAvailabilityId);
+    if (slot) this.removeAvailability(slot);
+  }
+  toggleMiniCalendar() {
+    this.miniCalendarOpen.update((open) => !open);
+    if (this.miniCalendarOpen()) this.calendarMonth.set(this.selectedDay().slice(0, 7));
+  }
+  changeCalendarMonth(offset: number) {
+    const [year, month] = this.calendarMonth().split('-').map(Number);
+    const date = new Date(year, month - 1 + offset, 1);
+    this.calendarMonth.set(this.isoDate(date).slice(0, 7));
+  }
+  calendarMonthLabel() {
+    const [year, month] = this.calendarMonth().split('-').map(Number);
+    return new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  }
+  selectCalendarDate(date: string) {
+    this.selectedDay.set(date);
+    this.goToDate(date);
+    this.miniCalendarOpen.set(false);
   }
   loadAvailabilityWeek() {
     const from = this.weekStart();
@@ -669,12 +1016,14 @@ export class ProfileComponent {
     date.setDate(date.getDate() + offset * 7);
     this.weekStart.set(this.isoDate(date));
     this.selectedWeekDate = this.weekStart();
+    this.selectedDay.set(this.weekStart());
     this.cancelAvailabilityEdit();
     this.loadAvailabilityWeek();
   }
   currentWeek() {
     this.weekStart.set(this.isoDate(this.startOfWeek(new Date())));
     this.selectedWeekDate = this.weekStart();
+    this.selectedDay.set(this.isoDate(new Date()));
     this.cancelAvailabilityEdit();
     this.loadAvailabilityWeek();
   }
@@ -682,6 +1031,7 @@ export class ProfileComponent {
     if (!value) return;
     this.weekStart.set(this.isoDate(this.startOfWeek(this.localDate(value))));
     this.selectedWeekDate = value;
+    this.selectedDay.set(value);
     this.cancelAvailabilityEdit();
     this.loadAvailabilityWeek();
   }
