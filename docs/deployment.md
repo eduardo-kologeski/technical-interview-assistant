@@ -32,6 +32,7 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `JWT_REFRESH_CLEANUP_RETENTION` | não | Retenção após expiração/revogação; padrão `P30D` |
 | `JWT_REFRESH_CLEANUP_INTERVAL` | não | Intervalo idempotente de limpeza; padrão `PT6H` |
 | `INVITATION_EXPOSE_DEVELOPMENT_LINK` | não | Deve permanecer `false` fora de testes/E2E; impede que tokens de convite retornem pela API administrativa |
+| `IDENTITY_EXPOSE_DEVELOPMENT_LINK` | não | Deve permanecer `false` fora de testes/E2E; impede que tokens de verificação/reset retornem pela API |
 | `AUTH_RATE_LIMIT_WINDOW` | não | Janela local dos limites; padrão `60s` |
 | `AUTH_LOGIN_RATE_LIMIT` | não | Tentativas de login por origem/janela; padrão `10` |
 | `AUTH_REGISTER_RATE_LIMIT` | não | Cadastros por origem/janela; padrão `5` |

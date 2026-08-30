@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.kologeski.interviewassistant.auth.AuthenticationService;
+import com.kologeski.interviewassistant.auth.IdentityToken;
 import com.kologeski.interviewassistant.interview.InterviewService;
 import com.kologeski.interviewassistant.vacancy.JobVacancyService;
 import com.kologeski.interviewassistant.company.CompanyContext;
@@ -76,7 +77,8 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler({CompanyContext.CompanyAccessDeniedException.class,
-            InvitationService.InvitationEmailMismatchException.class})
+            InvitationService.InvitationEmailMismatchException.class,
+            InvitationService.EmailVerificationRequiredException.class})
     ProblemDetail companyForbidden(RuntimeException exception) {
         return problem(HttpStatus.FORBIDDEN, exception.getMessage());
     }
@@ -88,6 +90,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(InvitationService.InvitationUnavailableException.class)
     ProblemDetail invitationNotFound(InvitationService.InvitationUnavailableException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(IdentityToken.IdentityTokenUnavailableException.class)
+    ProblemDetail identityTokenNotFound(IdentityToken.IdentityTokenUnavailableException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 

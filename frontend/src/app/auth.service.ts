@@ -4,6 +4,7 @@ import { Observable, catchError, finalize, map, of, shareReplay, switchMap, tap 
 
 export interface AuthUser { id: number; name: string; email: string; role?: string }
 export interface AuthTokens { accessToken: string; refreshToken?: string; expiresIn?: number }
+export interface IdentityDelivery { status: string; developmentPath: string | null }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -24,8 +25,13 @@ export class AuthService {
 
   register(name: string, email: string, password: string, rememberMe: boolean) {
     return this.http.post<AuthTokens>(`${this.apiUrl}/auth/register`, { name, email, password, rememberMe })
-      .pipe(tap(tokens => this.store(tokens)), map(() => void 0));
+      .pipe(tap(tokens => this.store(tokens)), switchMap(() => this.requestEmailVerification()));
   }
+
+  requestEmailVerification() { return this.http.post<IdentityDelivery>(`${this.apiUrl}/auth/email-verification/request`, {}); }
+  verifyEmail(token: string) { return this.http.post<void>(`${this.apiUrl}/auth/email-verification/confirm`, { token }); }
+  forgotPassword(email: string) { return this.http.post<IdentityDelivery>(`${this.apiUrl}/auth/password/forgot`, { email }); }
+  resetPassword(token: string, password: string) { return this.http.post<void>(`${this.apiUrl}/auth/password/reset`, { token, password }); }
 
   loadUser() {
     return this.http.get<AuthUser>(`${this.apiUrl}/users/me`).pipe(tap(user => this.userState.set(user)));

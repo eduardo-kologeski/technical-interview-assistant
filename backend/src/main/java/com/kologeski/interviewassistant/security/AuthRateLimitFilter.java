@@ -24,11 +24,13 @@ import java.util.concurrent.atomic.AtomicLong;
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class AuthRateLimitFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(AuthRateLimitFilter.class);
-    private static final Map<String, String> ENDPOINTS = Map.of(
-            "/api/auth/login", "login",
-            "/api/auth/register", "register",
-            "/api/auth/refresh", "refresh"
-    );
+    private static final Map<String, String> ENDPOINTS = Map.ofEntries(
+            Map.entry("/api/auth/login", "login"), Map.entry("/api/auth/register", "register"),
+            Map.entry("/api/auth/refresh", "refresh"),
+            Map.entry("/api/auth/password/forgot", "recovery"),
+            Map.entry("/api/auth/password/reset", "recovery"),
+            Map.entry("/api/auth/email-verification/request", "verification"),
+            Map.entry("/api/auth/email-verification/confirm", "verification"));
 
     private final Clock clock;
     private final long windowSeconds;
@@ -43,7 +45,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         this.clock = clock;
         this.windowSeconds = Math.max(1, window.toSeconds());
         this.limits = Map.of("login", positive(loginLimit), "register", positive(registerLimit),
-                "refresh", positive(refreshLimit));
+                "refresh", positive(refreshLimit), "recovery", positive(loginLimit),
+                "verification", positive(registerLimit));
     }
 
     @Override

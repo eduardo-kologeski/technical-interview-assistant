@@ -42,6 +42,7 @@ public class SecurityConfiguration {
                         .accessDeniedHandler((request, response, exception) -> writeProblem(
                                 response, objectMapper, HttpStatus.FORBIDDEN, "Acesso negado.")))
                 .authorizeHttpRequests(requests -> requests
+                        .requestMatchers("/api/auth/email-verification/request").authenticated()
                         .requestMatchers("/api/auth/**", "/api/public/invitations/**", "/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
