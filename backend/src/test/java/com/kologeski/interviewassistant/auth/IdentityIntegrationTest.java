@@ -20,6 +20,7 @@ class IdentityIntegrationTest {
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach void clean() {
+        jdbc.update("DELETE FROM audit_events");
         jdbc.update("DELETE FROM identity_tokens"); jdbc.update("DELETE FROM refresh_tokens");
         jdbc.update("DELETE FROM company_invitations"); jdbc.update("DELETE FROM company_memberships");
         jdbc.update("DELETE FROM users");

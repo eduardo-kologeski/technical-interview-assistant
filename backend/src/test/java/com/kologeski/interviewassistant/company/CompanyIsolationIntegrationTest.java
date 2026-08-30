@@ -29,6 +29,7 @@ class CompanyIsolationIntegrationTest {
 
     @BeforeEach
     void clean() {
+        jdbc.update("DELETE FROM audit_events");
         jdbc.update("DELETE FROM identity_tokens");
         jdbc.update("DELETE FROM refresh_tokens");
         jdbc.update("DELETE FROM interview_requirement_snapshots");
@@ -41,6 +42,22 @@ class CompanyIsolationIntegrationTest {
         jdbc.update("DELETE FROM user_technical_skills");
         jdbc.update("DELETE FROM users");
         jdbc.update("DELETE FROM companies WHERE id <> ?", LEGACY_COMPANY_ID);
+    }
+
+    @Test
+    void auditTrailIsTenantScopedAndRestrictedToAdministrators() throws Exception {
+        String adminA = register("audit-admin-a@empresa.com");
+        String adminB = register("audit-admin-b@empresa.com");
+        UUID companyA = createCompany(adminA, "Audit A");
+        UUID companyB = createCompany(adminB, "Audit B");
+
+        mvc.perform(get("/api/audit-events").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].eventType").value("COMPANY_CREATED"));
+        mvc.perform(get("/api/audit-events").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyB))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -113,6 +130,10 @@ class CompanyIsolationIntegrationTest {
                         .header("X-Company-Id", companyA).param("page", "0").param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].title").value("Backend Empresa A"));
+
+        mvc.perform(get("/api/audit-events").header("Authorization", bearer(interviewer))
+                        .header("X-Company-Id", companyA))
+                .andExpect(status().isForbidden());
 
         mvc.perform(post("/api/job-positions").header("Authorization", bearer(interviewer))
                         .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)

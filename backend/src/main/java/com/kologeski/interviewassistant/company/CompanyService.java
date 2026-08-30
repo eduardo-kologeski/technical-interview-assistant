@@ -1,6 +1,7 @@
 package com.kologeski.interviewassistant.company;
 
 import com.kologeski.interviewassistant.audit.CurrentActor;
+import com.kologeski.interviewassistant.audit.AuditTrailService;
 import com.kologeski.interviewassistant.user.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,12 +20,13 @@ public class CompanyService {
     private final CurrentActor actor;
     private final Clock clock;
     private final CompanyAuthorizationPolicy authorization;
+    private final AuditTrailService audit;
 
     public CompanyService(CompanyRepository companies, CompanyMembershipRepository memberships,
                           UserRepository users, CurrentActor actor, Clock clock,
-                          CompanyAuthorizationPolicy authorization) {
+                          CompanyAuthorizationPolicy authorization, AuditTrailService audit) {
         this.companies = companies; this.memberships = memberships; this.users = users;
-        this.actor = actor; this.clock = clock; this.authorization = authorization;
+        this.actor = actor; this.clock = clock; this.authorization = authorization; this.audit = audit;
     }
 
     @Transactional
@@ -38,6 +40,7 @@ public class CompanyService {
         Instant now = Instant.now(clock);
         Company company = companies.save(new Company(name, candidate, userId, now));
         memberships.save(new CompanyMembership(company.id(), userId, CompanyRole.COMPANY_ADMIN, now));
+        audit.record(company.id(), userId, "ADMIN", "COMPANY_CREATED", "COMPANY", company.id());
         return company;
     }
 
@@ -72,6 +75,7 @@ public class CompanyService {
             throw new LastCompanyAdministratorException();
         target.deactivate(Instant.now(clock));
         memberships.save(target);
+        audit.record(active.companyId(), active.userId(), "SECURITY", "MEMBERSHIP_REVOKED", "USER", userId);
         log.info("event=company_membership_revoked companyId={} targetUserId={} actorId={}",
                 active.companyId(), userId, active.userId());
     }

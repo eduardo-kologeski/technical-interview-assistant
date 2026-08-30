@@ -1,6 +1,7 @@
 package com.kologeski.interviewassistant.company;
 
 import com.kologeski.interviewassistant.audit.CurrentActor;
+import com.kologeski.interviewassistant.audit.AuditTrailService;
 import com.kologeski.interviewassistant.user.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,15 +24,16 @@ public class InvitationService {
     private final CompanyRepository companies;
     private final InvitationDelivery delivery;
     private final CompanyAuthorizationPolicy authorization;
+    private final AuditTrailService audit;
     private final SecureRandom random = new SecureRandom();
 
     public InvitationService(CompanyInvitationRepository invitations, CompanyMembershipRepository memberships,
                              UserRepository users, CompanyContext context, CurrentActor actor, Clock clock,
                              CompanyRepository companies, InvitationDelivery delivery,
-                             CompanyAuthorizationPolicy authorization) {
+                             CompanyAuthorizationPolicy authorization, AuditTrailService audit) {
         this.invitations = invitations; this.memberships = memberships; this.users = users;
         this.context = context; this.actor = actor; this.clock = clock;
-        this.companies = companies; this.delivery = delivery; this.authorization = authorization;
+        this.companies = companies; this.delivery = delivery; this.authorization = authorization; this.audit = audit;
     }
 
     @Transactional
@@ -62,6 +64,7 @@ public class InvitationService {
                 .orElseThrow(InvitationUnavailableException::new);
         invitation.revoke(Instant.now(clock));
         invitations.save(invitation);
+        audit.record(active.companyId(), active.userId(), "SECURITY", "INVITATION_REVOKED", "INVITATION", id);
         log.info("event=company_invitation_revoked companyId={} invitationId={} actorId={}",
                 active.companyId(), id, active.userId());
     }
@@ -108,6 +111,7 @@ public class InvitationService {
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         CompanyInvitation invitation = invitations.save(new CompanyInvitation(active.companyId(), email, role,
                 hash(token), active.userId(), now, now.plus(Duration.ofDays(7))));
+        audit.record(active.companyId(), active.userId(), "SECURITY", "INVITATION_CREATED", "INVITATION", invitation.id());
         String companyName = companies.findById(active.companyId()).orElseThrow().name();
         InvitationDelivery.DeliveryReceipt receipt = delivery.deliver(new InvitationDelivery.InvitationMessage(
                 invitation.id(), invitation.email(), companyName, token, invitation.expiresAt()));

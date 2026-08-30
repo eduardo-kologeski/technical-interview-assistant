@@ -14,6 +14,7 @@ only selects one of that user's active memberships and never grants access.
 | Manage interviews | Allow | Deny |
 | Conduct assigned interview | Allow | Allow, participant check also required |
 | Search interviewers | Allow | Allow |
+| View audit log | Allow | Deny |
 
 The policy is default-deny: a role receives only the explicitly mapped capabilities. Resource ownership and
 participant checks remain mandatory in addition to capabilities. A capability never replaces tenant-scoped
