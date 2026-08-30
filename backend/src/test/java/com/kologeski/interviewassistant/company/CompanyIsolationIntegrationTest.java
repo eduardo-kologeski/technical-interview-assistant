@@ -50,7 +50,7 @@ class CompanyIsolationIntegrationTest {
         UUID companyB = createCompany(adminB, "Empresa B");
 
         String vacancyA = createVacancy(adminA, companyA, "Backend Empresa A");
-        createVacancy(adminB, companyB, "Frontend Empresa B");
+        String vacancyB = createVacancy(adminB, companyB, "Frontend Empresa B");
 
         mvc.perform(get("/api/job-positions").header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyA).param("page", "0").param("size", "10"))
@@ -61,6 +61,25 @@ class CompanyIsolationIntegrationTest {
         mvc.perform(get("/api/job-positions").header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyB).param("page", "0").param("size", "10"))
                 .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/job-positions/{id}", vacancyA).header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/job-positions/{id}", vacancyA).header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Tenant escape\",\"seniority\":\"Sênior\",\"requirements\":[],\"version\":0}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(patch("/api/job-positions/{id}/deactivate", vacancyA)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/job-positions").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).param("query", "Frontend Empresa B"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));
+        mvc.perform(post("/api/interviews").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"jobPositionId\":\"%s\",\"candidateName\":\"Tenant escape\"}".formatted(vacancyB)))
+                .andExpect(status().isNotFound());
 
         MvcResult invitation = mvc.perform(post("/api/companies/invitations")
                         .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA)
@@ -100,12 +119,51 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[?(@.email == 'entrevistador@empresa-a.com')].role").value("INTERVIEWER"));
 
+        mvc.perform(get("/api/interviewers").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
+        mvc.perform(get("/api/interviewers").header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+
         Long interviewerId = jdbc.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, "entrevistador@empresa-a.com");
         MvcResult createdInterview = mvc.perform(post("/api/interviews").header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"jobPositionId\":\"%s\",\"candidateName\":\"Candidato compartilhado\",\"participantUserIds\":[%d]}".formatted(vacancyA, interviewerId)))
                 .andExpect(status().isOk()).andReturn();
         String interviewId = body(createdInterview).get("id").asText();
+
+        mvc.perform(get("/api/interviews").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1));
+        mvc.perform(get("/api/interviews").header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));
+        mvc.perform(get("/api/interviews/{id}", interviewId).header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB)).andExpect(status().isNotFound());
+        mvc.perform(patch("/api/interviews/{id}/start", interviewId).header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB)).andExpect(status().isNotFound());
+        mvc.perform(patch("/api/interviews/{id}/complete", interviewId).header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB)).andExpect(status().isNotFound());
+        mvc.perform(patch("/api/interviews/{id}/assessment/finalize", interviewId)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))
+                .andExpect(status().isNotFound());
+        mvc.perform(patch("/api/interviews/{id}/assessment", interviewId)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"assessmentData\":\"{}\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/interviews/{id}/pdf-generation", interviewId)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))
+                .andExpect(status().isNotFound());
+        mvc.perform(patch("/api/interviews/{id}/workspace", interviewId)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"assessmentData\":\"{}\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(patch("/api/interviews/{id}/workspace/complete", interviewId)
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))
+                .andExpect(status().isNotFound());
 
         mvc.perform(patch("/api/interviews/{id}/workspace", interviewId).header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)

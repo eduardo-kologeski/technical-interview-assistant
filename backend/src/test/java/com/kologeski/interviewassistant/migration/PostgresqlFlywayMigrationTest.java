@@ -10,6 +10,8 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,6 +28,7 @@ class PostgresqlFlywayMigrationTest {
         Flyway flyway = Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
+                .cleanDisabled(false)
                 .load();
 
         var migration = flyway.migrate();
@@ -51,6 +54,66 @@ class PostgresqlFlywayMigrationTest {
             assertThat(tableExists(metadata, "interview_participants")).isTrue();
             assertThat(columnExists(metadata, "job_vacancies", "company_id")).isTrue();
             assertThat(columnExists(metadata, "interviews", "company_id")).isTrue();
+        }
+
+        flyway.clean();
+        Flyway legacy = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration")
+                .target("11")
+                .load();
+        assertThat(legacy.migrate().migrationsExecuted).isEqualTo(11);
+
+        UUID vacancyId = UUID.randomUUID();
+        UUID interviewId = UUID.randomUUID();
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("""
+                    INSERT INTO users(name, email, password_hash, created_at, updated_at)
+                    VALUES ('Legacy User', 'legacy@example.test', 'test-only-hash', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """);
+            statement.executeUpdate("""
+                    INSERT INTO job_vacancies(id, title, active, created_at, created_by, updated_at, updated_by)
+                    VALUES ('%s', 'Legacy Vacancy', TRUE, CURRENT_TIMESTAMP, '1', CURRENT_TIMESTAMP, '1')
+                    """.formatted(vacancyId));
+            statement.executeUpdate("""
+                    INSERT INTO interviews(id, vacancy_id, candidate_name, vacancy_title_snapshot, interviewer_id,
+                                           status, created_at, created_by, updated_at, updated_by)
+                    VALUES ('%s', '%s', 'Legacy Candidate', 'Legacy Vacancy', '1', 'IN_PROGRESS',
+                            CURRENT_TIMESTAMP, '1', CURRENT_TIMESTAMP, '1')
+                    """.formatted(interviewId, vacancyId));
+        }
+
+        Flyway upgrade = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration")
+                .load();
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
+
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             Statement statement = connection.createStatement()) {
+            assertThat(singleValue(statement,
+                    "SELECT company_id::text FROM job_vacancies WHERE id = '" + vacancyId + "'"))
+                    .isEqualTo("00000000-0000-0000-0000-000000000001");
+            assertThat(singleValue(statement,
+                    "SELECT company_id::text FROM interviews WHERE id = '" + interviewId + "'"))
+                    .isEqualTo("00000000-0000-0000-0000-000000000001");
+            assertThat(singleValue(statement,
+                    "SELECT COUNT(*)::text FROM company_memberships WHERE user_id = 1 AND active = TRUE"))
+                    .isEqualTo("1");
+            assertThat(singleValue(statement,
+                    "SELECT COUNT(*)::text FROM interview_participants WHERE interview_id = '" + interviewId + "'"))
+                    .isEqualTo("1");
+        }
+    }
+
+    private String singleValue(Statement statement, String sql) throws Exception {
+        try (ResultSet result = statement.executeQuery(sql)) {
+            assertThat(result.next()).isTrue();
+            return result.getString(1);
         }
     }
 

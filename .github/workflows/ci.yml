@@ -22,6 +22,19 @@ jobs:
           java-version: 21
           cache: maven
       - run: ./mvnw -B verify
+      - name: Assert PostgreSQL and Flyway tests executed
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          report = Path('target/surefire-reports/TEST-com.kologeski.interviewassistant.migration.PostgresqlFlywayMigrationTest.xml')
+          if not report.exists():
+              raise SystemExit('PostgreSQL/Flyway test report is missing')
+          suite = ElementTree.parse(report).getroot()
+          if int(suite.attrib.get('skipped', '-1')) != 0 or int(suite.attrib.get('failures', '-1')) != 0 or int(suite.attrib.get('errors', '-1')) != 0:
+              raise SystemExit(f'PostgreSQL/Flyway test did not execute successfully: {suite.attrib}')
+          PY
 
   frontend:
     runs-on: ubuntu-latest
