@@ -19,6 +19,9 @@ jobs:
       security-events: write
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@880d9b542cc66d36d91d51b3fbcc038f5f28cfc5 # v2.5.1
     with:
+      # Private repositories without GitHub Code Scanning cannot accept SARIF uploads.
+      # Keep fail-on-vuln enabled; only disable the unavailable reporting destination.
+      upload-sarif: false
       scan-args: |-
         --include-git-root
         -r
@@ -32,6 +35,8 @@ jobs:
       security-events: write
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@880d9b542cc66d36d91d51b3fbcc038f5f28cfc5 # v2.5.1
     with:
+      # The reporter still fails on newly introduced vulnerabilities.
+      upload-sarif: false
       scan-args: |-
         --include-git-root
         -r
