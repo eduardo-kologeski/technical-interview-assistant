@@ -111,6 +111,19 @@ jobs:
           DATABASE_PASSWORD: ci-only-database-password
           JWT_SECRET: Y2ktb25seS1qd3Qtc2VjcmV0LW1hdGVyaWFsLXdpdGgtYXQtbGVhc3Qtc2l4dHktZm91ci1ieXRlcy0yMDI2LTA4LTI4
         run: docker compose config --quiet
+      - name: Validate On-Premises deployment package
+        env:
+          REGISTRY: ghcr.io/example
+          APP_VERSION: 0.0.0-ci
+          PUBLIC_ORIGIN: https://interviews.example.test
+          DATABASE_URL: jdbc:postgresql://database.example.test:5432/interview_assistant
+          DATABASE_USER: ci_user
+          DATABASE_PASSWORD: ci-only-database-password
+          JWT_SECRET: Y2ktb25seS1qd3Qtc2VjcmV0LW1hdGVyaWFsLXdpdGgtYXQtbGVhc3Qtc2l4dHktZm91ci1ieXRlcy0yMDI2LTA4LTI4
+        run: |
+          docker compose --file deployment/docker-compose.yml config --quiet
+          test "$(docker compose --file deployment/docker-compose.yml config --images | sort -u | wc -l)" -eq 2
+          ! grep -Eq '^[[:space:]]*build:' deployment/docker-compose.yml
       - name: Build backend image
         run: >-
           docker build
