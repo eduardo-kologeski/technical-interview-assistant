@@ -32,6 +32,11 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
+    @ExceptionHandler(AuthenticationService.PublicSignupDisabledException.class)
+    ProblemDetail publicSignupDisabled(AuthenticationService.PublicSignupDisabledException exception) {
+        return problem(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
     @ExceptionHandler(InterviewService.StaleInterviewException.class)
     ProblemDetail staleInterview(InterviewService.StaleInterviewException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());

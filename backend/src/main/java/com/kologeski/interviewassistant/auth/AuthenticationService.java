@@ -9,6 +9,7 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kologeski.interviewassistant.company.*;
+import com.kologeski.interviewassistant.deployment.DeploymentProperties;
 
 @Service
 public class AuthenticationService {
@@ -19,17 +20,21 @@ public class AuthenticationService {
     private final RefreshTokenService refreshTokens;
     private final CompanyMembershipRepository memberships;
     private final CompanyRepository companies;
+    private final DeploymentProperties deployment;
 
     public AuthenticationService(UserRepository users, PasswordEncoder passwords,
                                  JwtService jwt, RefreshTokenService refreshTokens,
-                                 CompanyMembershipRepository memberships, CompanyRepository companies) {
+                                 CompanyMembershipRepository memberships, CompanyRepository companies,
+                                 DeploymentProperties deployment) {
         this.users = users; this.passwords = passwords; this.jwt = jwt; this.refreshTokens = refreshTokens;
         this.memberships = memberships;
         this.companies = companies;
+        this.deployment = deployment;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request, RefreshTokenService.Metadata metadata) {
+        if (!deployment.publicSignupEnabled()) throw new PublicSignupDisabledException();
         String email = normalize(request.email());
         if (users.existsByEmail(email)) throw new DuplicateEmailException();
         User user = users.save(new User(request.name().trim(), email,
@@ -74,5 +79,8 @@ public class AuthenticationService {
     public record AuthResponse(String accessToken, String refreshToken, long expiresIn) { }
     public static final class DuplicateEmailException extends RuntimeException {
         public DuplicateEmailException() { super("E-mail já cadastrado."); }
+    }
+    public static final class PublicSignupDisabledException extends RuntimeException {
+        public PublicSignupDisabledException() { super("Cadastro público indisponível nesta instalação."); }
     }
 }
