@@ -75,6 +75,9 @@ export class ProfileService {
       endTime,
     });
   }
+  addAvailabilityBatch(intervals: Array<{ date: string; startTime: string; endTime: string }>) {
+    return this.http.post<Availability[]>(`${this.profileUrl}/availability/batch`, intervals);
+  }
   updateAvailability(id: number, date: string, startTime: string, endTime: string) {
     return this.http.put<Availability>(`${this.profileUrl}/availability/${id}`, {
       date,

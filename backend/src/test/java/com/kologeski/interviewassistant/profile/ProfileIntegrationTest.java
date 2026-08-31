@@ -88,6 +88,29 @@ class ProfileIntegrationTest {
         Assertions.assertEquals(ZoneId.of("America/Sao_Paulo"), clock.getZone());
     }
 
+    @Test void createsTwoAvailabilityIntervalsAtomically() throws Exception {
+        String token = register("João", "availability.batch@example.com");
+        LocalDate date = LocalDate.now().plusDays(8);
+        mvc.perform(post("/api/profile/availability/batch").header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"date":"%s","startTime":"08:00","endTime":"09:00"},
+                                 {"date":"%s","startTime":"16:30","endTime":"18:00"}]
+                                """.formatted(date, date)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(post("/api/profile/availability/batch").header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"date":"%s","startTime":"10:00","endTime":"11:00"},
+                                 {"date":"%s","startTime":"10:30","endTime":"11:30"}]
+                                """.formatted(date, date)))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/api/profile/availability").header("Authorization", bearer(token))
+                        .param("from", date.toString()).param("to", date.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+    }
+
     @Test void searchesByVacancyTechnologyAndAvailabilityWithoutExposingSensitiveData() throws Exception {
         String joao = register("João", "joao.search@example.com");
         addSkill(joao, "Java", "ADVANCED").andExpect(status().isCreated());

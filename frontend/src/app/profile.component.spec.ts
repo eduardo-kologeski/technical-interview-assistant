@@ -75,7 +75,7 @@ describe('ProfileComponent date-based availability', () => {
     expect(component.editingDate).toBe('');
   });
 
-  it('selects 15-minute halves and extends the interval through another cell', () => {
+  it('creates two pending intervals with two clicks each and saves them as one batch', () => {
     const fixture = TestBed.createComponent(ProfileComponent);
     const component = fixture.componentInstance;
     http.expectOne('/api/profile').flush({
@@ -85,16 +85,23 @@ describe('ProfileComponent date-based availability', () => {
     const future = component.weekDays()[0];
 
     component.selectTimeCell(future.date, '09:30', false);
-
     expect(component.editingDate).toBe(future.date);
-    expect(component.startTime).toBe('09:30');
-    expect(component.endTime).toBe('09:45');
-    expect(component.selectedDay()).toBe(future.date);
-
     component.selectTimeCell(future.date, '10:15', false);
-    expect(component.startTime).toBe('09:30');
-    expect(component.endTime).toBe('10:30');
-    expect(component.isEditingTime(future.date, '10:15')).toBe(true);
+    component.selectTimeCell(future.date, '16:30', false);
+    component.selectTimeCell(future.date, '18:00', false);
+    expect(component.pendingIntervals()).toEqual([
+      { date: future.date, startTime: '09:30', endTime: '10:15' },
+      { date: future.date, startTime: '16:30', endTime: '18:00' },
+    ]);
+
+    component.saveAvailability();
+    const request = http.expectOne('/api/profile/availability/batch');
+    expect(request.request.body).toHaveLength(2);
+    request.flush([
+      { id: 1, availabilityDate: future.date, startTime: '09:30:00', endTime: '10:15:00' },
+      { id: 2, availabilityDate: future.date, startTime: '16:30:00', endTime: '18:00:00' },
+    ]);
+    expect(component.pendingIntervals()).toEqual([]);
   });
 
   it('expands the mini calendar and navigates to the chosen date', () => {

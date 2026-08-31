@@ -180,7 +180,11 @@ test('uses a responsive work-week grid for interviewer availability', async ({ p
   await expect(page.locator('.day-header:visible')).toHaveCount(1);
   await page.getByRole('button', { name: /Selecionar .* às 09:30/ }).click();
   await expect(page.getByText('HORÁRIOS SELECIONADOS')).toBeVisible();
-  await expect(page.locator('.selection-summary')).toContainText('1 blocos de 15 min');
   await page.getByRole('button', { name: /Selecionar .* às 10:15/ }).click();
-  await expect(page.locator('.selection-summary')).toContainText('4 blocos de 15 min');
+  await expect(page.locator('.selection-summary')).toContainText('1 de 2 intervalos pendentes');
+  await page.getByRole('button', { name: /Selecionar .* às 16:30/ }).click();
+  await page.getByRole('button', { name: /Selecionar .* às 18:00/ }).click();
+  await expect(page.locator('.selection-summary')).toContainText('2 de 2 intervalos pendentes');
+  await page.getByRole('button', { name: 'Salvar todos' }).click();
+  await expect(page.getByText('Disponível', { exact: true })).toHaveCount(2);
 });

@@ -161,7 +161,13 @@ import {
                 <label>Início<input type="time" step="900" [(ngModel)]="startTime" /></label>
                 <label>Fim<input type="time" step="900" [(ngModel)]="endTime" /></label>
               } @else {
-                <p class="selection-summary"><b>{{ selectedSegments().length }}</b> blocos de 15 min · clique ou arraste para marcar e desmarcar</p>
+                <p class="selection-summary">
+                  @if (selectionStart()) { Selecione o horário final. }
+                  @else { <b>{{ pendingIntervals().length }}</b> de 2 intervalos pendentes · dois cliques por intervalo }
+                </p>
+                @for (interval of pendingIntervals(); track interval.startTime + interval.endTime; let index = $index) {
+                  <div class="pending-interval"><span>Pendente {{ index + 1 }}: {{ interval.startTime }}–{{ interval.endTime }}</span><button type="button" (click)="removePendingInterval(index)">Desfazer</button></div>
+                }
               }
               <button (click)="saveAvailability()">{{ editingAvailabilityId ? 'Atualizar' : 'Salvar todos' }}</button>
               @if (editingAvailabilityId) { <button class="remove" (click)="removeEditingAvailability()">Excluir</button> }
@@ -194,8 +200,6 @@ import {
                       [class.selected]="isEditingTime(dayItem.date, time)"
                       [disabled]="dayItem.past"
                       [attr.aria-label]="cellLabel(dayItem, time, firstSlot)"
-                      (pointerdown)="startSelectionDrag(dayItem.date, time, dayItem.past, firstSlot, $event)"
-                      (pointerenter)="continueSelectionDrag(dayItem.date, time, dayItem.past, firstSlot)"
                       (click)="handleSelectionClick(dayItem.date, time, dayItem.past, firstSlot)"
                     >
                       @if (firstSlot && isSlotStart(firstSlot, time)) {
@@ -209,8 +213,6 @@ import {
                       [class.selected]="isEditingTime(dayItem.date, secondTime)"
                       [disabled]="dayItem.past"
                       [attr.aria-label]="cellLabel(dayItem, secondTime, secondSlot)"
-                      (pointerdown)="startSelectionDrag(dayItem.date, secondTime, dayItem.past, secondSlot, $event)"
-                      (pointerenter)="continueSelectionDrag(dayItem.date, secondTime, dayItem.past, secondSlot)"
                       (click)="handleSelectionClick(dayItem.date, secondTime, dayItem.past, secondSlot)"
                     >
                       @if (secondSlot && isSlotStart(secondSlot, secondTime)) {
@@ -661,6 +663,8 @@ export class ProfileComponent {
   startTime = '14:00';
   endTime = '17:00';
   editingAvailabilityId: number | null = null;
+  readonly pendingIntervals = signal<Array<{ date: string; startTime: string; endTime: string }>>([]);
+  readonly selectionStart = signal<{ date: string; time: string } | null>(null);
   private selectionDragActive = false;
   private selectionDragDate = '';
   private selectionDragAnchor = '';
@@ -826,6 +830,20 @@ export class ProfileComponent {
     );
   }
   saveAvailability() {
+    if (!this.editingAvailabilityId && this.pendingIntervals().length) {
+      this.service.addAvailabilityBatch(this.pendingIntervals()).subscribe({
+        next: (slots) => {
+          this.profile.update((profile) => ({
+            ...profile,
+            availability: [...profile.availability, ...slots].sort((a, b) =>
+              a.availabilityDate.localeCompare(b.availabilityDate) || a.startTime.localeCompare(b.startTime)),
+          }));
+          this.cancelAvailabilityEdit();
+        },
+        error: (e) => this.error.set(e.error?.detail || 'Não foi possível salvar os intervalos.'),
+      });
+      return;
+    }
     const request = this.editingAvailabilityId
       ? this.service.updateAvailability(
           this.editingAvailabilityId,
@@ -867,6 +885,8 @@ export class ProfileComponent {
     this.editingDate = '';
     this.startTime = '14:00';
     this.endTime = '17:00';
+    this.pendingIntervals.set([]);
+    this.selectionStart.set(null);
   }
   removeAvailability(slot: Availability) {
     this.service.removeAvailability(slot.id).subscribe(() => {
@@ -891,23 +911,39 @@ export class ProfileComponent {
     if (past) return;
     this.error.set('');
     this.selectedDay.set(date);
-    if (this.editingDate === date && !this.editingAvailabilityId) {
-      if (time < this.startTime) this.startTime = time;
-      else this.endTime = this.addMinutes(time, 15);
+    const start = this.selectionStart();
+    if (!start) {
+      if (this.pendingIntervals().length >= 2) {
+        this.error.set('Salve ou remova um intervalo antes de criar outro.');
+        return;
+      }
+      this.editingDate = date;
+      this.selectionStart.set({ date, time });
+      this.startTime = time;
+      this.endTime = time;
       return;
     }
-    this.editingDate = date;
-    this.editingAvailabilityId = null;
-    this.startTime = time;
-    this.endTime = this.addMinutes(time, 15);
+    if (start.date !== date) {
+      this.selectionStart.set({ date, time });
+      this.editingDate = date;
+      return;
+    }
+    const interval = { date, startTime: start.time < time ? start.time : time, endTime: start.time < time ? time : start.time };
+    if (interval.startTime === interval.endTime || this.minutesBetween(interval.startTime, interval.endTime) < 30) {
+      this.error.set('Selecione um intervalo de pelo menos 30 minutos.');
+      return;
+    }
+    const conflicts = [...this.pendingIntervals(), ...this.slotsFor(date).map(slot => ({ date, startTime: this.timeLabel(slot.startTime), endTime: this.timeLabel(slot.endTime) }))]
+      .some(item => item.date === date && interval.startTime < item.endTime && interval.endTime > item.startTime);
+    if (conflicts) { this.error.set('Este intervalo se sobrepõe a outro horário.'); return; }
+    this.pendingIntervals.update(items => [...items, interval]);
+    this.selectionStart.set(null);
   }
   selectedSegments() {
     if (!this.editingDate || this.editingAvailabilityId) return [];
     const segments: string[] = [];
-    for (let time = this.startTime; time < this.endTime; time = this.addMinutes(time, 15)) {
-      segments.push(time);
-      if (time === '21:00') break;
-    }
+    for (const interval of this.pendingIntervals())
+      for (let time = interval.startTime; time < interval.endTime; time = this.addMinutes(time, 15)) segments.push(time);
     return segments;
   }
   startSelectionDrag(date: string, time: string, past: boolean, slot: Availability | undefined, event: PointerEvent) {
@@ -966,7 +1002,13 @@ export class ProfileComponent {
     return this.timeLabel(slot.startTime) === time;
   }
   isEditingTime(date: string, time: string) {
-    return this.editingDate === date && time >= this.startTime && time < this.endTime;
+    return this.pendingIntervals().some(interval => interval.date === date && time >= interval.startTime && time < interval.endTime)
+      || (this.selectionStart()?.date === date && this.selectionStart()?.time === time);
+  }
+  removePendingInterval(index: number) { this.pendingIntervals.update(items => items.filter((_, itemIndex) => itemIndex !== index)); }
+  private minutesBetween(start: string, end: string) {
+    const value = (time: string) => { const [hours, minutes] = time.split(':').map(Number); return hours * 60 + minutes; };
+    return value(end) - value(start);
   }
   addMinutes(time: string, amount: number) {
     const [hours, minutes] = time.split(':').map(Number);

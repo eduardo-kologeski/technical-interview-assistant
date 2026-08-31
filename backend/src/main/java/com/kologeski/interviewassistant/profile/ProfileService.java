@@ -75,6 +75,27 @@ public class ProfileService {
     }
 
     @Transactional
+    public List<AvailabilitySnapshot> addAvailabilityBatch(User user, List<AvailabilityPeriod> periods) {
+        if (periods == null || periods.isEmpty() || periods.size() > 2)
+            throw new IllegalStateException("Informe um ou dois intervalos de disponibilidade.");
+        for (int index = 0; index < periods.size(); index++) {
+            AvailabilityPeriod current = periods.get(index);
+            validatePeriod(user, null, current.date(), current.start(), current.end());
+            for (int other = index + 1; other < periods.size(); other++) {
+                AvailabilityPeriod candidate = periods.get(other);
+                if (current.date().equals(candidate.date())
+                        && current.start().isBefore(candidate.end())
+                        && current.end().isAfter(candidate.start()))
+                    throw new IllegalStateException("Os intervalos pendentes não podem se sobrepor.");
+            }
+        }
+        Instant now = Instant.now(clock);
+        return availability.saveAll(periods.stream()
+                .map(period -> new InterviewAvailability(user, period.date(), period.start(), period.end(), now))
+                .toList()).stream().map(AvailabilitySnapshot::from).toList();
+    }
+
+    @Transactional
     public AvailabilitySnapshot updateAvailability(User user, Long id, LocalDate date,
                                                    LocalTime start, LocalTime end) {
         InterviewAvailability slot = availability(user, id);
@@ -188,4 +209,5 @@ public class ProfileService {
             return new AvailabilitySnapshot(value.getId(), value.getAvailabilityDate(), value.getStartTime(), value.getEndTime());
         }
     }
+    public record AvailabilityPeriod(LocalDate date, LocalTime start, LocalTime end) { }
 }
