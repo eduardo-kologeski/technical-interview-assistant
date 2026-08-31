@@ -25,6 +25,7 @@ public class Interview extends AuditableEntity {
     @Column(name = "company_id", nullable = false, updatable = false) private UUID companyId;
     @Column(name = "vacancy_id", nullable = false, updatable = false) private UUID vacancyId;
     @Column(name = "candidate_name", nullable = false) private String candidateName;
+    @Column(name = "candidate_id", nullable = false, updatable = false) private UUID candidateId;
     @Column(name = "vacancy_title_snapshot", nullable = false, updatable = false) private String vacancyTitleSnapshot;
     @Column(name = "seniority_snapshot", nullable = false, updatable = false) private String senioritySnapshot;
     @Column(name = "client_company") private String clientCompany;
@@ -71,6 +72,7 @@ public class Interview extends AuditableEntity {
         this.clientCompany = clientCompany == null ? "" : clientCompany.trim();
         this.requirementSnapshot = new ArrayList<>(requirementSnapshot == null ? List.of() : requirementSnapshot);
         this.candidateName = requiredText(candidateName, "candidateName");
+        this.candidateId = UUID.nameUUIDFromBytes((companyId + ":" + this.candidateName.toLowerCase(java.util.Locale.ROOT)).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         this.status = InterviewStatus.CREATED;
         registerCreation(actorId, now);
     }
@@ -126,11 +128,16 @@ public class Interview extends AuditableEntity {
         if (status != InterviewStatus.CREATED) throw new IllegalStateException("kit snapshot must be captured before start");
         kitSnapshot = value == null || value.isBlank() ? "{}" : value;
     }
+    public void linkCandidate(UUID value) {
+        if (status != InterviewStatus.CREATED) throw new IllegalStateException("candidate must be linked before start");
+        candidateId = java.util.Objects.requireNonNull(value, "candidateId");
+    }
 
     public UUID id() { return id; }
     public UUID companyId() { return companyId; }
     public UUID vacancyId() { return vacancyId; }
     public String candidateName() { return candidateName; }
+    public UUID candidateId() { return candidateId; }
     public String vacancyTitleSnapshot() { return vacancyTitleSnapshot; }
     public String senioritySnapshot() { return senioritySnapshot; }
     public String clientCompany() { return clientCompany; }

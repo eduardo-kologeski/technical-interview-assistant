@@ -4,6 +4,7 @@ import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 import com.kologeski.interviewassistant.audit.CurrentActor;
 import com.kologeski.interviewassistant.company.*;
 import com.kologeski.interviewassistant.user.*;
+import com.kologeski.interviewassistant.candidate.CandidateService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
@@ -19,13 +20,15 @@ public class InterviewCollaborationService {
     private final CurrentActor actor;
     private final Clock clock;
     private final CompanyAuthorizationPolicy authorization;
+    private final CandidateService candidates;
 
     public InterviewCollaborationService(InterviewRepository interviews, InterviewParticipantRepository participants,
             CompanyMembershipRepository memberships, UserRepository users, CompanyContext companyContext,
-            CurrentActor actor, Clock clock, CompanyAuthorizationPolicy authorization) {
+            CurrentActor actor, Clock clock, CompanyAuthorizationPolicy authorization, CandidateService candidates) {
         this.interviews = interviews; this.participants = participants; this.memberships = memberships;
         this.users = users; this.companyContext = companyContext; this.actor = actor; this.clock = clock;
         this.authorization = authorization;
+        this.candidates = candidates;
     }
 
     @Transactional
@@ -68,7 +71,10 @@ public class InterviewCollaborationService {
         own.complete(Instant.now(clock)); participants.saveAndFlush(own);
         if (!participants.existsByInterviewIdAndStatusNot(interviewId, InterviewStatus.COMPLETED)
                 && interview.status() == InterviewStatus.IN_PROGRESS) {
-            interview.complete(actor.required().id(), Instant.now(clock)); interviews.save(interview);
+            String actorId = actor.required().id();
+            interview.complete(actorId, Instant.now(clock)); interviews.save(interview);
+            candidates.interviewEvent(CandidateService.InterviewEvent.INTERVIEW_COMPLETED, interview.companyId(),
+                    interview.candidateId(), interview.vacancyId(), interview.id(), actorId);
         }
         return view(interview, own);
     }

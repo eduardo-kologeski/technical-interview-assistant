@@ -34,7 +34,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(17);
+        assertThat(migration.migrationsExecuted).isEqualTo(18);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -52,6 +52,10 @@ class PostgresqlFlywayMigrationTest {
             assertThat(tableExists(metadata, "interview_kits")).isTrue();
             assertThat(tableExists(metadata, "interview_kit_versions")).isTrue();
             assertThat(tableExists(metadata, "interview_kit_items")).isTrue();
+            assertThat(tableExists(metadata, "candidates")).isTrue();
+            assertThat(tableExists(metadata, "candidate_vacancies")).isTrue();
+            assertThat(tableExists(metadata, "candidate_timeline_events")).isTrue();
+            assertThat(columnExists(metadata, "interviews", "candidate_id")).isTrue();
             assertThat(tableExists(metadata, "companies")).isTrue();
             assertThat(tableExists(metadata, "company_memberships")).isTrue();
             assertThat(tableExists(metadata, "company_invitations")).isTrue();
@@ -98,7 +102,7 @@ class PostgresqlFlywayMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(6);
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(7);
         assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -124,6 +128,12 @@ class PostgresqlFlywayMigrationTest {
                     .isEqualTo("1");
             assertThat(singleValue(statement,
                     "SELECT COUNT(*)::text FROM interview_kit_versions WHERE kit_id = '" + vacancyId + "' AND status = 'PUBLISHED'"))
+                    .isEqualTo("1");
+            assertThat(singleValue(statement,
+                    "SELECT COUNT(*)::text FROM candidates WHERE normalized_name = 'legacy candidate'"))
+                    .isEqualTo("1");
+            assertThat(singleValue(statement,
+                    "SELECT COUNT(*)::text FROM candidate_timeline_events WHERE interview_id = '" + interviewId + "'"))
                     .isEqualTo("1");
         }
     }
