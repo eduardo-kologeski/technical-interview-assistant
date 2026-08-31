@@ -5,9 +5,9 @@ import { EvaluationSource, SkillEvaluationCardComponent } from './skill-evaluati
 import { JobPosition, JobPositionService } from './job-position.service';
 import { InterviewService } from './interview.service';
 import { AuthService } from './auth.service';
-import { CompanyMember, CompanyService } from './company.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, Subject, catchError, concatMap, debounceTime, tap } from 'rxjs';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 type Importance = 'Obrigatória' | 'Desejável' | 'Complementar';
 type Skill = {
@@ -33,11 +33,15 @@ type Technology = {
 type InterviewAssessment = {
   requiredSkills: Skill[];
   complementaryTechnologies: Technology[];
-  behavioralSkills: string[];
+  behavioralSkills?: string[];
   interviewNotes: string;
+  feedbackNotes: string;
   strengths: string;
   concerns: string;
   recommendation: string;
+  recommendedLevel: string;
+  technicalSkillsNotes: string;
+  recommendationRationale: string;
   finalAssessment: string;
 };
 type AutosaveRequest = { sequence: number; assessment: InterviewAssessment };
@@ -52,9 +56,9 @@ export class InterviewPage {
   private readonly jobPositions = inject(JobPositionService);
   private readonly interviews = inject(InterviewService);
   private readonly auth = inject(AuthService);
-  private readonly companies = inject(CompanyService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly sanitizer = inject(DomSanitizer);
   readonly vacancies = signal<JobPosition[]>([]);
   readonly loadingVacancies = signal(true);
   readonly vacanciesError = signal(false);
@@ -65,55 +69,39 @@ export class InterviewPage {
   readonly selectedVacancyId = signal('');
   readonly started = signal(false);
   readonly reviewing = signal(false);
-  readonly completedInterview = signal(false);
   readonly candidate = signal('');
   readonly role = signal('');
   readonly company = signal('');
   readonly authenticatedUserName = computed(() => this.auth.user()?.name || '');
-  readonly companyInterviewers = signal<CompanyMember[]>([]);
-  readonly selectedParticipantIds = signal<number[]>([]);
   readonly loadingUser = computed(() => !this.auth.user());
   readonly seniority = signal('');
   readonly template = signal('');
-  readonly recommendation = signal('Sem recomendação');
+  readonly recommendation = signal('Requer avaliação adicional');
+  readonly recommendedLevel = signal('');
+  readonly feedbackNotes = signal('');
+  readonly technicalSkillsNotes = signal('');
+  readonly recommendationRationale = signal('');
   readonly strengths = signal('');
   readonly concerns = signal('');
   readonly finalAssessment = signal('');
   readonly technologySearch = signal('');
   readonly selectedTechnologies = signal<Technology[]>([]);
-  readonly behavioralSearch = signal('');
   readonly lastSupportMessage = signal('');
   readonly technologySuggestionsExpanded = signal(false);
-  readonly behavioralSuggestionsExpanded = signal(false);
-  readonly selectedBehavioralSkills = signal<string[]>([]);
-  readonly behavioralCatalog = [
-    'Comunicação',
-    'Trabalho em equipe',
-    'Proatividade',
-    'Autonomia',
-    'Organização',
-    'Adaptabilidade',
-    'Capacidade analítica',
-    'Resolução de problemas',
-    'Colaboração',
-    'Clareza na comunicação',
+  readonly pdfPreviewUrl = signal<SafeResourceUrl | null>(null);
+  private pdfPreviewObjectUrl?: string;
+  readonly levelOptions = [
+    { value: 'Júnior inicial', className: 'level-junior-initial' },
+    { value: 'Júnior intermediário', className: 'level-junior-intermediate' },
+    { value: 'Júnior avançado', className: 'level-junior-advanced' },
+    { value: 'Pleno inicial', className: 'level-mid-initial' },
+    { value: 'Pleno intermediário', className: 'level-mid-intermediate' },
+    { value: 'Pleno avançado', className: 'level-mid-advanced' },
+    { value: 'Sênior inicial', className: 'level-senior-initial' },
+    { value: 'Sênior intermediário', className: 'level-senior-intermediate' },
+    { value: 'Sênior avançado', className: 'level-senior-advanced' },
+    { value: 'Especialista', className: 'level-specialist' },
   ];
-  readonly behavioralResults = computed(() => {
-    const query = this.normalizeTechnology(this.behavioralSearch());
-    return this.behavioralCatalog
-      .filter(
-        (item) => this.normalizeTechnology(item).includes(query) && !this.hasBehavioralSkill(item),
-      )
-      .slice(0, 8);
-  });
-  readonly availableBehavioralSuggestions = computed(() =>
-    this.behavioralCatalog.filter((item) => !this.hasBehavioralSkill(item)),
-  );
-  readonly visibleBehavioralSuggestions = computed(() => {
-    if (this.behavioralSearch().trim()) return this.behavioralResults();
-    const suggestions = this.availableBehavioralSuggestions();
-    return this.behavioralSuggestionsExpanded() ? suggestions : suggestions.slice(0, 4);
-  });
   readonly technologyCatalog: Technology[] = [
     ...[
       'Java',
@@ -207,12 +195,12 @@ export class InterviewPage {
   );
   readonly progress = computed(() => Math.round((this.evaluated() / this.skills().length) * 100));
   readonly average = computed(() => {
-    const value = this.technicalAverage();
-    return value === null ? '—' : value.toFixed(1);
+    const scored = this.skills().filter((s) => s.score !== null && !s.skipped);
+    const weights = scored.reduce((sum, s) => sum + s.weight, 0);
+    return weights
+      ? (scored.reduce((sum, s) => sum + s.score! * s.weight, 0) / weights).toFixed(1)
+      : '—';
   });
-  readonly estimatedTechnicalSeniority = computed(() =>
-    this.seniorityForAverage(this.technicalAverage()),
-  );
   readonly formattedTime = computed(
     () =>
       `${String(Math.floor(this.seconds() / 60)).padStart(2, '0')}:${String(this.seconds() % 60).padStart(2, '0')}`,
@@ -265,7 +253,8 @@ export class InterviewPage {
             this.assessmentVersion.set(saved.version);
             this.failedAssessment = undefined;
             this.saveState.set('Salvo');
-            if (this.finishRequested && sequence === this.finishSequence) this.enterReview();
+            if (this.finishRequested && sequence === this.finishSequence)
+              this.openPersistedReview();
           }),
           catchError(() => {
             this.failedAssessment = assessment;
@@ -284,18 +273,7 @@ export class InterviewPage {
       this.auth.loadUser().subscribe({ error: () => this.router.navigateByUrl('/auth/login') });
     const interviewId = this.route.snapshot.paramMap.get('id');
     if (interviewId) this.loadInterview(interviewId);
-    else { this.loadVacancies(); this.loadCompanyInterviewers(); }
-  }
-
-  private loadCompanyInterviewers() {
-    this.companies.members().subscribe({
-      next: members => this.companyInterviewers.set(members.filter(member => member.id !== this.auth.user()?.id)),
-      error: () => this.companyInterviewers.set([]),
-    });
-  }
-
-  toggleParticipant(id: number, selected: boolean) {
-    this.selectedParticipantIds.update(ids => selected ? [...ids, id] : ids.filter(value => value !== id));
+    else this.loadVacancies();
   }
 
   loadVacancies() {
@@ -340,7 +318,7 @@ export class InterviewPage {
     }
     this.creatingInterview.set(true);
     this.interviews
-      .create(this.candidate().trim(), this.selectedVacancyId(), this.company().trim(), this.selectedParticipantIds())
+      .create(this.candidate().trim(), this.selectedVacancyId(), this.company().trim())
       .subscribe({
         next: (interview) => this.router.navigate(['/interviews', interview.id]),
         error: () => {
@@ -364,8 +342,6 @@ export class InterviewPage {
         this.skills.set(this.requirementSkills(interview.requirementSnapshot));
         this.restoreAssessment(interview.assessmentData);
         this.started.set(true);
-        this.completedInterview.set(interview.status === 'COMPLETED');
-        this.reviewing.set(interview.status === 'COMPLETED');
         this.seconds.set(
           interview.startedAt
             ? Math.max(0, Math.floor((Date.now() - new Date(interview.startedAt).getTime()) / 1000))
@@ -401,168 +377,141 @@ export class InterviewPage {
     this.finishingInterview.set(true);
     this.finishRequested = true;
     this.finalAssessment.set(this.buildAssessmentDraft());
+    if (!this.recommendationRationale().trim())
+      this.recommendationRationale.set(this.buildRecommendationDraft());
     this.finishSequence = this.markSaving();
   }
 
   backToInterview() {
-    if (this.completedInterview()) return;
+    this.closePdfPreview();
     this.reviewing.set(false);
+  }
+
+  async previewPdf() {
+    this.closePdfPreview();
+    const pdf = await this.exportPdf(false);
+    const blob = pdf.output('blob');
+    this.pdfPreviewObjectUrl = URL.createObjectURL(blob);
+    this.pdfPreviewUrl.set(
+      this.sanitizer.bypassSecurityTrustResourceUrl(this.pdfPreviewObjectUrl),
+    );
+  }
+
+  closePdfPreview() {
+    this.pdfPreviewUrl.set(null);
+    if (this.pdfPreviewObjectUrl) URL.revokeObjectURL(this.pdfPreviewObjectUrl);
+    this.pdfPreviewObjectUrl = undefined;
   }
 
   async exportPdf(download = true) {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-    const left = 18;
-    const width = 174;
-    const contentBottom = 278;
-    const navy: [number, number, number] = [30, 53, 78];
-    const blue: [number, number, number] = [46, 91, 125];
-    const pale: [number, number, number] = [238, 243, 247];
-    let y = 18;
+    const left = 16,
+      width = 178,
+      rightColumn = 116;
+    let y = 16;
+    const border = () => {
+      pdf.setDrawColor(125);
+      pdf.setLineWidth(0.25);
+    };
     const ensureSpace = (needed: number) => {
-      if (y + needed > contentBottom) {
+      if (y + needed > 280) {
         pdf.addPage();
-        y = 18;
+        y = 16;
       }
     };
     const textLines = (text: string, maxWidth = width - 8) =>
-      pdf.splitTextToSize(text.trim(), maxWidth);
-    const section = (title: string) => {
-      ensureSpace(15);
-      y += 5;
-      pdf.setTextColor(...navy);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.text(title.toUpperCase(), left, y);
-      y += 3;
-      pdf.setDrawColor(...blue);
-      pdf.setLineWidth(0.5);
-      pdf.line(left, y, left + width, y);
-      y += 5;
+      pdf.splitTextToSize(text.trim() || 'Não informado.', maxWidth);
+    const fitText = (text: string, maxWidth: number) => {
+      const value = text.trim() || 'Não informado.';
+      if (pdf.getTextWidth(value) <= maxWidth) return value;
+      let shortened = value;
+      while (shortened.length > 1 && pdf.getTextWidth(`${shortened}...`) > maxWidth)
+        shortened = shortened.slice(0, -1);
+      return `${shortened}...`;
     };
-    const paragraph = (text: string, continuationTitle = 'Continuação') => {
+    const section = (title: string) => {
+      ensureSpace(14);
+      border();
+      pdf.setFillColor(190, 190, 190);
+      pdf.rect(left, y, width, 8, 'FD');
+      pdf.setTextColor(15);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.text(title, left + 2, y + 5.5);
+      y += 8;
+    };
+    const paragraphBox = (text: string, minimumHeight = 18, continuationTitle = 'Continuação') => {
       const remaining = [...textLines(text)];
       const lineHeight = 4.3;
+      ensureSpace(Math.min(minimumHeight, 264));
       while (remaining.length) {
-        ensureSpace(10);
-        const maxLines = Math.max(1, Math.floor((contentBottom - y) / lineHeight));
+        const available = 280 - y;
+        const maxLines = Math.max(1, Math.floor((available - 8) / lineHeight));
         const lines = remaining.splice(0, maxLines);
-        pdf.setTextColor(45);
+        const naturalHeight = lines.length * lineHeight + 8;
+        const height = remaining.length ? naturalHeight : Math.max(minimumHeight, naturalHeight);
+        border();
+        pdf.setTextColor(20);
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(9);
-        pdf.text(lines, left, y, { lineHeightFactor: 1.2 });
-        y += lines.length * lineHeight;
+        pdf.rect(left, y, width, height);
+        pdf.text(lines, left + 4, y + 6, { lineHeightFactor: 1.2 });
+        y += height;
         if (remaining.length) {
           pdf.addPage();
-          y = 18;
+          y = 16;
           pdf.setTextColor(80);
           pdf.setFont('helvetica', 'bold');
           pdf.setFontSize(9);
-          pdf.text(`${continuationTitle} (continuação)`, left, y);
-          y += 6;
+          pdf.text(`${continuationTitle} (continuação)`, left, y + 3);
+          y += 7;
         }
       }
-      y += 2;
-    };
-    const detailRows = (rows: Array<[string, string]>) => {
-      const labelWidth = 45;
-      for (const [label, value] of rows) {
-        const lines = textLines(value, width - labelWidth - 6);
-        const height = Math.max(8, lines.length * 4.2 + 3);
-        ensureSpace(height);
-        pdf.setFillColor(...pale);
-        pdf.rect(left, y, labelWidth, height, 'F');
-        pdf.setDrawColor(210, 218, 224);
-        pdf.rect(left, y, width, height);
-        pdf.setTextColor(...navy);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(8.5);
-        pdf.text(label, left + 3, y + 5.2);
-        pdf.setTextColor(45);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(lines, left + labelWidth + 3, y + 5.2, { lineHeightFactor: 1.15 });
-        y += height;
-      }
-    };
-    const resultCard = (values: Array<[string, string]>) => {
-      ensureSpace(33);
-      pdf.setFillColor(...pale);
-      pdf.setDrawColor(195, 207, 216);
-      pdf.roundedRect(left, y, width, 29, 2, 2, 'FD');
-      const columnWidth = width / values.length;
-      values.forEach(([label, value], index) => {
-        const column = left + 5 + index * columnWidth;
-        pdf.setTextColor(85);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(7.5);
-        pdf.text(label, column, y + 7);
-        pdf.setTextColor(...navy);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(index === 0 ? 14 : 9.5);
-        pdf.text(textLines(value, columnWidth - 10), column, y + 15, { lineHeightFactor: 1.1 });
-      });
-      y += 29;
     };
 
-    pdf.setFillColor(...navy);
-    pdf.rect(0, 0, 210, 35, 'F');
-    pdf.setTextColor(255);
+    border();
+    pdf.setFillColor(180, 180, 180);
+    pdf.rect(left, y, width, 11, 'FD');
+    pdf.setTextColor(0);
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
-    pdf.text('PARECER TÉCNICO SELETIVO', left, 20);
-    pdf.setFontSize(8.5);
+    pdf.setFontSize(15);
+    pdf.text('Parecer Técnico Seletivo', 105, y + 7.5, { align: 'center' });
+    y += 11;
+
+    const row = (leftLabel: string, leftValue: string, rightLabel: string, rightValue: string) => {
+      border();
+      pdf.rect(left, y, rightColumn - left, 8);
+      pdf.rect(rightColumn, y, left + width - rightColumn, 8);
+      pdf.setFontSize(8.5);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(leftLabel, left + 1.5, y + 5.3);
+      pdf.text(rightLabel, rightColumn + 1.5, y + 5.3);
       pdf.setFont('helvetica', 'normal');
-    pdf.text('Documento de apoio à decisão do processo seletivo', left, 27);
-    y = 43;
+      pdf.text(fitText(leftValue, rightColumn - left - 42), left + 40, y + 5.3);
+      pdf.text(fitText(rightValue, left + width - rightColumn - 28), rightColumn + 26, y + 5.3);
+      y += 8;
+    };
+    row('Pessoa Candidata:', this.candidate(), 'Data:', new Date().toLocaleDateString('pt-BR'));
+    row(
+      'Pessoa Entrevistadora:',
+      this.authenticatedUserName(),
+      'Vaga:',
+      this.role() || 'Não informada',
+    );
+    row('Senioridade:', this.seniority(), 'Template:', this.template());
 
-    const identificationRows = this.identificationRowsForPdf();
-    const resultValues = this.resultValuesForPdf();
-    const requiredKnowledge = this.requiredKnowledgeForPdf();
-    const complementaryExperience = this.complementaryExperienceForPdf();
-    const behavioralSkills = this.behavioralSkillsForPdf();
-    const feedback = this.feedbackForPdf();
-    const technicalAssessment = this.technicalAssessmentForPdf();
-    const conclusion = this.executiveConclusion();
-    const sections: Array<{ title: string; render: () => void }> = [];
+    section('Cultura Técnica');
+    paragraphBox(this.technicalCultureForPdf(), 30, 'Cultura Técnica');
 
-    if (identificationRows.length)
-      sections.push({ title: 'Identificação', render: () => detailRows(identificationRows) });
-    if (resultValues.length)
-      sections.push({ title: 'Resultado da avaliação', render: () => resultCard(resultValues) });
-    if (requiredKnowledge)
-      sections.push({ title: 'Avaliação dos conhecimentos requeridos', render: () => paragraph(requiredKnowledge, 'Avaliação dos conhecimentos requeridos') });
-    if (complementaryExperience)
-      sections.push({ title: 'Experiências complementares', render: () => paragraph(complementaryExperience, 'Experiências complementares') });
-    if (behavioralSkills)
-      sections.push({ title: 'Habilidades comportamentais', render: () => paragraph(behavioralSkills, 'Habilidades comportamentais') });
-    if (feedback)
-      sections.push({ title: 'Feedback', render: () => paragraph(feedback, 'Feedback') });
-    if (technicalAssessment)
-      sections.push({ title: 'Parecer técnico', render: () => paragraph(technicalAssessment, 'Parecer técnico') });
-    if (conclusion) {
-      sections.push({
-        title: 'Conclusão',
-        render: () => {
-          const lines = textLines(conclusion, width - 10);
-          const height = Math.max(24, 11 + lines.length * 4.3);
-          ensureSpace(height);
-          pdf.setFillColor(...pale);
-          pdf.setDrawColor(...blue);
-          pdf.setLineWidth(0.7);
-          pdf.roundedRect(left, y, width, height, 2, 2, 'FD');
-          pdf.setTextColor(45);
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(9);
-          pdf.text(lines, left + 5, y + 8, { lineHeightFactor: 1.2 });
-          y += height;
-        },
-      });
-    }
+    section('Tecnologias e Habilidades');
+    paragraphBox(this.technologiesAndSkillsTextForPdf(), 24, 'Tecnologias e Habilidades');
 
-    sections.forEach((item, index) => {
-      section(`${index + 1}. ${item.title}`);
-      item.render();
-    });
+    section('Feedback');
+    paragraphBox(this.feedbackForPdf(), 24, 'Feedback');
+
+    section('Conclusão: recomenda a contratação? Para qual perfil e com qual senioridade?');
+    paragraphBox(this.conclusionForPdf(), 26, 'Conclusão');
 
     const pages = pdf.getNumberOfPages();
     for (let page = 1; page <= pages; page++) {
@@ -571,7 +520,7 @@ export class InterviewPage {
       pdf.setTextColor(110);
       pdf.text(`Página ${page} de ${pages}`, 105, 290, { align: 'center' });
     }
-    if (download)
+    if (download) {
       pdf.save(
         `parecer-${
           this.candidate()
@@ -581,7 +530,8 @@ export class InterviewPage {
             .replace(/[^a-z0-9]+/g, '-') || 'entrevista'
         }.pdf`,
       );
-    if (download && this.interviewId()) this.completePersistedInterview();
+      this.completePersistedInterview();
+    }
     return pdf;
   }
 
@@ -591,7 +541,9 @@ export class InterviewPage {
       return 'Nenhuma competência recebeu nota. Revise as anotações antes de concluir o parecer.';
     const strong = scored.filter((s) => s.score! >= 4).map((s) => s.name);
     const attention = scored.filter((s) => s.score! <= 2).map((s) => s.name);
-    const parts = ['A avaliação técnica foi consolidada com base nos conhecimentos e nas evidências registrados durante a entrevista.'];
+    const parts = [
+      `Foram avaliadas ${scored.length} competências, com média ponderada de ${this.average()} em 5.`,
+    ];
     if (strong.length)
       parts.push(`Os melhores resultados registrados foram em ${strong.join(', ')}.`);
     if (attention.length)
@@ -614,11 +566,17 @@ export class InterviewPage {
         `Como experiências tecnológicas complementares, foram registradas: ${details.join(', ')}.`,
       );
     }
-    if (this.selectedBehavioralSkills().length)
-      parts.push(
-        `Como habilidades comportamentais, foram registradas: ${this.selectedBehavioralSkills().join(', ')}.`,
-      );
     return parts.join(' ');
+  }
+
+  private buildRecommendationDraft() {
+    const level = this.recommendedLevel();
+    const subject = level ? ` para o nível ${level}` : '';
+    if (this.recommendation() === 'Recomendo')
+      return `Recomendo o candidato${subject}, considerando as evidências registradas durante a entrevista.`;
+    if (this.recommendation() === 'Não recomendo')
+      return `Não recomendo o candidato${subject} neste momento, considerando os pontos de atenção registrados durante a entrevista.`;
+    return `Requer avaliação adicional${subject}, pois os dados registrados ainda não sustentam uma decisão definitiva.`;
   }
 
   feedbackForPdf() {
@@ -626,133 +584,9 @@ export class InterviewPage {
     const strengths = this.formatList(this.strengths());
     const concerns = this.formatList(this.concerns());
     if (strengths) blocks.push(`Pontos fortes\n${strengths}`);
-    if (concerns) blocks.push(`Pontos de atenção\n${concerns}`);
-    return blocks.join('\n\n');
-  }
-
-  recommendationText() {
-    return this.recommendation() === 'Sem recomendação'
-      ? ''
-      : `${this.recommendation()} para a vaga`;
-  }
-
-  technicalAverage() {
-    const scored = this.skills().filter((skill) => skill.score !== null && !skill.skipped);
-    const totalWeight = scored.reduce((sum, skill) => sum + skill.weight, 0);
-    if (!totalWeight) return null;
-    return scored.reduce((sum, skill) => sum + skill.score! * skill.weight, 0) / totalWeight;
-  }
-
-  formattedTechnicalAverage() {
-    const value = this.technicalAverage();
-    return value === null
-      ? ''
-      : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  seniorityForAverage(average: number | null) {
-    if (average === null || average < 0 || average > 5) return '';
-    if (average < 1.5) return 'Júnior inicial';
-    if (average < 2.5) return 'Júnior';
-    if (average < 3) return 'Pleno inicial';
-    if (average < 3.5) return 'Pleno';
-    if (average < 4) return 'Pleno avançado';
-    if (average < 4.5) return 'Sênior';
-    return 'Sênior avançado';
-  }
-
-  identificationRowsForPdf(): Array<[string, string]> {
-    return [
-      ['Pessoa candidata', this.candidate()],
-      ['Vaga', this.role()],
-      ['Empresa / cliente', this.company()],
-      ['Senioridade da vaga', this.seniority()],
-      ['Pessoa entrevistadora', this.authenticatedUserName()],
-      ['Data', new Date().toLocaleDateString('pt-BR')],
-    ].filter((row): row is [string, string] => this.hasMeaningfulText(row[1]));
-  }
-
-  resultValuesForPdf(): Array<[string, string]> {
-    const values: Array<[string, string]> = [];
-    const average = this.formattedTechnicalAverage();
-    if (average) values.push(['Média técnica', `${average} / 5`]);
-    const recommendation = this.recommendationText();
-    if (recommendation) values.push(['Recomendação', recommendation]);
-    const seniority = this.estimatedTechnicalSeniority();
-    if (seniority) values.push(['Senioridade técnica estimada', seniority]);
-    return values;
-  }
-
-  sentenceItems(value?: string | null) {
-    if (!this.hasMeaningfulText(value)) return [];
-    return value!
-      .trim()
-      .split(/\r?\n+|(?<=[.!?])\s+/u)
-      .map((item) => item.trim().replace(/^[-+•]\s*/, ''))
-      .filter((item) => this.hasMeaningfulText(item));
-  }
-
-  private hasMeaningfulText(value?: string | null) {
-    if (!value?.trim()) return false;
-    return !/^(?:não informad[oa]|nenhum(?:a)?\b.*\bregistrad[oa]|nenhuma competência recebeu nota)/iu.test(value.trim());
-  }
-
-  executiveConclusion() {
-    const parts: string[] = [];
-    if (this.recommendation() !== 'Sem recomendação') parts.push(this.recommendationSentence());
-    const seniority = this.estimatedTechnicalSeniority();
-    if (seniority)
-      parts.push(`Senioridade técnica estimada com base na média ponderada: ${seniority}.`);
-    return parts.join(' ');
-  }
-
-  private recommendationSentence() {
-    switch (this.recommendation()) {
-      case 'Fortemente recomendado':
-        return 'Recomendo fortemente a pessoa candidata para a vaga.';
-      case 'Recomendado':
-        return 'Recomendo a pessoa candidata para a vaga.';
-      case 'Recomendado com ressalvas':
-        return 'Recomendo a pessoa candidata para a vaga com as ressalvas registradas neste parecer.';
-      case 'Não recomendado':
-        return 'Neste momento, não recomendo a pessoa candidata para a vaga.';
-      default:
-        return 'A recomendação para a vaga não foi registrada.';
-    }
-  }
-
-  requiredKnowledgeForPdf() {
-    return this.skills()
-      .filter((skill) => skill.score !== null || skill.skipped || this.hasMeaningfulText(skill.comment))
-      .map((skill) => {
-        const lines = [skill.name];
-        if (skill.skipped) lines.push('Avaliação: N/A');
-        else if (skill.score !== null) lines.push(`Avaliação: ${skill.score}/5`);
-        lines.push(...this.sentenceItems(skill.comment).map((item) => `- ${item}`));
-        return lines.join('\n');
-      })
-      .join('\n\n');
-  }
-
-  complementaryExperienceForPdf() {
-    return this.complementaryTechnologiesForReport()
-      .filter((item) => item.reviewScore != null || !!item.notEvaluated || this.hasMeaningfulText(item.description))
-      .map((item) => {
-        const evaluation = item.notEvaluated ? ' - N/A' : item.reviewScore != null ? ` - ${item.reviewScore}/5` : '';
-        const details = this.sentenceItems(item.description).map((value) => `- ${value}`);
-        return [`${item.name}${evaluation}`, ...details].join('\n');
-      })
-      .join('\n\n');
-  }
-
-  behavioralSkillsForPdf() {
-    return this.selectedBehavioralSkills().map((item) => `- ${item}`).join('\n');
-  }
-
-  technicalAssessmentForPdf() {
-    return [...this.sentenceItems(this.finalAssessment()), ...this.sentenceItems(this.quickNotes())]
-      .map((item) => `- ${item}`)
-      .join('\n');
+    if (concerns) blocks.push(`Pontos fracos e de atenção\n${concerns}`);
+    if (this.feedbackNotes().trim()) blocks.push(`Feedback complementar\n${this.feedbackNotes().trim()}`);
+    return blocks.join('\n\n') || 'Nenhum feedback registrado.';
   }
 
   technicalCultureForPdf() {
@@ -767,6 +601,7 @@ export class InterviewPage {
         : skill.score === null
           ? 'Não avaliado'
           : `${skill.score}/5`,
+      comment: skill.comment.trim(),
     }));
     const complementary = this.complementaryTechnologiesForReport().map((item) => ({
       name: item.name,
@@ -775,13 +610,12 @@ export class InterviewPage {
         : item.reviewScore == null
           ? 'Sem nota'
           : `${item.reviewScore}/5`,
+      comment: item.description?.trim() || '',
     }));
-    const behavioral = this.selectedBehavioralSkills().map((name) => ({ name, evaluation: '-' }));
 
     return [
       { category: 'REQUISITOS DA VAGA', items: requirements },
       { category: 'EXPERIÊNCIAS COMPLEMENTARES', items: complementary },
-      { category: 'HABILIDADES COMPORTAMENTAIS', items: behavioral },
     ];
   }
 
@@ -789,22 +623,40 @@ export class InterviewPage {
     const labels: Record<string, string> = {
       'REQUISITOS DA VAGA': 'Requisitos da vaga:',
       'EXPERIÊNCIAS COMPLEMENTARES': 'Experiências complementares:',
-      'HABILIDADES COMPORTAMENTAIS': 'Habilidades comportamentais:',
     };
 
-    return this.technologiesAndSkillsForPdf()
+    const structured = this.technologiesAndSkillsForPdf()
       .filter((group) => group.items.length)
       .map((group) => {
-        const items = group.items.map((item) =>
-          item.evaluation === '-' ? item.name : `${item.name}: ${item.evaluation}`,
+        const items = group.items.map(
+          (item) => `${item.name}: ${item.evaluation}${item.comment ? ` — ${item.comment}` : ''}`,
         );
         return `${labels[group.category]}\n${items.join('\n')}`;
       })
       .join('\n\n');
+    const notes = this.technicalSkillsNotes().trim();
+    return [structured, notes ? `Observações sobre habilidades técnicas\n${notes}` : '']
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
+  conclusionForPdf() {
+    const lines = [
+      `Recomendação: ${this.recommendation()}`,
+      `Média ponderada: ${this.average()} / 5`,
+      `Nivelamento sugerido: ${this.recommendedLevel() || 'Não definido'}`,
+    ];
+    if (this.recommendationRationale().trim()) lines.push(this.recommendationRationale().trim());
+    return lines.join('\n');
   }
 
   private formatList(text: string) {
-    return this.sentenceItems(text).map((item) => `- ${item}`).join('\n');
+    return text
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => `- ${item.replace(/^[-+]\s*/, '')}`)
+      .join('\n');
   }
 
   setScore(index: number, score: number) {
@@ -878,24 +730,6 @@ export class InterviewPage {
       description: `${current}${current ? ' ' : ''}${suggestion}`,
     });
   }
-  addBehavioralSkill(name = this.behavioralSearch()) {
-    const value = name.trim();
-    if (value && !this.hasBehavioralSkill(value))
-      this.selectedBehavioralSkills.update((items) => [...items, value]);
-    this.behavioralSearch.set('');
-    this.markSaving();
-  }
-  removeBehavioralSkill(name: string) {
-    this.selectedBehavioralSkills.update((items) =>
-      items.filter((item) => this.normalizeTechnology(item) !== this.normalizeTechnology(name)),
-    );
-    this.markSaving();
-  }
-  hasBehavioralSkill(name: string) {
-    return this.selectedBehavioralSkills().some(
-      (item) => this.normalizeTechnology(item) === this.normalizeTechnology(name),
-    );
-  }
   select(index: number) {
     this.activeIndex.set(index);
   }
@@ -947,6 +781,22 @@ export class InterviewPage {
     this.recommendation.set(value);
     this.markSaving();
   }
+  updateRecommendedLevel(value: string) {
+    this.recommendedLevel.set(value);
+    this.markSaving();
+  }
+  updateFeedbackNotes(value: string) {
+    this.feedbackNotes.set(value);
+    this.markSaving();
+  }
+  updateTechnicalSkillsNotes(value: string) {
+    this.technicalSkillsNotes.set(value);
+    this.markSaving();
+  }
+  updateRecommendationRationale(value: string) {
+    this.recommendationRationale.set(value);
+    this.markSaving();
+  }
   retryAutosave() {
     if (!this.failedAssessment) return;
     this.saveState.set('Salvando...');
@@ -973,22 +823,23 @@ export class InterviewPage {
       },
     });
   }
-  private enterReview() {
+  private openPersistedReview() {
     this.finishRequested = false;
     this.finishingInterview.set(false);
-    clearInterval(this.timer);
-    this.running.set(false);
     this.reviewing.set(true);
   }
   private assessmentSnapshot(): InterviewAssessment {
     return {
       requiredSkills: this.skills(),
       complementaryTechnologies: this.selectedTechnologies(),
-      behavioralSkills: this.selectedBehavioralSkills(),
       interviewNotes: this.quickNotes(),
+      feedbackNotes: this.feedbackNotes(),
       strengths: this.strengths(),
       concerns: this.concerns(),
       recommendation: this.recommendation(),
+      recommendedLevel: this.recommendedLevel(),
+      technicalSkillsNotes: this.technicalSkillsNotes(),
+      recommendationRationale: this.recommendationRationale(),
       finalAssessment: this.finalAssessment(),
     };
   }
@@ -999,12 +850,14 @@ export class InterviewPage {
       if (Array.isArray(assessment.requiredSkills)) this.skills.set(assessment.requiredSkills);
       if (Array.isArray(assessment.complementaryTechnologies))
         this.selectedTechnologies.set(assessment.complementaryTechnologies);
-      if (Array.isArray(assessment.behavioralSkills))
-        this.selectedBehavioralSkills.set(assessment.behavioralSkills);
       this.quickNotes.set(assessment.interviewNotes || '');
+      this.feedbackNotes.set(assessment.feedbackNotes || '');
       this.strengths.set(assessment.strengths || '');
       this.concerns.set(assessment.concerns || '');
-      this.recommendation.set(assessment.recommendation || 'Sem recomendação');
+      this.recommendation.set(assessment.recommendation || 'Requer avaliação adicional');
+      this.recommendedLevel.set(assessment.recommendedLevel || '');
+      this.technicalSkillsNotes.set(assessment.technicalSkillsNotes || '');
+      this.recommendationRationale.set(assessment.recommendationRationale || '');
       this.finalAssessment.set(assessment.finalAssessment || '');
     } catch {
       this.formError.set('Os dados salvos da entrevista estão inválidos. Recarregue a página.');

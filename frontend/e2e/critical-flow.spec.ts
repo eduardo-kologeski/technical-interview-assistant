@@ -49,9 +49,7 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   await technologySearch.fill('PHP');
   await page.getByRole('button', { name: 'PHP', exact: true }).click();
   await page.getByRole('radio', { name: 'PHP: 4 de 5' }).click();
-  const behavioralSearch = page.getByLabel('Pesquisar ou adicionar habilidade comportamental');
-  await behavioralSearch.fill('Comunicação');
-  await page.getByRole('button', { name: 'Comunicação', exact: true }).click();
+  await page.getByLabel('Anotações para feedback').fill('Comunicação clara e objetiva.');
 
   let failNextAutosave = true;
   await page.route('**/api/interviews/*/workspace', async (route) => {
@@ -81,7 +79,9 @@ test('persists the authenticated interview flow, recovers autosave and exports t
     'aria-checked',
     'true',
   );
-  await expect(page.getByRole('button', { name: 'Remover habilidade Comunicação' })).toBeVisible();
+  await expect(page.getByLabel('Anotações para feedback')).toHaveValue(
+    'Comunicação clara e objetiva.',
+  );
 
   await page.getByRole('button', { name: 'Finalizar entrevista' }).click();
   await expect(page.getByText('REVISÃO DO PARECER')).toBeVisible({ timeout: 10_000 });

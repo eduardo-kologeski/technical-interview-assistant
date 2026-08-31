@@ -6,6 +6,45 @@ body {
 body {
   background: #f5f7fa;
 }
+
+/* Review/PDF editor: global to keep the interview component style budget stable. */
+.feedback-notes-support textarea { min-height: 92px; margin-top: 4px; }
+.field-purpose,
+.pdf-section-editor > small { display: block; margin-top: 6px; color: #687681; font-size: 10px; line-height: 1.4; }
+.pdf-section-editor { display: grid; gap: 14px; margin-top: 18px; padding: 20px; border: 1px solid #d7e0e4; border-radius: 9px; background: #f8fafb; }
+.assessment-card { display: flex; flex-direction: column; }
+.culture-editor { order: 1; }
+.technical-review-heading { order: 2; margin-top: 24px; padding: 0 2px; }
+.technical-review-heading p { margin: 5px 0 0; color: #687681; font-size: 12px; }
+.requirement-review-list { order: 3; }
+.complementary-review-list { order: 4; }
+.technical-notes-editor { order: 5; }
+.feedback-editor { order: 6; }
+.conclusion-editor { order: 7; }
+.pdf-section-editor label { display: grid; }
+.decision-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.decision-fields select { width: 100%; margin-top: 7px; padding: 10px 11px; border: 1px solid #d9e0e5; border-radius: 7px; background: #fff; color: #263640; }
+.level-palette { display: flex; flex-wrap: wrap; gap: 7px; }
+.level-palette button { min-height: 32px; padding: 6px 10px; border: 1px solid; border-radius: 999px; font-size: 11px; font-weight: 750; }
+.level-palette button.selected { box-shadow: 0 0 0 3px #176b6630; }
+.level-junior-initial { background: #f8fafc; color: #475569; border-color: #cbd5e1 !important; }
+.level-junior-intermediate { background: #f1f5f9; color: #475569; border-color: #b8c4d1 !important; }
+.level-junior-advanced { background: #e8edf3; color: #3f4c5d; border-color: #aab7c5 !important; }
+.level-mid-initial { background: #f5f5f4; color: #57534e; border-color: #d6d3d1 !important; }
+.level-mid-intermediate { background: #edecea; color: #4f4a45; border-color: #c7c3bf !important; }
+.level-mid-advanced { background: #e3e1de; color: #44403c; border-color: #b5b0aa !important; }
+.level-senior-initial { background: #e7e5e4; color: #3c3836; border-color: #a8a29e !important; }
+.level-senior-intermediate { background: #d6d3d1; color: #292524; border-color: #8f8984 !important; }
+.level-senior-advanced { background: #c4c0bc; color: #211e1c; border-color: #78716c !important; }
+.level-specialist { background: #3f3f46; color: #fafafa; border-color: #27272a !important; }
+.pdf-preview-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 24px; background: #13232dcc; }
+.pdf-preview-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(1100px, 100%); height: min(92vh, 900px); overflow: hidden; border-radius: 12px; background: #fff; box-shadow: 0 24px 70px #0005; }
+.pdf-preview-panel header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-bottom: 1px solid #dce4e9; }
+.pdf-preview-panel header > div { display: flex; align-items: center; gap: 10px; }
+.pdf-preview-panel header > div:first-child { align-items: start; flex-direction: column; gap: 2px; }
+.pdf-preview-panel header small { color: #687681; }
+.pdf-preview-panel iframe { width: 100%; height: 100%; border: 0; }
+.preview-cta { background: #eef5f5 !important; color: #176b66 !important; }
 * {
   box-sizing: border-box;
 }

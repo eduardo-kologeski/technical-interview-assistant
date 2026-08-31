@@ -42,27 +42,6 @@ describe('App', () => {
     expect(app.saveState()).toBe('Não salvo — somente nesta aba');
   });
 
-  it('opens a completed interview directly in its read-only summary for reprinting', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    const http = TestBed.inject(HttpTestingController);
-    flushInitialRequests(http);
-    (app as any).loadInterview('completed-1');
-    http.expectOne('/api/interviews/completed-1/workspace').flush({
-      id: 'completed-1', vacancyId: 'vacancy-1', candidateName: 'Pessoa Candidata',
-      vacancyTitleSnapshot: 'Backend Pleno', senioritySnapshot: 'Pleno', clientCompany: 'Empresa',
-      requirementSnapshot: ['Java'], interviewerId: '1', status: 'COMPLETED', startedAt: new Date().toISOString(),
-      version: 2, assessmentData: JSON.stringify({ finalAssessment: 'Parecer final', strengths: 'Java' }), participants: []
-    });
-    fixture.detectChanges();
-    const element = fixture.nativeElement as HTMLElement;
-    expect(app.reviewing()).toBe(true);
-    expect(element.textContent).toContain('REVISÃO DO PARECER');
-    expect(element.textContent).toContain('Imprimir parecer novamente');
-    expect((element.querySelector('.assessment-card textarea') as HTMLTextAreaElement).readOnly).toBe(true);
-    expect(element.textContent).not.toContain('Voltar à entrevista');
-  });
-
   it('shows saved only after the backend confirms autosave', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
@@ -104,7 +83,7 @@ describe('App', () => {
     expect(app.saveState()).toBe('Salvo');
   });
 
-  it('waits for the latest autosave before opening review without completing early', async () => {
+  it('waits for the latest autosave before completing once', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);
     flushInitialRequests(http);
@@ -194,31 +173,24 @@ describe('App', () => {
     expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
   });
 
-  it('expands and collapses compact technical and behavioral suggestions', () => {
+  it('expands and collapses compact technical suggestions', () => {
     const app = TestBed.createComponent(App).componentInstance;
 
     expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
-    expect(app.visibleBehavioralSuggestions()).toHaveLength(4);
 
     app.technologySuggestionsExpanded.set(true);
-    app.behavioralSuggestionsExpanded.set(true);
     expect(app.visibleQuickTechnologySuggestions().length).toBeGreaterThan(6);
-    expect(app.visibleBehavioralSuggestions().length).toBeGreaterThan(6);
 
     app.technologySuggestionsExpanded.set(false);
-    app.behavioralSuggestionsExpanded.set(false);
     expect(app.visibleQuickTechnologySuggestions()).toHaveLength(6);
-    expect(app.visibleBehavioralSuggestions()).toHaveLength(4);
   });
 
-  it('removes selected technologies and behavioral skills from support suggestions', () => {
+  it('removes selected technologies from support suggestions', () => {
     const app = TestBed.createComponent(App).componentInstance;
 
     app.selectSuggestedTechnology('Java');
-    app.addBehavioralSkill('Comunicação');
 
     expect(app.availableQuickTechnologySuggestions()).not.toContain('Java');
-    expect(app.availableBehavioralSuggestions()).not.toContain('Comunicação');
   });
 
   it('keeps duplicate complementary data available for review but removes it from reports', () => {
@@ -313,7 +285,7 @@ describe('App', () => {
 
     expect(app.feedbackForPdf()).toBe(
       'Pontos fortes\n- Boa comunicação\n- Domínio técnico\n\n' +
-        'Pontos de atenção\n- Pouca experiência em cloud',
+        'Pontos fracos e de atenção\n- Pouca experiência em cloud',
     );
     expect(app.feedbackForPdf()).not.toContain('Recomendo aprofundar arquitetura.');
   });
@@ -322,10 +294,10 @@ describe('App', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.concerns.set('Necessita aprofundamento');
 
-    expect(app.feedbackForPdf()).toBe('Pontos de atenção\n- Necessita aprofundamento');
+    expect(app.feedbackForPdf()).toBe('Pontos fracos e de atenção\n- Necessita aprofundamento');
   });
 
-  it('builds one PDF technologies table with three groups and presentation-only deduplication', () => {
+  it('builds the PDF technologies content with two groups and presentation-only deduplication', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.skills.set([
       {
@@ -356,19 +328,12 @@ describe('App', () => {
       { name: 'PHP', type: 'LANGUAGE', reviewScore: 4, source: 'COMPLEMENTARY_EXPERIENCE' },
       { name: 'Angular', type: 'FRAMEWORK', reviewScore: 3, source: 'COMPLEMENTARY_EXPERIENCE' },
     ]);
-    app.selectedBehavioralSkills.set(['Comunicação', 'Proatividade']);
-
     const groups = app.technologiesAndSkillsForPdf();
     expect(groups.map((group) => group.category)).toEqual([
       'REQUISITOS DA VAGA',
       'EXPERIÊNCIAS COMPLEMENTARES',
-      'HABILIDADES COMPORTAMENTAIS',
     ]);
     expect(groups[1].items.map((item) => item.name)).toEqual(['PHP', 'Angular']);
-    expect(groups[2].items).toEqual([
-      { name: 'Comunicação', evaluation: '-' },
-      { name: 'Proatividade', evaluation: '-' },
-    ]);
     expect(app.selectedTechnologies()).toHaveLength(3);
   });
 
@@ -381,101 +346,6 @@ describe('App', () => {
     expect(app.technicalCultureForPdf()).toContain('Anotações da entrevista');
     expect(app.technicalCultureForPdf()).toContain('sistemas bancários');
     expect(app.feedbackForPdf()).not.toContain('sistemas bancários');
-  });
-
-  it('builds the executive conclusion from recommendation and estimated technical seniority', () => {
-    const app = TestBed.createComponent(App).componentInstance;
-    seedSkills(app);
-    app.setScore(0, 3);
-    app.setScore(1, 3);
-    app.setScore(2, 3);
-    app.recommendation.set('Recomendado');
-
-    expect(app.executiveConclusion()).toContain('Recomendo a pessoa candidata para a vaga.');
-    expect(app.executiveConclusion()).toContain('Pleno');
-
-    app.recommendation.set('Não recomendado');
-    expect(app.executiveConclusion()).toContain('não recomendo');
-  });
-
-  it('keeps vacancy seniority separate from the estimated technical seniority', () => {
-    const app = TestBed.createComponent(App).componentInstance;
-    app.seniority.set('Sênior');
-    seedSkills(app);
-    app.setScore(0, 3);
-
-    expect(app.seniority()).toBe('Sênior');
-    expect(app.estimatedTechnicalSeniority()).toBe('Pleno');
-  });
-
-  it.each([
-    [0, 'Júnior inicial'], [1.49, 'Júnior inicial'], [1.5, 'Júnior'],
-    [2.49, 'Júnior'], [2.5, 'Pleno inicial'], [2.99, 'Pleno inicial'],
-    [3, 'Pleno'], [3.49, 'Pleno'], [3.5, 'Pleno avançado'],
-    [3.99, 'Pleno avançado'], [4, 'Sênior'], [4.49, 'Sênior'],
-    [4.5, 'Sênior avançado'], [5, 'Sênior avançado'],
-  ])('maps technical average %s to %s without overlapping boundaries', (average, expected) => {
-    const app = TestBed.createComponent(App).componentInstance;
-    expect(app.seniorityForAverage(average as number)).toBe(expected);
-  });
-
-  it('uses only scored skills and their weights for average and seniority', () => {
-    const app = TestBed.createComponent(App).componentInstance;
-    seedSkills(app);
-    app.setScore(0, 4);
-    app.setScore(1, 2);
-    app.setNotEvaluated(2);
-
-    expect(app.technicalAverage()).toBeCloseTo(28 / 9, 8);
-    expect(app.formattedTechnicalAverage()).toBe('3,11');
-    expect(app.estimatedTechnicalSeniority()).toBe('Pleno');
-  });
-
-  it('does not estimate seniority without scored skills', () => {
-    const app = TestBed.createComponent(App).componentInstance;
-    seedSkills(app);
-    app.setNotEvaluated(0);
-    app.setNotEvaluated(1);
-    app.setNotEvaluated(2);
-
-    expect(app.technicalAverage()).toBeNull();
-    expect(app.estimatedTechnicalSeniority()).toBe('');
-    expect(app.resultValuesForPdf()).toEqual([]);
-  });
-
-  it('splits sentences into list items without breaking technical tokens', () => {
-    const app = TestBed.createComponent(App).componentInstance;
-    const items = app.sentenceItems(
-      'Trabalhou com Node.js e .NET 8. Usou a versão 3.2. Contato dev@example.com. Consulte https://example.com/docs.',
-    );
-
-    expect(items).toEqual([
-      'Trabalhou com Node.js e .NET 8.',
-      'Usou a versão 3.2.',
-      'Contato dev@example.com.',
-      'Consulte https://example.com/docs.',
-    ]);
-  });
-
-  it('omits empty optional PDF content and groups available feedback', () => {
-    const app = TestBed.createComponent(App).componentInstance;
-
-    expect(app.complementaryExperienceForPdf()).toBe('');
-    expect(app.behavioralSkillsForPdf()).toBe('');
-    expect(app.feedbackForPdf()).toBe('');
-    expect(app.technicalAssessmentForPdf()).toBe('');
-    expect(app.executiveConclusion()).toBe('');
-
-    app.strengths.set('Comunicação clara. Domínio técnico.');
-    expect(app.feedbackForPdf()).toBe(
-      'Pontos fortes\n- Comunicação clara.\n- Domínio técnico.',
-    );
-    expect(app.feedbackForPdf()).not.toContain('Pontos de atenção');
-
-    app.strengths.set('');
-    app.concerns.set('Aprofundar observabilidade.');
-    expect(app.feedbackForPdf()).toBe('Pontos de atenção\n- Aprofundar observabilidade.');
-    expect(app.feedbackForPdf()).not.toContain('Pontos fortes');
   });
 
   it('renders technologies and skills as concise text without table labels or the word nota', () => {
@@ -501,6 +371,62 @@ describe('App', () => {
     expect(text).not.toContain('Avaliação');
   });
 
+  it('renders each technology comment beside its evaluation in the PDF content', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.skills.set([
+      {
+        name: 'Java',
+        category: 'Backend',
+        weight: 5,
+        importance: 'Obrigatória',
+        expected: 4,
+        score: 5,
+        skipped: false,
+        comment: 'Boa experiência com Java 17 e APIs REST.',
+        source: 'JOB_REQUIREMENT',
+      },
+    ]);
+    app.selectedTechnologies.set([
+      {
+        name: 'PHP',
+        type: 'LANGUAGE',
+        reviewScore: 4,
+        description: 'Trabalhou três anos com Laravel.',
+        source: 'COMPLEMENTARY_EXPERIENCE',
+      },
+    ]);
+
+    const text = app.technologiesAndSkillsTextForPdf();
+    expect(text).toContain('Java: 5/5 — Boa experiência com Java 17 e APIs REST.');
+    expect(text).toContain('PHP: 4/5 — Trabalhou três anos com Laravel.');
+  });
+
+  it('builds conclusion from recommendation, level and editable rationale', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.updateRecommendation('Recomendo');
+    app.updateRecommendedLevel('Pleno intermediário');
+    app.updateRecommendationRationale('Atende aos requisitos centrais registrados.');
+
+    expect(app.conclusionForPdf()).toContain('Recomendação: Recomendo');
+    expect(app.conclusionForPdf()).toContain('Nivelamento sugerido: Pleno intermediário');
+    expect(app.conclusionForPdf()).toContain('Atende aos requisitos centrais registrados.');
+  });
+
+  it('previews the same generated PDF without downloading it', async () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pdf-preview');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+    await app.previewPdf();
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(app.pdfPreviewUrl()).not.toBeNull();
+
+    app.closePdfPreview();
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:pdf-preview');
+    expect(app.pdfPreviewUrl()).toBeNull();
+  });
+
   it('paginates a high-volume PDF without silently clipping long sections', async () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.candidate.set('José da Silva com um nome profissional muito extenso para o cabeçalho');
@@ -523,14 +449,13 @@ describe('App', () => {
     expect(durationMs).toBeLessThan(5_000);
   });
 
-  it('records behavioral skills without creating scored evaluations', () => {
+  it('records feedback notes without changing scored evaluations', () => {
     const app = TestBed.createComponent(App).componentInstance;
     seedSkills(app);
     const averageBefore = app.average();
-    app.addBehavioralSkill('Comunicação');
-    app.addBehavioralSkill('Proatividade');
+    app.updateFeedbackNotes('Boa comunicação e clareza durante a entrevista.');
 
-    expect(app.selectedBehavioralSkills()).toEqual(['Comunicação', 'Proatividade']);
+    expect(app.feedbackNotes()).toContain('Boa comunicação');
     expect(app.average()).toBe(averageBefore);
     expect(app.skills()).toHaveLength(3);
   });
@@ -556,18 +481,16 @@ describe('App', () => {
     expect(sections.map((section) => section.classList[1])).toEqual([
       'support-notes',
       'complementary-support',
-      'behavioral-support',
+      'feedback-notes-support',
     ]);
     expect(
       element.querySelectorAll('.complementary-support .compact-suggestions button'),
     ).toHaveLength(6);
-    expect(
-      element.querySelectorAll('.behavioral-support .compact-suggestions button'),
-    ).toHaveLength(4);
+    expect(element.querySelectorAll('.feedback-notes-support textarea')).toHaveLength(1);
     expect(text).toContain('Ver mais');
     expect(text).not.toContain('Pontos fortes');
     expect(text).not.toContain('Pontos de atenção');
-    expect(text).not.toContain('FEEDBACK');
+    expect(element.querySelector('.review-feedback-heading')).toBeNull();
   });
 
   it('exposes evaluation state and support controls to assistive technology', () => {
@@ -614,7 +537,7 @@ describe('App', () => {
     expect(reviewResult.violations.map((violation) => violation.id)).toEqual([]);
   }, 30_000);
 
-  it('shows only the document fields in the compact review', () => {
+  it('shows editable notes and feedback fields only in review', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
     seedSkills(app);
@@ -625,9 +548,13 @@ describe('App', () => {
     const text = element.textContent || '';
 
     expect(element.querySelector('aside.support-panel')).toBeNull();
-    expect(element.querySelector('.review-notes')).toBeNull();
-    expect(text).toContain('somente o conteúdo que aparecerá no documento');
+    expect(element.querySelectorAll('.pdf-section-editor textarea').length).toBeGreaterThan(4);
     expect(text).toContain('FEEDBACK');
+    expect(text).not.toContain('HABILIDADES COMPORTAMENTAIS');
+    expect(element.querySelectorAll('.level-palette button')).toHaveLength(10);
+    expect(text).toContain('Júnior intermediário');
+    expect(text).toContain('Sênior avançado');
+    expect(text).toContain('Especialista');
     expect(text).toContain('Pontos fortes');
     expect(text).toContain('Pontos de atenção');
   });
