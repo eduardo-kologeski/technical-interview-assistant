@@ -363,12 +363,16 @@
       </section>
       <aside>
         <section class="summary-card">
-          <span class="eyebrow">RESULTADO</span>
+          <span class="eyebrow">RESULTADO DA AVALIAÇÃO</span>
           <div class="score">
             <strong>{{ average() }}</strong
             ><span>/ 5</span>
           </div>
-          <p>Média ponderada</p>
+          <p>Avaliação técnica</p>
+          <div class="executive-result"><span>Recomendação</span><strong>{{ recommendationText() }}</strong></div>
+          @if (estimatedTechnicalSeniority()) {
+            <div class="executive-result"><span>Senioridade técnica estimada</span><strong>{{ estimatedTechnicalSeniority() }}</strong></div>
+          }
           @for (skill of skills(); track skill.name) {
             <div class="result-skill">
               <span>{{ skill.name }}</span

@@ -313,7 +313,7 @@ describe('App', () => {
 
     expect(app.feedbackForPdf()).toBe(
       'Pontos fortes\n- Boa comunicação\n- Domínio técnico\n\n' +
-        'Pontos fracos e de atenção\n- Pouca experiência em cloud',
+        'Pontos de atenção\n- Pouca experiência em cloud',
     );
     expect(app.feedbackForPdf()).not.toContain('Recomendo aprofundar arquitetura.');
   });
@@ -322,7 +322,7 @@ describe('App', () => {
     const app = TestBed.createComponent(App).componentInstance;
     app.concerns.set('Necessita aprofundamento');
 
-    expect(app.feedbackForPdf()).toBe('Pontos fracos e de atenção\n- Necessita aprofundamento');
+    expect(app.feedbackForPdf()).toBe('Pontos de atenção\n- Necessita aprofundamento');
   });
 
   it('builds one PDF technologies table with three groups and presentation-only deduplication', () => {
@@ -381,6 +381,101 @@ describe('App', () => {
     expect(app.technicalCultureForPdf()).toContain('Anotações da entrevista');
     expect(app.technicalCultureForPdf()).toContain('sistemas bancários');
     expect(app.feedbackForPdf()).not.toContain('sistemas bancários');
+  });
+
+  it('builds the executive conclusion from recommendation and estimated technical seniority', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
+    app.setScore(0, 3);
+    app.setScore(1, 3);
+    app.setScore(2, 3);
+    app.recommendation.set('Recomendado');
+
+    expect(app.executiveConclusion()).toContain('Recomendo a pessoa candidata para a vaga.');
+    expect(app.executiveConclusion()).toContain('Pleno');
+
+    app.recommendation.set('Não recomendado');
+    expect(app.executiveConclusion()).toContain('não recomendo');
+  });
+
+  it('keeps vacancy seniority separate from the estimated technical seniority', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    app.seniority.set('Sênior');
+    seedSkills(app);
+    app.setScore(0, 3);
+
+    expect(app.seniority()).toBe('Sênior');
+    expect(app.estimatedTechnicalSeniority()).toBe('Pleno');
+  });
+
+  it.each([
+    [0, 'Júnior inicial'], [1.49, 'Júnior inicial'], [1.5, 'Júnior'],
+    [2.49, 'Júnior'], [2.5, 'Pleno inicial'], [2.99, 'Pleno inicial'],
+    [3, 'Pleno'], [3.49, 'Pleno'], [3.5, 'Pleno avançado'],
+    [3.99, 'Pleno avançado'], [4, 'Sênior'], [4.49, 'Sênior'],
+    [4.5, 'Sênior avançado'], [5, 'Sênior avançado'],
+  ])('maps technical average %s to %s without overlapping boundaries', (average, expected) => {
+    const app = TestBed.createComponent(App).componentInstance;
+    expect(app.seniorityForAverage(average as number)).toBe(expected);
+  });
+
+  it('uses only scored skills and their weights for average and seniority', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
+    app.setScore(0, 4);
+    app.setScore(1, 2);
+    app.setNotEvaluated(2);
+
+    expect(app.technicalAverage()).toBeCloseTo(28 / 9, 8);
+    expect(app.formattedTechnicalAverage()).toBe('3,11');
+    expect(app.estimatedTechnicalSeniority()).toBe('Pleno');
+  });
+
+  it('does not estimate seniority without scored skills', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    seedSkills(app);
+    app.setNotEvaluated(0);
+    app.setNotEvaluated(1);
+    app.setNotEvaluated(2);
+
+    expect(app.technicalAverage()).toBeNull();
+    expect(app.estimatedTechnicalSeniority()).toBe('');
+    expect(app.resultValuesForPdf()).toEqual([]);
+  });
+
+  it('splits sentences into list items without breaking technical tokens', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    const items = app.sentenceItems(
+      'Trabalhou com Node.js e .NET 8. Usou a versão 3.2. Contato dev@example.com. Consulte https://example.com/docs.',
+    );
+
+    expect(items).toEqual([
+      'Trabalhou com Node.js e .NET 8.',
+      'Usou a versão 3.2.',
+      'Contato dev@example.com.',
+      'Consulte https://example.com/docs.',
+    ]);
+  });
+
+  it('omits empty optional PDF content and groups available feedback', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+
+    expect(app.complementaryExperienceForPdf()).toBe('');
+    expect(app.behavioralSkillsForPdf()).toBe('');
+    expect(app.feedbackForPdf()).toBe('');
+    expect(app.technicalAssessmentForPdf()).toBe('');
+    expect(app.executiveConclusion()).toBe('');
+
+    app.strengths.set('Comunicação clara. Domínio técnico.');
+    expect(app.feedbackForPdf()).toBe(
+      'Pontos fortes\n- Comunicação clara.\n- Domínio técnico.',
+    );
+    expect(app.feedbackForPdf()).not.toContain('Pontos de atenção');
+
+    app.strengths.set('');
+    app.concerns.set('Aprofundar observabilidade.');
+    expect(app.feedbackForPdf()).toBe('Pontos de atenção\n- Aprofundar observabilidade.');
+    expect(app.feedbackForPdf()).not.toContain('Pontos fortes');
   });
 
   it('renders technologies and skills as concise text without table labels or the word nota', () => {

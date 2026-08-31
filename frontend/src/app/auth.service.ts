@@ -19,11 +19,13 @@ export class AuthService {
   refreshToken() { return localStorage.getItem('tia.refreshToken'); }
 
   login(email: string, password: string, rememberMe: boolean) {
+    this.clearCompanyContext();
     return this.http.post<AuthTokens>(`${this.apiUrl}/auth/login`, { email, password, rememberMe })
       .pipe(tap(tokens => this.store(tokens)), map(() => void 0));
   }
 
   register(name: string, email: string, password: string, rememberMe: boolean) {
+    this.clearCompanyContext();
     return this.http.post<AuthTokens>(`${this.apiUrl}/auth/register`, { name, email, password, rememberMe })
       .pipe(tap(tokens => this.store(tokens)), switchMap(() => this.requestEmailVerification()));
   }
@@ -68,7 +70,12 @@ export class AuthService {
   clear() {
     sessionStorage.removeItem('tia.accessToken');
     localStorage.removeItem('tia.refreshToken');
+    this.clearCompanyContext();
     this.userState.set(null);
+  }
+
+  private clearCompanyContext() {
+    localStorage.removeItem('tia.companyId');
   }
 
   private store(tokens: AuthTokens) {
