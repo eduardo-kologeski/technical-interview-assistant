@@ -45,6 +45,7 @@ public class Interview extends AuditableEntity {
     private long version;
     @Column(name = "assessment_data", nullable = false, columnDefinition = "text")
     private String assessmentData = "{}";
+    @Column(name = "kit_snapshot", nullable = false, columnDefinition = "text") private String kitSnapshot = "{}";
 
     protected Interview() { }
 
@@ -121,6 +122,10 @@ public class Interview extends AuditableEntity {
         this.assessmentData = assessmentData;
         registerUpdate(actorId, now);
     }
+    public void snapshotKit(String value) {
+        if (status != InterviewStatus.CREATED) throw new IllegalStateException("kit snapshot must be captured before start");
+        kitSnapshot = value == null || value.isBlank() ? "{}" : value;
+    }
 
     public UUID id() { return id; }
     public UUID companyId() { return companyId; }
@@ -140,4 +145,5 @@ public class Interview extends AuditableEntity {
     public String lastPdfGeneratedBy() { return lastPdfGeneratedBy; }
     public long version() { return version; }
     public String assessmentData() { return assessmentData; }
+    public String kitSnapshot() { return kitSnapshot; }
 }

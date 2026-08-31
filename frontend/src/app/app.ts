@@ -20,6 +20,11 @@ type Skill = {
   skipped: boolean;
   comment: string;
   source: EvaluationSource;
+  question?: string;
+  rubric?: string;
+};
+type KitSnapshot = {
+  items?: Array<{ criterion: string; question: string; weight: number; rubric: string }>;
 };
 type TechnologyType = 'LANGUAGE' | 'FRAMEWORK' | 'OTHER';
 type Technology = {
@@ -339,7 +344,7 @@ export class InterviewPage {
         this.seniority.set(interview.senioritySnapshot);
         this.company.set(interview.clientCompany || '');
         this.selectedVacancyId.set(interview.vacancyId);
-        this.skills.set(this.requirementSkills(interview.requirementSnapshot));
+        this.skills.set(this.kitSkills(interview.kitSnapshot, interview.requirementSnapshot));
         this.restoreAssessment(interview.assessmentData);
         this.started.set(true);
         this.seconds.set(
@@ -369,6 +374,28 @@ export class InterviewPage {
       comment: '',
       source: 'JOB_REQUIREMENT',
     }));
+  }
+
+  private kitSkills(snapshot: string, requirements: string[]): Skill[] {
+    try {
+      const kit = JSON.parse(snapshot || '{}') as KitSnapshot;
+      if (!Array.isArray(kit.items) || !kit.items.length) return this.requirementSkills(requirements);
+      return kit.items.map((item) => ({
+        name: item.criterion,
+        category: 'Scorecard do kit',
+        weight: item.weight,
+        importance: 'Obrigatória',
+        expected: 3,
+        score: null,
+        skipped: false,
+        comment: '',
+        source: 'JOB_REQUIREMENT',
+        question: item.question,
+        rubric: item.rubric,
+      }));
+    } catch {
+      return this.requirementSkills(requirements);
+    }
   }
 
   finishInterview() {

@@ -35,6 +35,17 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   await page.getByRole('button', { name: 'Salvar vaga' }).click();
   await expect(page.getByRole('heading', { name: vacancy })).toBeVisible();
 
+  await page.getByRole('button', { name: 'Configurar interview kit' }).click();
+  await expect(page.getByLabel('Nome do kit')).toBeVisible();
+  await page.getByLabel('Nome do kit').fill(`${vacancy} — Scorecard`);
+  await page.getByLabel('Pergunta').first().fill('Explique como evitar race conditions em Java.');
+  await page.getByLabel('Peso').first().fill('5');
+  await page.getByLabel('Rubrica').first().fill('0: sem evidência; 5: explica locks e atomicidade.');
+  await page.getByRole('button', { name: 'Salvar rascunho' }).click();
+  await expect(page.getByText('Rascunho salvo.')).toBeVisible();
+  await page.getByRole('button', { name: 'Publicar versão' }).click();
+  await expect(page.getByText('Versão publicada. Novas entrevistas usarão este snapshot.')).toBeVisible();
+
   await page.getByRole('link', { name: 'Entrevistas' }).click();
   await expect(page.getByRole('navigation', { name: 'Áreas de entrevistas' })).toContainText('Agenda');
   await expect(page.getByRole('navigation', { name: 'Áreas de entrevistas' })).toContainText('Minha disponibilidade');
@@ -43,6 +54,9 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   await page.getByLabel('Vaga *').selectOption({ label: vacancy });
   await page.getByRole('button', { name: /Iniciar entrevista/ }).click();
   await expect(page).toHaveURL(/\/interviews\/[0-9a-f-]+$/);
+  await expect(page.getByText('Explique como evitar race conditions em Java.')).toBeVisible();
+  await page.getByText('Ver rubrica').click();
+  await expect(page.getByText('0: sem evidência; 5: explica locks e atomicidade.')).toBeVisible();
 
   await page.getByRole('radio', { name: 'Java: 5 de 5' }).click();
   const technologySearch = page.getByLabel('Pesquisar ou adicionar experiência complementar');

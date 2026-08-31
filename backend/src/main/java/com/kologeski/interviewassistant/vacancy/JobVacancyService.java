@@ -17,6 +17,7 @@ import com.kologeski.interviewassistant.company.CompanyContext;
 import com.kologeski.interviewassistant.company.CompanyAuthorizationPolicy;
 import com.kologeski.interviewassistant.company.CompanyCapability;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.kologeski.interviewassistant.interviewkit.InterviewKitService;
 
 @Service
 public class JobVacancyService {
@@ -26,15 +27,16 @@ public class JobVacancyService {
     private final Clock clock;
     private final CompanyContext companyContext;
     private final CompanyAuthorizationPolicy authorization;
+    private final InterviewKitService kits;
 
     @Autowired
     public JobVacancyService(JobVacancyRepository repository, CurrentActor currentActor, Clock clock,
-                             CompanyContext companyContext, CompanyAuthorizationPolicy authorization) {
+                             CompanyContext companyContext, CompanyAuthorizationPolicy authorization, InterviewKitService kits) {
         this.repository = repository; this.currentActor = currentActor; this.clock = clock;
-        this.companyContext = companyContext; this.authorization = authorization;
+        this.companyContext = companyContext; this.authorization = authorization; this.kits = kits;
     }
     public JobVacancyService(JobVacancyRepository repository, CurrentActor currentActor, Clock clock) {
-        this(repository, currentActor, clock, null, null);
+        this(repository, currentActor, clock, null, null, null);
     }
 
     @Transactional
@@ -42,6 +44,10 @@ public class JobVacancyService {
         require(CompanyCapability.MANAGE_VACANCIES);
         var actor = currentActor.required();
         var saved = repository.save(new JobVacancy(companyId(), title, seniority, description, requirements, actor.id(), Instant.now(clock)));
+        if (kits != null) {
+            repository.flush();
+            kits.initialize(saved.id(), saved.companyId(), saved.title(), saved.requirements(), actor.id());
+        }
         log.info("event=vacancy_created vacancyId={} actorId={}", saved.id(), actor.id());
         return saved;
     }

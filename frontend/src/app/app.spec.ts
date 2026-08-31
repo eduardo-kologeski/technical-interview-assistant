@@ -250,6 +250,19 @@ describe('App', () => {
     expect(app.authenticatedUserName()).toBe('Eduardo');
   });
 
+  it('builds the scorecard from the immutable kit snapshot', () => {
+    const app = TestBed.createComponent(App).componentInstance;
+    const skills = (app as any).kitSkills(JSON.stringify({ items: [{
+      criterion: 'Concorrência em Java', question: 'Como evitar race conditions?', weight: 5,
+      rubric: '0: sem evidência; 5: explica locks e atomicidade.',
+    }] }), ['Requisito legado']);
+
+    expect(skills).toEqual([expect.objectContaining({
+      name: 'Concorrência em Java', weight: 5, question: 'Como evitar race conditions?',
+      rubric: '0: sem evidência; 5: explica locks e atomicidade.',
+    })]);
+  });
+
   it('does not use fallback vacancies when the backend fails', () => {
     const app = TestBed.createComponent(App).componentInstance;
     const http = TestBed.inject(HttpTestingController);

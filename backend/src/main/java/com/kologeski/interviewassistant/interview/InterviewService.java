@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.kologeski.interviewassistant.company.CompanyContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.kologeski.interviewassistant.interviewkit.InterviewKitService;
 
 @Service
 public class InterviewService {
@@ -26,16 +27,17 @@ public class InterviewService {
     private final Clock clock;
     private final CompanyContext companyContext;
     private final AuditTrailService audit;
+    private final InterviewKitService kits;
 
     @Autowired
     public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
-                            CurrentActor currentActor, Clock clock, CompanyContext companyContext, AuditTrailService audit) {
+                            CurrentActor currentActor, Clock clock, CompanyContext companyContext, AuditTrailService audit, InterviewKitService kits) {
         this.repository = repository; this.vacancyRepository = vacancyRepository;
-        this.currentActor = currentActor; this.clock = clock; this.companyContext = companyContext; this.audit = audit;
+        this.currentActor = currentActor; this.clock = clock; this.companyContext = companyContext; this.audit = audit; this.kits = kits;
     }
     public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
                             CurrentActor currentActor, Clock clock) {
-        this(repository, vacancyRepository, currentActor, clock, null, null);
+        this(repository, vacancyRepository, currentActor, clock, null, null, null);
     }
 
     @Transactional
@@ -47,6 +49,7 @@ public class InterviewService {
         var actor = currentActor.required();
         var interview = new Interview(companyId, vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
                 candidateName, "", actor.id(), Instant.now(clock));
+        if (kits != null) interview.snapshotKit(kits.publishedSnapshot(vacancy.id(), companyId));
         var saved = repository.save(interview);
         record(companyId, actor.id(), "INTERVIEW_CREATED", saved.id());
         log.info("event=interview_created interviewId={} vacancyId={} actorId={}", saved.id(), vacancyId, actor.id());
@@ -64,6 +67,7 @@ public class InterviewService {
         var now = Instant.now(clock);
         var interview = new Interview(companyId, vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
                 candidateName, clientCompany, actor.id(), now);
+        if (kits != null) interview.snapshotKit(kits.publishedSnapshot(vacancy.id(), companyId));
         interview.start(actor.id(), now);
         var saved = repository.save(interview);
         record(companyId, actor.id(), "INTERVIEW_STARTED", saved.id());

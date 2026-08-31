@@ -33,6 +33,8 @@ export default defineConfig({
         SPRING_DATASOURCE_DRIVER_CLASS_NAME: 'org.h2.Driver',
         SPRING_JPA_HIBERNATE_DDL_AUTO: 'create-drop',
         SPRING_FLYWAY_ENABLED: 'false',
+        SPRING_SQL_INIT_MODE: 'always',
+        SPRING_SQL_INIT_SCHEMA_LOCATIONS: 'classpath:interview-kit-h2.sql',
         JWT_SECRET: 'E2eOnlySecretThatIsLongEnoughForHmacSha256AndNeverUsedOutsideAutomatedTests',
         CORS_ALLOWED_ORIGINS: 'http://127.0.0.1:4300',
         AUTH_LOGIN_RATE_LIMIT: '1000',

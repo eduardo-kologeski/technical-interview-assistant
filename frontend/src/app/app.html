@@ -146,6 +146,8 @@
             [comment]="skill.comment"
             [active]="activeIndex() === index"
             [contextLabel]="'Esperado: ' + skill.expected + '/5 · Peso ' + skill.weight"
+            [prompt]="skill.question || ''"
+            [rubric]="skill.rubric || ''"
             (scoreChange)="setScore(index, $event)"
             (notEvaluatedChange)="setNotEvaluated(index)"
             (commentChange)="updateComment(index, $event)"
