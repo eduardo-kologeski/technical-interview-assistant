@@ -37,8 +37,7 @@ PostgreSQL: o banco é externo e permanece sob controle da empresa.
 - Não exponha PostgreSQL nem a porta da API à internet.
 - Não grave `.env`, senhas, JWT ou credenciais do registry no controle de versão.
 - `/actuator/health` é usado internamente; detalhes de saúde permanecem ocultos.
-- Faça backup verificável antes de qualquer upgrade. Consulte `docs/runbooks/backup-restore.md` no pacote
-  operacional fornecido com a release.
+- Faça backup verificável antes de qualquer upgrade. Consulte `OPERATIONS.md`, incluído neste pacote.
 
 ## Diagnóstico mínimo
 
