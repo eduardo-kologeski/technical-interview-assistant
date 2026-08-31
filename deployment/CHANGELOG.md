@@ -9,3 +9,4 @@ As versões deste arquivo acompanham Git tags, GitHub Releases e as duas imagens
 - mesma origem para Angular e `/api`;
 - healthchecks e hardening de containers;
 - bootstrap seguro em `/setup`.
+- runbook de backup, restore, upgrade e rollback condicionado às migrations.

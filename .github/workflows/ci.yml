@@ -124,6 +124,9 @@ jobs:
           docker compose --file deployment/docker-compose.yml config --quiet
           test "$(docker compose --file deployment/docker-compose.yml config --images | sort -u | wc -l)" -eq 2
           ! grep -Eq '^[[:space:]]*build:' deployment/docker-compose.yml
+          grep -q '^## Upgrade seguro' deployment/OPERATIONS.md
+          grep -q '^## Rollback' deployment/OPERATIONS.md
+          grep -q '^## Ensaio de restore' deployment/OPERATIONS.md
       - name: Build backend image
         run: >-
           docker build
