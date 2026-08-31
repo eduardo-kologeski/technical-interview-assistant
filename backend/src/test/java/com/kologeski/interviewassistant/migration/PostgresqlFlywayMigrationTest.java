@@ -48,6 +48,9 @@ class PostgresqlFlywayMigrationTest {
             assertThat(tableExists(metadata, "users")).isTrue();
             assertThat(tableExists(metadata, "refresh_tokens")).isTrue();
             assertThat(tableExists(metadata, "interview_availability")).isTrue();
+            assertThat(tableExists(metadata, "interview_kits")).isTrue();
+            assertThat(tableExists(metadata, "interview_kit_versions")).isTrue();
+            assertThat(tableExists(metadata, "interview_kit_items")).isTrue();
             assertThat(tableExists(metadata, "companies")).isTrue();
             assertThat(tableExists(metadata, "company_memberships")).isTrue();
             assertThat(tableExists(metadata, "company_invitations")).isTrue();

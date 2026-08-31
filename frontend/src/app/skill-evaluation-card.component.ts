@@ -15,6 +15,8 @@ type QuickOption = { label: string; text: string; tone: 'positive' | 'neutral' |
         <div><h3>{{ name }}</h3><span class="tag" [class.complementary]="source === 'COMPLEMENTARY_EXPERIENCE'">{{ sourceLabel }}</span></div>
         @if (contextLabel) { <span class="expectation">{{ contextLabel }}</span> }
       </div>
+      @if (prompt) { <p class="kit-question"><strong>Pergunta sugerida</strong>{{ prompt }}</p> }
+      @if (rubric) { <details class="kit-rubric"><summary>Ver rubrica</summary><p>{{ rubric }}</p></details> }
       <div class="rating" role="radiogroup" [attr.aria-label]="'Nota de ' + name">
         @for (value of scores; track value) {
           <button type="button" role="radio" (click)="scoreChange.emit(value)" [class.selected]="score === value && !notEvaluated" [attr.aria-checked]="score === value && !notEvaluated" [attr.aria-label]="name + ': ' + value + ' de 5'">{{ value }}</button>
@@ -39,6 +41,8 @@ export class SkillEvaluationCardComponent {
   @Input() notEvaluated = false;
   @Input() comment = '';
   @Input() contextLabel = '';
+  @Input() prompt = '';
+  @Input() rubric = '';
   @Input() removable = false;
   @Input() compact = false;
   @Input() active = false;

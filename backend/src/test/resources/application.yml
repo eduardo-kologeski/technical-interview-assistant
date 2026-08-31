@@ -9,6 +9,10 @@ spring:
       ddl-auto: create-drop
   flyway:
     enabled: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:interview-kit-h2.sql
 
 app:
   identity:

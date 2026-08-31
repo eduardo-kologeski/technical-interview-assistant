@@ -109,7 +109,7 @@ public class InterviewController {
 
     public record InterviewResponse(UUID id, UUID vacancyId, String candidateName,
                                     String vacancyTitleSnapshot, String senioritySnapshot, String clientCompany,
-                                    List<String> requirementSnapshot,
+                                    List<String> requirementSnapshot, String kitSnapshot,
                                     String interviewerId, InterviewStatus status, Instant startedAt,
                                     Instant completedAt, Instant assessmentFinalizedAt,
                                     String assessmentFinalizedBy, Instant lastPdfGeneratedAt,
@@ -118,7 +118,7 @@ public class InterviewController {
         static InterviewResponse from(Interview interview) {
             return new InterviewResponse(interview.id(), interview.vacancyId(), interview.candidateName(),
                     interview.vacancyTitleSnapshot(), interview.senioritySnapshot(), interview.clientCompany(),
-                    interview.requirementSnapshot(), interview.interviewerId(),
+                    interview.requirementSnapshot(), interview.kitSnapshot(), interview.interviewerId(),
                     interview.status(), interview.startedAt(), interview.completedAt(),
                     interview.assessmentFinalizedAt(), interview.assessmentFinalizedBy(),
                     interview.lastPdfGeneratedAt(), interview.lastPdfGeneratedBy(), interview.createdAt(),
@@ -127,14 +127,14 @@ public class InterviewController {
     }
 
     public record WorkspaceResponse(UUID id, UUID vacancyId, String candidateName, String vacancyTitleSnapshot,
-            String senioritySnapshot, String clientCompany, List<String> requirementSnapshot, String interviewerId,
+            String senioritySnapshot, String clientCompany, List<String> requirementSnapshot, String kitSnapshot, String interviewerId,
             InterviewStatus status, Instant startedAt, long version, String assessmentData,
             List<InterviewCollaborationService.ParticipantSummary> participants) {
         static WorkspaceResponse from(InterviewCollaborationService.Workspace workspace) {
             Interview interview = workspace.interview();
             return new WorkspaceResponse(interview.id(), interview.vacancyId(), interview.candidateName(),
                     interview.vacancyTitleSnapshot(), interview.senioritySnapshot(), interview.clientCompany(),
-                    interview.requirementSnapshot(), interview.interviewerId(), workspace.status(), interview.startedAt(),
+                    interview.requirementSnapshot(), interview.kitSnapshot(), interview.interviewerId(), workspace.status(), interview.startedAt(),
                     workspace.version(), workspace.assessmentData(), workspace.participants());
         }
     }
