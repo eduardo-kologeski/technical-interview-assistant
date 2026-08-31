@@ -34,7 +34,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(16);
+        assertThat(migration.migrationsExecuted).isEqualTo(17);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -45,6 +45,7 @@ class PostgresqlFlywayMigrationTest {
             assertThat(tableExists(metadata, "interviews")).isTrue();
             assertThat(columnExists(metadata, "interviews", "assessment_data")).isTrue();
             assertThat(columnExists(metadata, "interviews", "version")).isTrue();
+            assertThat(columnExists(metadata, "interviews", "kit_snapshot")).isTrue();
             assertThat(tableExists(metadata, "users")).isTrue();
             assertThat(tableExists(metadata, "refresh_tokens")).isTrue();
             assertThat(tableExists(metadata, "interview_availability")).isTrue();
@@ -97,7 +98,7 @@ class PostgresqlFlywayMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(5);
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(6);
         assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -118,6 +119,12 @@ class PostgresqlFlywayMigrationTest {
             assertThat(singleValue(statement,
                     "SELECT setup_completed::text FROM installation_state WHERE id = 1"))
                     .isEqualTo("true");
+            assertThat(singleValue(statement,
+                    "SELECT COUNT(*)::text FROM interview_kits WHERE vacancy_id = '" + vacancyId + "'"))
+                    .isEqualTo("1");
+            assertThat(singleValue(statement,
+                    "SELECT COUNT(*)::text FROM interview_kit_versions WHERE kit_id = '" + vacancyId + "' AND status = 'PUBLISHED'"))
+                    .isEqualTo("1");
         }
     }
 
