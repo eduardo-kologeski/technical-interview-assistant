@@ -1,0 +1,3 @@
+package com.kologeski.interviewassistant.candidate;
+import org.springframework.data.domain.*; import org.springframework.data.jpa.repository.*; import org.springframework.data.repository.query.Param; import java.util.*;
+public interface CandidateRepository extends JpaRepository<Candidate,UUID>{Optional<Candidate> findByCompanyIdAndNormalizedName(UUID company,String name);Optional<Candidate> findByIdAndCompanyId(UUID id,UUID company);@Query("select c from Candidate c where c.companyId=:company and (:query='' or c.normalizedName like concat('%',:query,'%'))") Page<Candidate> search(@Param("company") UUID company,@Param("query") String query,Pageable pageable);}

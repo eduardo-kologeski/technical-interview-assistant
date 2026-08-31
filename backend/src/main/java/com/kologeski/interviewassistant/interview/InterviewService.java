@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import com.kologeski.interviewassistant.company.CompanyContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.kologeski.interviewassistant.interviewkit.InterviewKitService;
+import com.kologeski.interviewassistant.candidate.CandidateService;
 
 @Service
 public class InterviewService {
@@ -28,16 +29,17 @@ public class InterviewService {
     private final CompanyContext companyContext;
     private final AuditTrailService audit;
     private final InterviewKitService kits;
+    private final CandidateService candidates;
 
     @Autowired
     public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
-                            CurrentActor currentActor, Clock clock, CompanyContext companyContext, AuditTrailService audit, InterviewKitService kits) {
+                            CurrentActor currentActor, Clock clock, CompanyContext companyContext, AuditTrailService audit, InterviewKitService kits, CandidateService candidates) {
         this.repository = repository; this.vacancyRepository = vacancyRepository;
-        this.currentActor = currentActor; this.clock = clock; this.companyContext = companyContext; this.audit = audit; this.kits = kits;
+        this.currentActor = currentActor; this.clock = clock; this.companyContext = companyContext; this.audit = audit; this.kits = kits; this.candidates = candidates;
     }
     public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
                             CurrentActor currentActor, Clock clock) {
-        this(repository, vacancyRepository, currentActor, clock, null, null, null);
+        this(repository, vacancyRepository, currentActor, clock, null, null, null, null);
     }
 
     @Transactional
@@ -49,6 +51,7 @@ public class InterviewService {
         var actor = currentActor.required();
         var interview = new Interview(companyId, vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
                 candidateName, "", actor.id(), Instant.now(clock));
+        if (candidates != null) interview.linkCandidate(candidates.resolve(companyId, vacancy.id(), candidateName, actor.id()).id());
         if (kits != null) interview.snapshotKit(kits.publishedSnapshot(vacancy.id(), companyId));
         var saved = repository.save(interview);
         record(companyId, actor.id(), "INTERVIEW_CREATED", saved.id());
@@ -67,9 +70,15 @@ public class InterviewService {
         var now = Instant.now(clock);
         var interview = new Interview(companyId, vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
                 candidateName, clientCompany, actor.id(), now);
+        if (candidates != null) interview.linkCandidate(candidates.resolve(companyId, vacancy.id(), candidateName, actor.id()).id());
         if (kits != null) interview.snapshotKit(kits.publishedSnapshot(vacancy.id(), companyId));
         interview.start(actor.id(), now);
         var saved = repository.save(interview);
+        if (candidates != null) {
+            repository.flush();
+            candidates.interviewEvent(CandidateService.InterviewEvent.INTERVIEW_STARTED, companyId,
+                    saved.candidateId(), saved.vacancyId(), saved.id(), actor.id());
+        }
         record(companyId, actor.id(), "INTERVIEW_STARTED", saved.id());
         log.info("event=interview_started interviewId={} vacancyId={} actorId={}", saved.id(), vacancyId, actor.id());
         return saved;
@@ -84,7 +93,16 @@ public class InterviewService {
                 : repository.findByCompanyIdAndStatus(companyId, status, pageable);
     }
 
-    @Transactional public Interview start(UUID id) { return mutate(id, Interview::start); }
+    @Transactional public Interview start(UUID id) {
+        var interview = required(id);
+        var actor = currentActor.required();
+        interview.start(actor.id(), Instant.now(clock));
+        var saved = repository.save(interview);
+        if (candidates != null) candidates.interviewEvent(CandidateService.InterviewEvent.INTERVIEW_STARTED,
+                saved.companyId(), saved.candidateId(), saved.vacancyId(), saved.id(), actor.id());
+        record(saved.companyId(), actor.id(), "INTERVIEW_STARTED", id);
+        return saved;
+    }
     @Transactional public Interview complete(UUID id) {
         var interview = required(id);
         boolean alreadyCompleted = interview.status() == InterviewStatus.COMPLETED;
@@ -94,6 +112,8 @@ public class InterviewService {
         if (!alreadyCompleted) {
             record(saved.companyId(), actor.id(), "INTERVIEW_COMPLETED", id);
             log.info("event=interview_completed interviewId={} actorId={}", id, actor.id());
+            if (candidates != null) candidates.interviewEvent(CandidateService.InterviewEvent.INTERVIEW_COMPLETED,
+                    saved.companyId(), saved.candidateId(), saved.vacancyId(), saved.id(), actor.id());
         }
         return saved;
     }
@@ -146,15 +166,6 @@ public class InterviewService {
         return saved;
     }
 
-    private Interview mutate(UUID id, AuditMutation operation) {
-        var interview = required(id);
-        var actor = currentActor.required();
-        operation.apply(interview, actor.id(), Instant.now(clock));
-        Interview saved = repository.save(interview);
-        record(saved.companyId(), actor.id(), "INTERVIEW_STARTED", id);
-        return saved;
-    }
-
     private void record(UUID companyId, String actorId, String eventType, UUID interviewId) {
         if (audit != null) audit.record(companyId, Long.valueOf(actorId), "DOMAIN", eventType, "INTERVIEW", interviewId);
     }
@@ -167,11 +178,6 @@ public class InterviewService {
     private UUID companyId() {
         return companyContext == null ? com.kologeski.interviewassistant.vacancy.JobVacancy.LEGACY_COMPANY_ID
                 : companyContext.required().companyId();
-    }
-
-    @FunctionalInterface
-    private interface AuditMutation {
-        void apply(Interview interview, String actorId, Instant occurredAt);
     }
 
     public static final class StaleInterviewException extends RuntimeException {

@@ -1,0 +1,5 @@
+import {TestBed} from '@angular/core/testing';
+import {provideHttpClient} from '@angular/common/http';
+import {HttpTestingController,provideHttpClientTesting} from '@angular/common/http/testing';
+import {CandidateService} from './candidate.service';
+describe('CandidateService',()=>{beforeEach(()=>TestBed.configureTestingModule({providers:[provideHttpClient(),provideHttpClientTesting()]}));it('searches candidates with backend pagination',()=>{const service=TestBed.inject(CandidateService),http=TestBed.inject(HttpTestingController);service.list('ana',2,10).subscribe();const request=http.expectOne(r=>r.url==='/api/candidates');expect(request.request.params.get('q')).toBe('ana');expect(request.request.params.get('page')).toBe('2');request.flush({content:[],page:2,size:10,totalElements:0,totalPages:0,first:false,last:true})});it('loads a tenant-scoped candidate timeline',()=>{const service=TestBed.inject(CandidateService),http=TestBed.inject(HttpTestingController);service.get('candidate-1').subscribe();http.expectOne('/api/candidates/candidate-1').flush({candidate:{id:'candidate-1',name:'Ana',createdAt:''},timeline:[]})})});

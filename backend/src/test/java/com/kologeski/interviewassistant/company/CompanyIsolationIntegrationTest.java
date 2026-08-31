@@ -30,10 +30,13 @@ class CompanyIsolationIntegrationTest {
     @BeforeEach
     void clean() {
         jdbc.update("DELETE FROM audit_events");
+        jdbc.update("DELETE FROM candidate_timeline_events");
+        jdbc.update("DELETE FROM candidate_vacancies");
         jdbc.update("DELETE FROM identity_tokens");
         jdbc.update("DELETE FROM refresh_tokens");
         jdbc.update("DELETE FROM interview_requirement_snapshots");
         jdbc.update("DELETE FROM interviews");
+        jdbc.update("DELETE FROM candidates");
         jdbc.update("DELETE FROM job_vacancy_requirements");
         jdbc.update("DELETE FROM job_vacancies");
         jdbc.update("DELETE FROM company_invitations");
@@ -159,6 +162,17 @@ class CompanyIsolationIntegrationTest {
                         .content("{\"jobPositionId\":\"%s\",\"candidateName\":\"Candidato compartilhado\",\"participantUserIds\":[%d]}".formatted(vacancyA, interviewerId)))
                 .andExpect(status().isOk()).andReturn();
         String interviewId = body(createdInterview).get("id").asText();
+        String candidateId = body(createdInterview).get("candidateId").asText();
+
+        mvc.perform(get("/api/candidates").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).param("q", "compartilhado"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Candidato compartilhado"));
+        mvc.perform(get("/api/candidates/{id}", candidateId).header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/candidates").header("Authorization", bearer(adminB))
+                        .header("X-Company-Id", companyB))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));
 
         mvc.perform(get("/api/interviews").header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyA))

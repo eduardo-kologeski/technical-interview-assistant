@@ -1,0 +1,3 @@
+package com.kologeski.interviewassistant.candidate;
+import org.springframework.data.domain.*; import org.springframework.data.web.PageableDefault; import org.springframework.web.bind.annotation.*; import java.util.*;
+@RestController @RequestMapping("/api/candidates") public class CandidateController {private final CandidateService service;public CandidateController(CandidateService s){service=s;}@GetMapping Page<CandidateService.CandidateView> list(@RequestParam(defaultValue="")String q,@PageableDefault(size=20,sort="createdAt",direction=Sort.Direction.DESC)Pageable pageable){return service.list(q,pageable);}@GetMapping("/{id}") CandidateService.CandidateDetail get(@PathVariable UUID id){return service.get(id);}}

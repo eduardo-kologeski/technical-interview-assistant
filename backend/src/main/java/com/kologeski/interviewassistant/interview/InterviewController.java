@@ -107,7 +107,7 @@ public class InterviewController {
     public record SaveAssessmentCommand(@PositiveOrZero long version,
                                         @NotBlank @Size(max = 1_000_000) String assessmentData) { }
 
-    public record InterviewResponse(UUID id, UUID vacancyId, String candidateName,
+    public record InterviewResponse(UUID id, UUID vacancyId, UUID candidateId, String candidateName,
                                     String vacancyTitleSnapshot, String senioritySnapshot, String clientCompany,
                                     List<String> requirementSnapshot, String kitSnapshot,
                                     String interviewerId, InterviewStatus status, Instant startedAt,
@@ -116,7 +116,7 @@ public class InterviewController {
                                     String lastPdfGeneratedBy, Instant createdAt, String createdBy,
                                     Instant updatedAt, String updatedBy, long version) {
         static InterviewResponse from(Interview interview) {
-            return new InterviewResponse(interview.id(), interview.vacancyId(), interview.candidateName(),
+            return new InterviewResponse(interview.id(), interview.vacancyId(), interview.candidateId(), interview.candidateName(),
                     interview.vacancyTitleSnapshot(), interview.senioritySnapshot(), interview.clientCompany(),
                     interview.requirementSnapshot(), interview.kitSnapshot(), interview.interviewerId(),
                     interview.status(), interview.startedAt(), interview.completedAt(),
@@ -126,13 +126,13 @@ public class InterviewController {
         }
     }
 
-    public record WorkspaceResponse(UUID id, UUID vacancyId, String candidateName, String vacancyTitleSnapshot,
+    public record WorkspaceResponse(UUID id, UUID vacancyId, UUID candidateId, String candidateName, String vacancyTitleSnapshot,
             String senioritySnapshot, String clientCompany, List<String> requirementSnapshot, String kitSnapshot, String interviewerId,
             InterviewStatus status, Instant startedAt, long version, String assessmentData,
             List<InterviewCollaborationService.ParticipantSummary> participants) {
         static WorkspaceResponse from(InterviewCollaborationService.Workspace workspace) {
             Interview interview = workspace.interview();
-            return new WorkspaceResponse(interview.id(), interview.vacancyId(), interview.candidateName(),
+            return new WorkspaceResponse(interview.id(), interview.vacancyId(), interview.candidateId(), interview.candidateName(),
                     interview.vacancyTitleSnapshot(), interview.senioritySnapshot(), interview.clientCompany(),
                     interview.requirementSnapshot(), interview.kitSnapshot(), interview.interviewerId(), workspace.status(), interview.startedAt(),
                     workspace.version(), workspace.assessmentData(), workspace.participants());

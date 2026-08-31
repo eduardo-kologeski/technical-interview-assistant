@@ -110,6 +110,12 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   const path = await download.path();
   expect(path).not.toBeNull();
   expect((await stat(path!)).size).toBeGreaterThan(5_000);
+
+  await page.getByRole('link', { name: 'Empresa', exact: true }).click();
+  await page.getByRole('button', { name: 'Candidatos', exact: true }).click();
+  await expect(page.getByText('Pessoa Candidata E2E', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Pessoa Candidata E2E/ }).click();
+  await expect(page.getByRole('region', { name: 'Timeline do candidato' })).toContainText('Entrevista concluída');
 });
 
 test('keeps the invitation through registration and enters as a read-only interviewer', async ({ page }) => {
