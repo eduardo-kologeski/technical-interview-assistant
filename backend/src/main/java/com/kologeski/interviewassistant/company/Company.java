@@ -36,4 +36,11 @@ public class Company {
     public Long createdByUserId() { return createdByUserId; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
+
+    public void configure(String name, String slug, Long creatorId, Instant now) {
+        this.name = required(name, "name");
+        this.slug = required(slug, "slug");
+        this.createdByUserId = creatorId;
+        this.updatedAt = now;
+    }
 }

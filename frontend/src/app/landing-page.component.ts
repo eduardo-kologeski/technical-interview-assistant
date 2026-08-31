@@ -9,7 +9,7 @@ import { DeploymentConfigService } from './deployment-config.service';
     <main>
       <nav>
         <a class="brand" routerLink="/"><b>T</b><span>Technical Interview Assistant</span></a>
-        <div><a class="login" routerLink="/auth/login">Entrar</a>@if (deployment.publicSignupEnabled()) { <a class="primary compact" routerLink="/auth/register" [queryParams]="{ company: true }">Cadastrar empresa</a> }</div>
+        <div><a class="login" routerLink="/auth/login">Entrar</a>@if (deployment.setupRequired()) { <a class="primary compact" routerLink="/setup">Configurar instalação</a> } @else if (deployment.publicSignupEnabled()) { <a class="primary compact" routerLink="/auth/register" [queryParams]="{ company: true }">Cadastrar empresa</a> }</div>
       </nav>
 
       <section class="hero">
@@ -17,7 +17,7 @@ import { DeploymentConfigService } from './deployment-config.service';
           <p class="eyebrow">GESTÃO DE ENTREVISTAS PARA EMPRESAS</p>
           <h1>Decisões técnicas mais consistentes, do briefing ao parecer.</h1>
           <p class="lead">Centralize vagas, conduza avaliações padronizadas e transforme evidências da entrevista em pareceres claros e rastreáveis.</p>
-          <div class="actions">@if (deployment.publicSignupEnabled()) { <a class="primary" routerLink="/auth/register" [queryParams]="{ company: true }">Cadastrar minha empresa</a> }<a class="secondary" routerLink="/auth/login">Entrar</a></div>
+          <div class="actions">@if (deployment.setupRequired()) { <a class="primary" routerLink="/setup">Configurar instalação</a> } @else if (deployment.publicSignupEnabled()) { <a class="primary" routerLink="/auth/register" [queryParams]="{ company: true }">Cadastrar minha empresa</a> }<a class="secondary" routerLink="/auth/login">Entrar</a></div>
           <small>Entrevistadores acessam o ambiente da empresa somente após convite do gestor.</small>
         </div>
         <aside aria-label="Fluxo da plataforma">

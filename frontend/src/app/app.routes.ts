@@ -12,9 +12,11 @@ import { InvitationPageComponent } from './invitation-page.component';
 import { CompanyAdminComponent } from './company-admin.component';
 import { InterviewsWorkspaceComponent } from './interviews-workspace.component';
 import { IdentityPageComponent } from './identity-page.component';
+import { SetupPageComponent } from './setup-page.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', component: LandingPageComponent },
+  { path: 'setup', component: SetupPageComponent },
   { path: 'invites/:token', component: InvitationPageComponent },
   { path: 'verify-email/:token', component: IdentityPageComponent },
   { path: 'reset-password/:token', component: IdentityPageComponent },

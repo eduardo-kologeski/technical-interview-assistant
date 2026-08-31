@@ -34,7 +34,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(15);
+        assertThat(migration.migrationsExecuted).isEqualTo(16);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -54,6 +54,7 @@ class PostgresqlFlywayMigrationTest {
             assertThat(tableExists(metadata, "interview_participants")).isTrue();
             assertThat(tableExists(metadata, "identity_tokens")).isTrue();
             assertThat(tableExists(metadata, "audit_events")).isTrue();
+            assertThat(tableExists(metadata, "installation_state")).isTrue();
             assertThat(columnExists(metadata, "users", "email_verified_at")).isTrue();
             assertThat(columnExists(metadata, "users", "session_version")).isTrue();
             assertThat(columnExists(metadata, "job_vacancies", "company_id")).isTrue();
@@ -93,7 +94,7 @@ class PostgresqlFlywayMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(4);
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(5);
         assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -111,6 +112,9 @@ class PostgresqlFlywayMigrationTest {
             assertThat(singleValue(statement,
                     "SELECT COUNT(*)::text FROM interview_participants WHERE interview_id = '" + interviewId + "'"))
                     .isEqualTo("1");
+            assertThat(singleValue(statement,
+                    "SELECT setup_completed::text FROM installation_state WHERE id = 1"))
+                    .isEqualTo("true");
         }
     }
 

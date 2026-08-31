@@ -8,6 +8,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.kologeski.interviewassistant.auth.AuthenticationService;
 import com.kologeski.interviewassistant.auth.IdentityToken;
+import com.kologeski.interviewassistant.deployment.InstallationSetupService;
 import com.kologeski.interviewassistant.interview.InterviewService;
 import com.kologeski.interviewassistant.vacancy.JobVacancyService;
 import com.kologeski.interviewassistant.company.CompanyContext;
@@ -35,6 +36,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AuthenticationService.PublicSignupDisabledException.class)
     ProblemDetail publicSignupDisabled(AuthenticationService.PublicSignupDisabledException exception) {
         return problem(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
+    @ExceptionHandler({InstallationSetupService.SetupUnavailableException.class,
+            InstallationSetupService.UnsafeInstallationStateException.class})
+    ProblemDetail setupUnavailable(RuntimeException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
     @ExceptionHandler(InterviewService.StaleInterviewException.class)
