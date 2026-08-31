@@ -52,7 +52,7 @@ describe('App', () => {
     app.updateNotes('Persistir esta anotação');
     expect(app.saveState()).toBe('Salvando...');
     await new Promise((resolve) => setTimeout(resolve, 550));
-    const request = http.expectOne('/api/interviews/interview-1/assessment');
+    const request = http.expectOne('/api/interviews/interview-1/workspace');
     expect(request.request.body.version).toBe(0);
     expect(JSON.parse(request.request.body.assessmentData).interviewNotes).toBe(
       'Persistir esta anotação',
@@ -72,13 +72,13 @@ describe('App', () => {
     app.updateNotes('Não pode ser perdido');
     await new Promise((resolve) => setTimeout(resolve, 550));
     http
-      .expectOne('/api/interviews/interview-2/assessment')
+      .expectOne('/api/interviews/interview-2/workspace')
       .flush('offline', { status: 503, statusText: 'Unavailable' });
     expect(app.saveState()).toBe('Falha ao salvar');
 
     app.retryAutosave();
     await new Promise((resolve) => setTimeout(resolve, 550));
-    const retry = http.expectOne('/api/interviews/interview-2/assessment');
+    const retry = http.expectOne('/api/interviews/interview-2/workspace');
     retry.flush({ version: 1 });
     expect(app.saveState()).toBe('Salvo');
   });
@@ -92,7 +92,7 @@ describe('App', () => {
 
     app.updateNotes('Versão anterior');
     await new Promise((resolve) => setTimeout(resolve, 550));
-    const previous = http.expectOne('/api/interviews/interview-3/assessment');
+    const previous = http.expectOne('/api/interviews/interview-3/workspace');
 
     app.updateNotes('Versão final');
     app.finishInterview();
@@ -100,11 +100,11 @@ describe('App', () => {
     expect(http.match('/api/interviews/interview-3/complete')).toHaveLength(0);
     await new Promise((resolve) => setTimeout(resolve, 550));
 
-    const latest = http.expectOne('/api/interviews/interview-3/assessment');
+    const latest = http.expectOne('/api/interviews/interview-3/workspace');
     expect(latest.request.body.version).toBe(1);
     expect(JSON.parse(latest.request.body.assessmentData).interviewNotes).toBe('Versão final');
     latest.flush({ version: 2 });
-    const complete = http.expectOne('/api/interviews/interview-3/complete');
+    const complete = http.expectOne('/api/interviews/interview-3/workspace/complete');
     complete.flush({ version: 3, status: 'COMPLETED' });
 
     expect(app.reviewing()).toBe(true);
