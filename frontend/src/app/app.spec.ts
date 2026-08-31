@@ -104,8 +104,7 @@ describe('App', () => {
     expect(latest.request.body.version).toBe(1);
     expect(JSON.parse(latest.request.body.assessmentData).interviewNotes).toBe('Versão final');
     latest.flush({ version: 2 });
-    const complete = http.expectOne('/api/interviews/interview-3/workspace/complete');
-    complete.flush({ version: 3, status: 'COMPLETED' });
+    expect(http.match('/api/interviews/interview-3/workspace/complete')).toHaveLength(0);
 
     expect(app.reviewing()).toBe(true);
     expect(app.finishingInterview()).toBe(false);

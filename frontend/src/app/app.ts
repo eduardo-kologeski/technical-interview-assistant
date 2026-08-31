@@ -254,7 +254,7 @@ export class InterviewPage {
             this.failedAssessment = undefined;
             this.saveState.set('Salvo');
             if (this.finishRequested && sequence === this.finishSequence)
-              this.completePersistedInterview();
+              this.openPersistedReview();
           }),
           catchError(() => {
             this.failedAssessment = assessment;
@@ -520,7 +520,7 @@ export class InterviewPage {
       pdf.setTextColor(110);
       pdf.text(`Página ${page} de ${pages}`, 105, 290, { align: 'center' });
     }
-    if (download)
+    if (download) {
       pdf.save(
         `parecer-${
           this.candidate()
@@ -530,6 +530,8 @@ export class InterviewPage {
             .replace(/[^a-z0-9]+/g, '-') || 'entrevista'
         }.pdf`,
       );
+      this.completePersistedInterview();
+    }
     return pdf;
   }
 
@@ -820,6 +822,11 @@ export class InterviewPage {
         this.finishError.set('Não foi possível finalizar a entrevista. Tente novamente.');
       },
     });
+  }
+  private openPersistedReview() {
+    this.finishRequested = false;
+    this.finishingInterview.set(false);
+    this.reviewing.set(true);
   }
   private assessmentSnapshot(): InterviewAssessment {
     return {
