@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
+import { forkJoin } from 'rxjs';
 
 export type DeploymentMode = 'SAAS' | 'ON_PREMISE';
 export interface DeploymentConfiguration {
@@ -18,13 +19,25 @@ export class DeploymentConfigService {
   private readonly http = inject(HttpClient);
   readonly configuration = signal<DeploymentConfiguration>(SAFE_DEFAULTS);
   readonly loaded = signal(false);
+  readonly setupRequired = signal(false);
 
   constructor() {
-    this.http.get<DeploymentConfiguration>('/api/public/deployment').subscribe({
-      next: value => { this.configuration.set(value); this.loaded.set(true); },
+    forkJoin({
+      configuration: this.http.get<DeploymentConfiguration>('/api/public/deployment'),
+      setup: this.http.get<{ setupRequired: boolean }>('/api/public/setup'),
+    }).subscribe({
+      next: value => {
+        this.configuration.set(value.configuration);
+        this.setupRequired.set(value.setup.setupRequired);
+        this.loaded.set(true);
+      },
       error: () => this.loaded.set(true),
     });
   }
 
   publicSignupEnabled() { return this.configuration().publicSignupEnabled; }
+
+  configureInstallation(request: { organizationName: string; adminName: string; adminEmail: string; password: string }) {
+    return this.http.post<void>('/api/public/setup', request);
+  }
 }

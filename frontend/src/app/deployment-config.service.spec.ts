@@ -12,6 +12,7 @@ describe('DeploymentConfigService', () => {
     TestBed.inject(HttpTestingController).expectOne('/api/public/deployment').flush({
       mode: 'SAAS', publicSignupEnabled: true, multiTenantEnabled: true, billingEnabled: true,
     });
+    TestBed.inject(HttpTestingController).expectOne('/api/public/setup').flush({ setupRequired: false });
     expect(service.publicSignupEnabled()).toBe(true);
   });
 
@@ -20,6 +21,8 @@ describe('DeploymentConfigService', () => {
     TestBed.inject(HttpTestingController).expectOne('/api/public/deployment').flush({
       mode: 'ON_PREMISE', publicSignupEnabled: false, multiTenantEnabled: false, billingEnabled: false,
     });
+    TestBed.inject(HttpTestingController).expectOne('/api/public/setup').flush({ setupRequired: true });
     expect(service.publicSignupEnabled()).toBe(false);
+    expect(service.setupRequired()).toBe(true);
   });
 });
