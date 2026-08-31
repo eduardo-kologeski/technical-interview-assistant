@@ -1,5 +1,10 @@
 # Technical Interview Assistant
 
+Uma única base de código suporta `DEPLOYMENT_MODE=SAAS` e `DEPLOYMENT_MODE=ON_PREMISE`.
+O modo SaaS preserva o cadastro público e multi-tenancy existentes; o modo On-Premises aplica
+defaults seguros que desabilitam cadastro público, multi-tenancy e billing. Consulte
+`docs/architecture.md` para o contrato de capabilities.
+
 Aplicação para conduzir entrevistas técnicas, registrar avaliações com rapidez e gerar um parecer estruturado e revisável.
 
 ## Arquitetura

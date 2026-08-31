@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, map, Observable, of, switchMap } from 'rxjs';
 import { AuthService, IdentityDelivery } from './auth.service';
 import { CompanyService } from './company.service';
+import { DeploymentConfigService } from './deployment-config.service';
 
 @Component({
   selector: 'app-auth-page', imports: [FormsModule, RouterLink],
@@ -27,7 +28,7 @@ import { CompanyService } from './company.service';
   styles: [`:host{display:block;min-height:100vh;background:linear-gradient(135deg,#0e4057,#19756f)}.auth-page{min-height:100vh;display:grid;grid-template-columns:1.1fr minmax(340px,470px);align-items:center;gap:8vw;max-width:1100px;margin:auto;padding:32px}.auth-brand{color:#fff}.logo{display:grid;place-items:center;width:50px;height:50px;border-radius:14px;background:#fff;color:#165d7a;font-size:25px;font-weight:900}.auth-brand h1{font-size:43px;line-height:1.05;max-width:570px;margin:25px 0 15px}.auth-brand p{font-size:18px;color:#cfe4e4}.auth-card{display:grid;gap:16px;padding:36px;background:#fff;border-radius:18px;box-shadow:0 25px 70px #06293466}.auth-card h2{font-size:28px;margin:-8px 0 7px}.eyebrow{margin:0;color:#278d83;font-size:11px;font-weight:900;letter-spacing:.14em}.auth-card label{display:grid;gap:7px;color:#46555f;font-size:12px;font-weight:750}.auth-card input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #d3dde3;border-radius:8px;font:inherit}.auth-card input:focus{outline:0;border-color:#278d83;box-shadow:0 0 0 3px #278d8320}.auth-card .remember{display:flex;align-items:center;gap:8px}.remember input{width:auto}.auth-card button{padding:13px;border:0;border-radius:8px;background:#165d7a;color:#fff;font-weight:800}.auth-card button:disabled{opacity:.55}.error{margin:0;padding:10px;border-radius:7px;background:#fff0ee;color:#a44035;font-size:12px}.switch{text-align:center;color:#66747d;font-size:13px}.switch a{color:#19756f;font-weight:800}@media(max-width:760px){.auth-page{grid-template-columns:1fr}.auth-brand{display:none}.auth-card{padding:25px}}`]
 })
 export class AuthPageComponent {
-  private readonly auth = inject(AuthService); private readonly router = inject(Router); private readonly route = inject(ActivatedRoute); private readonly companies = inject(CompanyService);
+  private readonly auth = inject(AuthService); private readonly router = inject(Router); private readonly route = inject(ActivatedRoute); private readonly companies = inject(CompanyService); private readonly deployment = inject(DeploymentConfigService);
   readonly registerMode = this.router.url.includes('register'); readonly loading = signal(false); readonly error = signal('');
   readonly companyRegistration = this.route.snapshot.queryParamMap.get('company') === 'true';
   readonly switchQueryParams = {
@@ -38,6 +39,7 @@ export class AuthPageComponent {
   name = ''; email = this.route.snapshot.queryParamMap.get('email') || ''; companyName = ''; password = ''; confirmPassword = ''; rememberMe = false;
   submit() {
     this.error.set('');
+    if (this.registerMode && !this.deployment.publicSignupEnabled()) { this.error.set('Cadastro público indisponível nesta instalação.'); return; }
     if (this.registerMode && this.password !== this.confirmPassword) { this.error.set('As senhas não coincidem.'); return; }
     if (this.registerMode && !this.name.trim()) { this.error.set('Informe seu nome.'); return; }
     if (this.companyRegistration && !this.companyName.trim()) { this.error.set('Informe o nome da empresa.'); return; }
