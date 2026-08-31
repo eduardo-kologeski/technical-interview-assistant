@@ -2,7 +2,9 @@ package com.kologeski.interviewassistant.profile;
 
 import com.fasterxml.jackson.databind.*;
 import com.kologeski.interviewassistant.auth.RefreshTokenRepository;
+import com.kologeski.interviewassistant.auth.IdentityTokenRepository;
 import com.kologeski.interviewassistant.user.UserRepository;
+import com.kologeski.interviewassistant.company.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,14 +22,18 @@ class ProfileIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired IdentityTokenRepository identityTokens;
     @Autowired UserTechnicalSkillRepository skills;
     @Autowired InterviewAvailabilityRepository availability;
     @Autowired Clock clock;
+    @Autowired CompanyRepository companies;
+    @Autowired CompanyMembershipRepository memberships;
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach void clean() {
         availability.deleteAll();
         skills.deleteAll();
+        identityTokens.deleteAll();
         refreshTokens.deleteAll();
         users.deleteAll();
     }
@@ -90,6 +96,10 @@ class ProfileIntegrationTest {
         addSlot(joao, interviewDate, "14:00", "17:00").andExpect(status().isCreated());
         String maria = register("Maria", "maria.search@example.com");
         addSkill(maria, "Java", "INTERMEDIATE").andExpect(status().isCreated());
+        var joaoUser = users.findByEmail("joao.search@example.com").orElseThrow();
+        var mariaUser = users.findByEmail("maria.search@example.com").orElseThrow();
+        var joaoCompany = companies.findAll().stream().filter(item -> joaoUser.getId().equals(item.createdByUserId())).findFirst().orElseThrow();
+        memberships.save(new CompanyMembership(joaoCompany.id(), mariaUser.getId(), CompanyRole.INTERVIEWER, Instant.now()));
 
         MvcResult vacancy = mvc.perform(post("/api/job-positions").header("Authorization", bearer(joao))
                         .contentType(MediaType.APPLICATION_JSON)

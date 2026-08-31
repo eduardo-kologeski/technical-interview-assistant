@@ -32,7 +32,7 @@ public class SecurityConfiguration {
                     var config = new CorsConfiguration();
                     config.setAllowedOrigins(allowedOrigins);
                     config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-                    config.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
+                    config.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "X-Company-Id"));
                     return config;
                 }))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -42,7 +42,8 @@ public class SecurityConfiguration {
                         .accessDeniedHandler((request, response, exception) -> writeProblem(
                                 response, objectMapper, HttpStatus.FORBIDDEN, "Acesso negado.")))
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/api/auth/**", "/actuator/health").permitAll()
+                        .requestMatchers("/api/auth/email-verification/request").authenticated()
+                        .requestMatchers("/api/auth/**", "/api/public/deployment", "/api/public/setup/**", "/api/public/invitations/**", "/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

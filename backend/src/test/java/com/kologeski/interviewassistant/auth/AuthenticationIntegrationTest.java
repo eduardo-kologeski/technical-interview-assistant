@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 class AuthenticationIntegrationTest {
+    @Autowired IdentityTokenRepository identityTokens;
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
@@ -28,6 +29,7 @@ class AuthenticationIntegrationTest {
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach void clean() {
+        identityTokens.deleteAll();
         refreshTokens.deleteAll();
         jdbc.update("DELETE FROM interview_requirement_snapshots");
         jdbc.update("DELETE FROM interviews");

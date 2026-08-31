@@ -19,6 +19,15 @@ server:
   shutdown: graceful
 
 app:
+  deployment:
+    mode: ${DEPLOYMENT_MODE:SAAS}
+    public-signup-enabled: ${PUBLIC_SIGNUP_ENABLED:}
+    multi-tenant-enabled: ${MULTI_TENANT_ENABLED:}
+    billing-enabled: ${BILLING_ENABLED:}
+  identity:
+    expose-development-link: ${IDENTITY_EXPOSE_DEVELOPMENT_LINK:false}
+  invitation:
+    expose-development-link: ${INVITATION_EXPOSE_DEVELOPMENT_LINK:false}
   time-zone: ${APP_TIME_ZONE:America/Sao_Paulo}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}

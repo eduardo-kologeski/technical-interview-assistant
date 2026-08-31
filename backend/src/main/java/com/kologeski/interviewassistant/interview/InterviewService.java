@@ -1,6 +1,7 @@
 package com.kologeski.interviewassistant.interview;
 
 import com.kologeski.interviewassistant.audit.CurrentActor;
+import com.kologeski.interviewassistant.audit.AuditTrailService;
 import com.kologeski.interviewassistant.vacancy.JobVacancyRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,8 @@ import java.util.UUID;
 import com.kologeski.interviewassistant.api.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.kologeski.interviewassistant.company.CompanyContext;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class InterviewService {
@@ -21,38 +24,49 @@ public class InterviewService {
     private final JobVacancyRepository vacancyRepository;
     private final CurrentActor currentActor;
     private final Clock clock;
+    private final CompanyContext companyContext;
+    private final AuditTrailService audit;
 
+    @Autowired
+    public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
+                            CurrentActor currentActor, Clock clock, CompanyContext companyContext, AuditTrailService audit) {
+        this.repository = repository; this.vacancyRepository = vacancyRepository;
+        this.currentActor = currentActor; this.clock = clock; this.companyContext = companyContext; this.audit = audit;
+    }
     public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
                             CurrentActor currentActor, Clock clock) {
-        this.repository = repository;
-        this.vacancyRepository = vacancyRepository;
-        this.currentActor = currentActor;
-        this.clock = clock;
+        this(repository, vacancyRepository, currentActor, clock, null, null);
     }
 
     @Transactional
     public Interview create(UUID vacancyId, String candidateName) {
-        var vacancy = vacancyRepository.findById(vacancyId)
+        UUID companyId = companyId();
+        var vacancy = (companyContext == null ? vacancyRepository.findById(vacancyId)
+                : vacancyRepository.findByIdAndCompanyId(vacancyId, companyId))
                 .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
         var actor = currentActor.required();
-        var interview = new Interview(vacancy.id(), vacancy.title(), vacancy.requirements(),
-                candidateName, actor.id(), Instant.now(clock));
+        var interview = new Interview(companyId, vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
+                candidateName, "", actor.id(), Instant.now(clock));
         var saved = repository.save(interview);
+        record(companyId, actor.id(), "INTERVIEW_CREATED", saved.id());
         log.info("event=interview_created interviewId={} vacancyId={} actorId={}", saved.id(), vacancyId, actor.id());
         return saved;
     }
 
     @Transactional
     public Interview createAndStart(UUID vacancyId, String candidateName, String clientCompany) {
-        var vacancy = vacancyRepository.findById(vacancyId)
+        UUID companyId = companyId();
+        var vacancy = (companyContext == null ? vacancyRepository.findById(vacancyId)
+                : vacancyRepository.findByIdAndCompanyId(vacancyId, companyId))
                 .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
         if (!vacancy.active()) throw new IllegalStateException("inactive job position cannot start an interview");
         var actor = currentActor.required();
         var now = Instant.now(clock);
-        var interview = new Interview(vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
+        var interview = new Interview(companyId, vacancy.id(), vacancy.title(), vacancy.seniority(), vacancy.requirements(),
                 candidateName, clientCompany, actor.id(), now);
         interview.start(actor.id(), now);
         var saved = repository.save(interview);
+        record(companyId, actor.id(), "INTERVIEW_STARTED", saved.id());
         log.info("event=interview_started interviewId={} vacancyId={} actorId={}", saved.id(), vacancyId, actor.id());
         return saved;
     }
@@ -61,7 +75,9 @@ public class InterviewService {
 
     @Transactional(readOnly = true)
     public Page<Interview> list(InterviewStatus status, Pageable pageable) {
-        return status == null ? repository.findAll(pageable) : repository.findByStatus(status, pageable);
+        UUID companyId = companyId();
+        return status == null ? repository.findByCompanyId(companyId, pageable)
+                : repository.findByCompanyIdAndStatus(companyId, status, pageable);
     }
 
     @Transactional public Interview start(UUID id) { return mutate(id, Interview::start); }
@@ -71,8 +87,10 @@ public class InterviewService {
         var actor = currentActor.required();
         interview.complete(actor.id(), Instant.now(clock));
         var saved = repository.save(interview);
-        if (!alreadyCompleted)
+        if (!alreadyCompleted) {
+            record(saved.companyId(), actor.id(), "INTERVIEW_COMPLETED", id);
             log.info("event=interview_completed interviewId={} actorId={}", id, actor.id());
+        }
         return saved;
     }
     @Transactional
@@ -82,8 +100,10 @@ public class InterviewService {
         var actor = currentActor.required();
         interview.finalizeAssessment(actor.id(), Instant.now(clock));
         var saved = repository.save(interview);
-        if (!alreadyFinalized)
+        if (!alreadyFinalized) {
+            record(saved.companyId(), actor.id(), "ASSESSMENT_FINALIZED", id);
             log.info("event=interview_assessment_finalized interviewId={} actorId={}", id, actor.id());
+        }
         return saved;
     }
 
@@ -93,6 +113,7 @@ public class InterviewService {
         var actor = currentActor.required();
         interview.registerPdfGeneration(actor.id(), Instant.now(clock));
         var saved = repository.save(interview);
+        record(saved.companyId(), actor.id(), "PDF_GENERATED", id);
         log.info("event=interview_pdf_generated interviewId={} actorId={}", id, actor.id());
         return saved;
     }
@@ -125,11 +146,23 @@ public class InterviewService {
         var interview = required(id);
         var actor = currentActor.required();
         operation.apply(interview, actor.id(), Instant.now(clock));
-        return repository.save(interview);
+        Interview saved = repository.save(interview);
+        record(saved.companyId(), actor.id(), "INTERVIEW_STARTED", id);
+        return saved;
+    }
+
+    private void record(UUID companyId, String actorId, String eventType, UUID interviewId) {
+        if (audit != null) audit.record(companyId, Long.valueOf(actorId), "DOMAIN", eventType, "INTERVIEW", interviewId);
     }
 
     private Interview required(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Entrevista não encontrada."));
+        return (companyContext == null ? repository.findById(id) : repository.findByIdAndCompanyId(id, companyId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Entrevista não encontrada."));
+    }
+
+    private UUID companyId() {
+        return companyContext == null ? com.kologeski.interviewassistant.vacancy.JobVacancy.LEGACY_COMPANY_ID
+                : companyContext.required().companyId();
     }
 
     @FunctionalInterface

@@ -8,26 +8,44 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import java.time.*;
 import java.util.*;
+import com.kologeski.interviewassistant.company.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class InterviewerSearchService {
     private final ProfileService profiles;
     private final JobVacancyService vacancies;
     private final Clock clock;
+    private final CompanyContext companyContext;
+    private final CompanyMembershipRepository memberships;
+    private final CompanyAuthorizationPolicy authorization;
 
+    @Autowired
+    public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies, Clock clock,
+                                    CompanyContext companyContext, CompanyMembershipRepository memberships,
+                                    CompanyAuthorizationPolicy authorization) {
+        this.profiles = profiles; this.vacancies = vacancies; this.clock = clock;
+        this.companyContext = companyContext; this.memberships = memberships; this.authorization = authorization;
+    }
     public InterviewerSearchService(ProfileService profiles, JobVacancyService vacancies, Clock clock) {
-        this.profiles = profiles;
-        this.vacancies = vacancies;
-        this.clock = clock;
+        this(profiles, vacancies, clock, null, null, null);
     }
 
     @Transactional(readOnly = true)
     public Page<InterviewerResult> search(UUID vacancyId, String technology, LocalDate date, LocalTime time,
                                           Pageable pageable) {
         List<String> requirements = vacancyId == null ? List.of() : vacancies.get(vacancyId).requirements();
+        if (authorization != null) authorization.require(CompanyCapability.SEARCH_INTERVIEWERS);
         String technologyFilter = technology == null ? "" : ProfileService.normalize(technology);
-        Page<ProfileService.ProfileSnapshot> profilesPage = profiles.professionalProfiles(
-                technologyFilter, date, time, pageable);
+        Page<ProfileService.ProfileSnapshot> profilesPage;
+        if (companyContext == null) {
+            profilesPage = profiles.professionalProfiles(technologyFilter, date, time, pageable);
+        } else {
+            UUID companyId = companyContext.required().companyId();
+            List<Long> userIds = memberships.findByCompanyIdAndActiveTrueOrderByCreatedAtAsc(companyId)
+                    .stream().map(CompanyMembership::userId).toList();
+            profilesPage = profiles.professionalProfiles(userIds, technologyFilter, date, time, pageable);
+        }
         List<InterviewerResult> results = profilesPage.getContent().stream()
                 .map(profile -> result(profile, requirements, date))
                 .sorted(Comparator.comparingInt(InterviewerResult::matchedCount).reversed()

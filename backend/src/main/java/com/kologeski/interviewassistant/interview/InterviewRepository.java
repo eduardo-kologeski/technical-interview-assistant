@@ -7,5 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface InterviewRepository extends JpaRepository<Interview, UUID> {
-    Page<Interview> findByStatus(InterviewStatus status, Pageable pageable);
+    java.util.Optional<Interview> findByIdAndCompanyId(UUID id, UUID companyId);
+    Page<Interview> findByCompanyId(UUID companyId, Pageable pageable);
+    Page<Interview> findByCompanyIdAndStatus(UUID companyId, InterviewStatus status, Pageable pageable);
 }

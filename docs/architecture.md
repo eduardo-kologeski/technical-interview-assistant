@@ -1,5 +1,21 @@
 # Arquitetura e plano de entrega
 
+## Uma base de código, dois modos de implantação
+
+O backend Spring Boot e o frontend Angular são os mesmos em SaaS e On-Premises. `DEPLOYMENT_MODE`
+aceita `SAAS` (default compatível com o produto existente) ou `ON_PREMISE`. O endpoint público
+`/api/public/deployment` expõe apenas o modo e capabilities não sensíveis para a UI; autorizações
+relevantes continuam sendo aplicadas no backend.
+
+Em `SAAS`, cadastro público, multi-tenancy e billing têm default habilitado. Em `ON_PREMISE`,
+os três defaults são desabilitados e a aplicação rejeita configurações que tentem habilitá-los. O
+domínio `Company -> Membership -> User` e o isolamento tenant-scoped são preservados nos dois modos.
+
+Uma instalação On-Premises nova expõe `/setup` até concluir o bootstrap transacional. O fluxo
+configura a Company placeholder criada pela migration de compatibilidade, cria exatamente um administrador
+com senha BCrypt e marca o singleton `installation_state` como concluído sob lock pessimista. Instalações
+atualizadas que já possuam usuários são migradas como configuradas e não reabrem o primeiro acesso.
+
 ## 1. Escopo e decisões
 
 O roteiro visual fornecido foi usado como referência para identificar dados úteis no parecer: identificação da entrevista, contexto técnico, competências, prós, contras, feedback e recomendação. O produto não replica seções nem regras específicas desse documento; todos esses conceitos são configuráveis.

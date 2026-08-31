@@ -22,6 +22,7 @@ import java.util.UUID;
 @Table(name = "interviews")
 public class Interview extends AuditableEntity {
     @Id private UUID id;
+    @Column(name = "company_id", nullable = false, updatable = false) private UUID companyId;
     @Column(name = "vacancy_id", nullable = false, updatable = false) private UUID vacancyId;
     @Column(name = "candidate_name", nullable = false) private String candidateName;
     @Column(name = "vacancy_title_snapshot", nullable = false, updatable = false) private String vacancyTitleSnapshot;
@@ -54,7 +55,15 @@ public class Interview extends AuditableEntity {
 
     public Interview(UUID vacancyId, String vacancyTitle, String seniority, List<String> requirementSnapshot,
                      String candidateName, String clientCompany, String actorId, Instant now) {
+        this(com.kologeski.interviewassistant.vacancy.JobVacancy.LEGACY_COMPANY_ID, vacancyId, vacancyTitle,
+                seniority, requirementSnapshot, candidateName, clientCompany, actorId, now);
+    }
+
+    public Interview(UUID companyId, UUID vacancyId, String vacancyTitle, String seniority,
+                     List<String> requirementSnapshot, String candidateName, String clientCompany,
+                     String actorId, Instant now) {
         this.id = UUID.randomUUID();
+        this.companyId = java.util.Objects.requireNonNull(companyId, "companyId");
         this.vacancyId = vacancyId;
         this.vacancyTitleSnapshot = requiredText(vacancyTitle, "vacancyTitle");
         this.senioritySnapshot = requiredText(seniority, "seniority");
@@ -114,6 +123,7 @@ public class Interview extends AuditableEntity {
     }
 
     public UUID id() { return id; }
+    public UUID companyId() { return companyId; }
     public UUID vacancyId() { return vacancyId; }
     public String candidateName() { return candidateName; }
     public String vacancyTitleSnapshot() { return vacancyTitleSnapshot; }

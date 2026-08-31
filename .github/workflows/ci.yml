@@ -22,6 +22,19 @@ jobs:
           java-version: 21
           cache: maven
       - run: ./mvnw -B verify
+      - name: Assert PostgreSQL and Flyway tests executed
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          report = Path('target/surefire-reports/TEST-com.kologeski.interviewassistant.migration.PostgresqlFlywayMigrationTest.xml')
+          if not report.exists():
+              raise SystemExit('PostgreSQL/Flyway test report is missing')
+          suite = ElementTree.parse(report).getroot()
+          if int(suite.attrib.get('skipped', '-1')) != 0 or int(suite.attrib.get('failures', '-1')) != 0 or int(suite.attrib.get('errors', '-1')) != 0:
+              raise SystemExit(f'PostgreSQL/Flyway test did not execute successfully: {suite.attrib}')
+          PY
 
   frontend:
     runs-on: ubuntu-latest
@@ -98,6 +111,22 @@ jobs:
           DATABASE_PASSWORD: ci-only-database-password
           JWT_SECRET: Y2ktb25seS1qd3Qtc2VjcmV0LW1hdGVyaWFsLXdpdGgtYXQtbGVhc3Qtc2l4dHktZm91ci1ieXRlcy0yMDI2LTA4LTI4
         run: docker compose config --quiet
+      - name: Validate On-Premises deployment package
+        env:
+          REGISTRY: ghcr.io/example
+          APP_VERSION: 0.0.0-ci
+          PUBLIC_ORIGIN: https://interviews.example.test
+          DATABASE_URL: jdbc:postgresql://database.example.test:5432/interview_assistant
+          DATABASE_USER: ci_user
+          DATABASE_PASSWORD: ci-only-database-password
+          JWT_SECRET: Y2ktb25seS1qd3Qtc2VjcmV0LW1hdGVyaWFsLXdpdGgtYXQtbGVhc3Qtc2l4dHktZm91ci1ieXRlcy0yMDI2LTA4LTI4
+        run: |
+          docker compose --file deployment/docker-compose.yml config --quiet
+          test "$(docker compose --file deployment/docker-compose.yml config --images | sort -u | wc -l)" -eq 2
+          ! grep -Eq '^[[:space:]]*build:' deployment/docker-compose.yml
+          grep -q '^## Upgrade seguro' deployment/OPERATIONS.md
+          grep -q '^## Rollback' deployment/OPERATIONS.md
+          grep -q '^## Ensaio de restore' deployment/OPERATIONS.md
       - name: Build backend image
         run: >-
           docker build

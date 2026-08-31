@@ -22,7 +22,9 @@ describe('AuthService integrated session', () => {
   });
 
   it('uses only the application backend for login and current user', () => {
+    localStorage.setItem('tia.companyId', '999');
     auth.login('user@example.com', '123456', false).subscribe();
+    expect(localStorage.getItem('tia.companyId')).toBeNull();
     http.expectOne('/api/auth/login').flush({ accessToken: 'access' });
     auth.loadUser().subscribe();
     http.expectOne('/api/users/me').flush({ id: 1, name: 'User', email: 'user@example.com' });

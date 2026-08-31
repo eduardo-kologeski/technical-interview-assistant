@@ -21,6 +21,7 @@ services:
         APP_VERSION: ${APP_VERSION:-dev}
         GIT_SHA: ${GIT_SHA:-local}
     environment:
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-SAAS}
       DATABASE_URL: jdbc:postgresql://postgres:5432/interview_assistant
       DATABASE_USER: interview_app
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Defina DATABASE_PASSWORD no ambiente ou arquivo .env local}

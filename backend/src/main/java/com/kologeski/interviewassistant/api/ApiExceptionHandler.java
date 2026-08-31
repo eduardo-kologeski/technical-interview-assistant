@@ -7,8 +7,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import com.kologeski.interviewassistant.auth.AuthenticationService;
+import com.kologeski.interviewassistant.auth.IdentityToken;
+import com.kologeski.interviewassistant.deployment.InstallationSetupService;
 import com.kologeski.interviewassistant.interview.InterviewService;
 import com.kologeski.interviewassistant.vacancy.JobVacancyService;
+import com.kologeski.interviewassistant.company.CompanyContext;
+import com.kologeski.interviewassistant.company.InvitationService;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import jakarta.validation.ConstraintViolationException;
@@ -26,6 +30,17 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(AuthenticationService.DuplicateEmailException.class)
     ProblemDetail duplicateEmail(AuthenticationService.DuplicateEmailException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(AuthenticationService.PublicSignupDisabledException.class)
+    ProblemDetail publicSignupDisabled(AuthenticationService.PublicSignupDisabledException exception) {
+        return problem(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
+    @ExceptionHandler({InstallationSetupService.SetupUnavailableException.class,
+            InstallationSetupService.UnsafeInstallationStateException.class})
+    ProblemDetail setupUnavailable(RuntimeException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 
@@ -71,6 +86,28 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     ProblemDetail forbidden(AccessDeniedException exception) {
         return problem(HttpStatus.FORBIDDEN, "Acesso negado.");
+    }
+
+    @ExceptionHandler({CompanyContext.CompanyAccessDeniedException.class,
+            InvitationService.InvitationEmailMismatchException.class,
+            InvitationService.EmailVerificationRequiredException.class})
+    ProblemDetail companyForbidden(RuntimeException exception) {
+        return problem(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
+    @ExceptionHandler(CompanyContext.CompanySelectionRequiredException.class)
+    ProblemDetail companyRequired(CompanyContext.CompanySelectionRequiredException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(InvitationService.InvitationUnavailableException.class)
+    ProblemDetail invitationNotFound(InvitationService.InvitationUnavailableException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(IdentityToken.IdentityTokenUnavailableException.class)
+    ProblemDetail identityTokenNotFound(IdentityToken.IdentityTokenUnavailableException exception) {
+        return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

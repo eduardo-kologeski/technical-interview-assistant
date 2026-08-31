@@ -11,6 +11,10 @@ spring:
     enabled: false
 
 app:
+  identity:
+    expose-development-link: true
+  invitation:
+    expose-development-link: true
   cors:
     allowed-origins: http://localhost:4200
   jwt:
