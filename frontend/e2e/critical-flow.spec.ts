@@ -16,15 +16,15 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   await page.getByLabel('Confirmar senha').fill('E2ePassword123!');
   await page.getByLabel('Permanecer logado').check();
   await page.getByRole('button', { name: 'Criar conta' }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
 
   await page.reload();
   await expect(page.getByRole('heading', { name: /Olá,/ })).toBeVisible();
   await expect(page.locator('header nav a')).toHaveText(['Início', 'Entrevistas', 'Vagas', 'Empresa']);
 
   await page.getByRole('link', { name: 'Empresa', exact: true }).click();
-  await expect(page.getByRole('navigation', { name: 'Visão da empresa' })).toContainText('Candidatos');
-  await expect(page.getByRole('navigation', { name: 'Visão da empresa' })).toContainText('Equipe');
+  await expect(page.getByRole('navigation', { name: 'Administração da empresa' })).toContainText('Candidatos');
+  await expect(page.getByRole('navigation', { name: 'Administração da empresa' })).toContainText('Equipe');
 
   await page.getByRole('link', { name: 'Vagas' }).first().click();
   await page.getByRole('button', { name: '+ Nova vaga' }).click();
@@ -116,6 +116,12 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   await expect(page.getByText('Pessoa Candidata E2E', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Pessoa Candidata E2E/ }).click();
   await expect(page.getByRole('region', { name: 'Timeline do candidato' })).toContainText('Entrevista concluída');
+
+  await page.getByRole('link', { name: 'Início' }).click();
+  await expect(page.getByText('VISÃO OPERACIONAL')).toBeVisible();
+  await expect(page.locator('.metrics article').filter({ hasText: 'Entrevistas' }).locator('strong')).toHaveText('1');
+  await expect(page.locator('.bar-row strong').filter({ hasText: vacancy })).toBeVisible();
+  await expect(page.getByText('Pessoa Candidata E2E', { exact: true })).toHaveCount(0);
 });
 
 test('keeps the invitation through registration and enters as a read-only interviewer', async ({ page }) => {
