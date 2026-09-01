@@ -63,6 +63,37 @@ public class CompanyService {
                     return new CompanyMemberSummary(user.getId(), user.getName(), user.getEmail(), membership.role());
                 }).toList();
     }
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<CompanyMemberSummary> members(org.springframework.data.domain.Pageable pageable) {
+        var active = authorization.require(CompanyCapability.VIEW_MEMBERS);
+        return memberships.findActiveMemberViews(active.companyId(), pageable)
+                .map(member -> new CompanyMemberSummary(member.getId(), member.getName(),
+                        member.getEmail(), member.getRole()));
+    }
+
+    @Transactional
+    public CompanySummary rename(String name) {
+        var active = authorization.require(CompanyCapability.MANAGE_MEMBERS);
+        Company company = companies.findById(active.companyId()).orElseThrow();
+        company.rename(name, Instant.now(clock)); companies.save(company);
+        audit.record(active.companyId(), active.userId(), "ADMIN", "COMPANY_UPDATED", "COMPANY", company.id());
+        return new CompanySummary(company.id(), company.name(), company.slug(), active.role());
+    }
+
+    @Transactional
+    public CompanyMemberSummary changeRole(Long userId, CompanyRole role) {
+        var active = authorization.require(CompanyCapability.MANAGE_MEMBERS);
+        List<CompanyMembership> locked = memberships.lockActiveByCompanyId(active.companyId());
+        CompanyMembership target = locked.stream().filter(item -> item.userId().equals(userId)).findFirst()
+                .orElseThrow(() -> new com.kologeski.interviewassistant.api.ResourceNotFoundException("Membro não encontrado."));
+        long administrators = locked.stream().filter(item -> item.role() == CompanyRole.COMPANY_ADMIN).count();
+        if (target.role() == CompanyRole.COMPANY_ADMIN && role != CompanyRole.COMPANY_ADMIN && administrators == 1)
+            throw new LastCompanyAdministratorException();
+        target.changeRole(role, Instant.now(clock)); memberships.save(target);
+        audit.record(active.companyId(), active.userId(), "SECURITY", "MEMBERSHIP_ROLE_CHANGED", "USER", userId);
+        User user = users.findById(userId).orElseThrow();
+        return new CompanyMemberSummary(user.getId(), user.getName(), user.getEmail(), target.role());
+    }
 
     @Transactional
     public void revokeMember(CompanyContext context, Long userId) {

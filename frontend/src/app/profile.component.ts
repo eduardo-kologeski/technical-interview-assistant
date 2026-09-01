@@ -163,7 +163,7 @@ import {
               } @else {
                 <p class="selection-summary">
                   @if (selectionStart()) { Selecione o horário final. }
-                  @else { <b>{{ pendingIntervals().length }}</b> de 2 intervalos pendentes · dois cliques por intervalo }
+                  @else { <b>{{ pendingIntervals().length }}</b> {{ pendingIntervals().length === 1 ? 'intervalo pendente' : 'intervalos pendentes' }} · dois cliques por intervalo }
                 </p>
                 @for (interval of pendingIntervals(); track interval.startTime + interval.endTime; let index = $index) {
                   <div class="pending-interval"><span>Pendente {{ index + 1 }}: {{ interval.startTime }}–{{ interval.endTime }}</span><button type="button" (click)="removePendingInterval(index)">Desfazer</button></div>
@@ -913,10 +913,6 @@ export class ProfileComponent {
     this.selectedDay.set(date);
     const start = this.selectionStart();
     if (!start) {
-      if (this.pendingIntervals().length >= 2) {
-        this.error.set('Salve ou remova um intervalo antes de criar outro.');
-        return;
-      }
       this.editingDate = date;
       this.selectionStart.set({ date, time });
       this.startTime = time;

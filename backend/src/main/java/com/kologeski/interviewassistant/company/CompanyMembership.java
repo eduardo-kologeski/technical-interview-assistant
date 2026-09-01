@@ -36,4 +36,5 @@ public class CompanyMembership {
         active = false;
         updatedAt = now;
     }
+    public void changeRole(CompanyRole value, Instant now) { role = java.util.Objects.requireNonNull(value); updatedAt = now; }
 }

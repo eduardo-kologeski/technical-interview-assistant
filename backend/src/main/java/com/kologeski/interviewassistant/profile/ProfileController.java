@@ -66,7 +66,7 @@ public class ProfileController {
     @PostMapping("/availability/batch") @ResponseStatus(HttpStatus.CREATED)
     List<ProfileService.AvailabilitySnapshot> addAvailabilityBatch(
             @AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody @Size(min = 1, max = 2) List<@Valid AvailabilityCommand> commands) {
+            @RequestBody @Size(min = 1, max = 20) List<@Valid AvailabilityCommand> commands) {
         return service.addAvailabilityBatch(principal.user(), commands.stream()
                 .map(command -> new ProfileService.AvailabilityPeriod(
                         command.date(), command.startTime(), command.endTime()))

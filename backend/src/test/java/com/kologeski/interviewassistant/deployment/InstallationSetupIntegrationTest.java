@@ -18,14 +18,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-        "app.deployment.mode=ON_PREMISE",
-        "spring.datasource.url=jdbc:h2:mem:onprem_setup;MODE=PostgreSQL;DB_CLOSE_DELAY=-1"
+        "app.deployment.mode=ON_PREMISE"
 })
 @AutoConfigureMockMvc
 @Sql(statements = {
+        "TRUNCATE TABLE users CASCADE",
         "INSERT INTO companies(id,name,slug,created_at,updated_at) VALUES " +
-                "('00000000-0000-0000-0000-000000000001','Ambiente legado','ambiente-legado',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
-        "INSERT INTO installation_state(id,setup_completed) VALUES (1,FALSE)"
+                "('00000000-0000-0000-0000-000000000001','Ambiente legado','ambiente-legado',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) " +
+                "ON CONFLICT (id) DO UPDATE SET name='Ambiente legado', slug='ambiente-legado', updated_at=CURRENT_TIMESTAMP",
+        "UPDATE installation_state SET setup_completed=FALSE, completed_at=NULL WHERE id=1"
 })
 class InstallationSetupIntegrationTest {
     private static final String REQUEST = """

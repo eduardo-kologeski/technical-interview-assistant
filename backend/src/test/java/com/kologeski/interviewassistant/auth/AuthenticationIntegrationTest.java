@@ -29,15 +29,7 @@ class AuthenticationIntegrationTest {
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach void clean() {
-        identityTokens.deleteAll();
-        refreshTokens.deleteAll();
-        jdbc.update("DELETE FROM interview_requirement_snapshots");
-        jdbc.update("DELETE FROM interviews");
-        jdbc.update("DELETE FROM job_vacancy_requirements");
-        jdbc.update("DELETE FROM job_vacancies");
-        jdbc.update("DELETE FROM interview_availability");
-        jdbc.update("DELETE FROM user_technical_skills");
-        users.deleteAll();
+        com.kologeski.interviewassistant.PostgresqlTestDatabase.reset(jdbc);
     }
 
     @Test void registerLoginAndCurrentUserAreInternal() throws Exception {
