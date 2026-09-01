@@ -2,6 +2,7 @@ package com.kologeski.interviewassistant.company;
 
 import com.kologeski.interviewassistant.audit.CurrentActor;
 import com.kologeski.interviewassistant.audit.AuditTrailService;
+import com.kologeski.interviewassistant.billing.EntitlementService;
 import com.kologeski.interviewassistant.user.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,20 +26,24 @@ public class InvitationService {
     private final InvitationDelivery delivery;
     private final CompanyAuthorizationPolicy authorization;
     private final AuditTrailService audit;
+    private final EntitlementService entitlements;
     private final SecureRandom random = new SecureRandom();
 
     public InvitationService(CompanyInvitationRepository invitations, CompanyMembershipRepository memberships,
                              UserRepository users, CompanyContext context, CurrentActor actor, Clock clock,
                              CompanyRepository companies, InvitationDelivery delivery,
-                             CompanyAuthorizationPolicy authorization, AuditTrailService audit) {
+                             CompanyAuthorizationPolicy authorization, AuditTrailService audit,
+                             EntitlementService entitlements) {
         this.invitations = invitations; this.memberships = memberships; this.users = users;
         this.context = context; this.actor = actor; this.clock = clock;
         this.companies = companies; this.delivery = delivery; this.authorization = authorization; this.audit = audit;
+        this.entitlements = entitlements;
     }
 
     @Transactional
     public CreatedInvitation invite(String email, CompanyRole role) {
         CompanyContext.ActiveCompany active = authorization.require(CompanyCapability.MANAGE_INVITATIONS);
+        entitlements.requireMemberInvitation(active.companyId());
         String normalizedEmail = normalize(email);
         Instant now = Instant.now(clock);
         invitations.lockPendingByCompanyAndEmail(active.companyId(), normalizedEmail)
@@ -81,6 +86,8 @@ public class InvitationService {
         CompanyInvitation previous = invitations.lockByIdAndCompanyId(id, active.companyId())
                 .orElseThrow(InvitationUnavailableException::new);
         Instant now = Instant.now(clock);
+        long replacements = previous.status() == InvitationStatus.PENDING && previous.expiresAt().isAfter(now) ? 1 : 0;
+        entitlements.requireMemberInvitation(active.companyId(), replacements);
         if (previous.status() == InvitationStatus.PENDING) previous.revoke(now);
         else if (previous.status() != InvitationStatus.EXPIRED) throw new InvitationUnavailableException();
         invitations.save(previous);
@@ -105,6 +112,8 @@ public class InvitationService {
                 .orElseThrow(InvitationUnavailableException::new);
         if (!normalize(user.getEmail()).equals(invitation.email())) throw new InvitationEmailMismatchException();
         Instant now = Instant.now(clock);
+        if (!memberships.existsByCompanyIdAndUserIdAndActiveTrue(invitation.companyId(), userId))
+            entitlements.requireMembershipSeat(invitation.companyId());
         invitation.accept(now);
         if (!memberships.existsByCompanyIdAndUserIdAndActiveTrue(invitation.companyId(), userId))
             memberships.save(new CompanyMembership(invitation.companyId(), userId, invitation.role(), now));
