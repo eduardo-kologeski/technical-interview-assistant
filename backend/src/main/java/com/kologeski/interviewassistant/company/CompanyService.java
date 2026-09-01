@@ -2,6 +2,7 @@ package com.kologeski.interviewassistant.company;
 
 import com.kologeski.interviewassistant.audit.CurrentActor;
 import com.kologeski.interviewassistant.audit.AuditTrailService;
+import com.kologeski.interviewassistant.billing.EntitlementService;
 import com.kologeski.interviewassistant.user.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,12 +22,15 @@ public class CompanyService {
     private final Clock clock;
     private final CompanyAuthorizationPolicy authorization;
     private final AuditTrailService audit;
+    private final EntitlementService entitlements;
 
     public CompanyService(CompanyRepository companies, CompanyMembershipRepository memberships,
                           UserRepository users, CurrentActor actor, Clock clock,
-                          CompanyAuthorizationPolicy authorization, AuditTrailService audit) {
+                          CompanyAuthorizationPolicy authorization, AuditTrailService audit,
+                          EntitlementService entitlements) {
         this.companies = companies; this.memberships = memberships; this.users = users;
         this.actor = actor; this.clock = clock; this.authorization = authorization; this.audit = audit;
+        this.entitlements = entitlements;
     }
 
     @Transactional
@@ -40,6 +44,7 @@ public class CompanyService {
         Instant now = Instant.now(clock);
         Company company = companies.save(new Company(name, candidate, userId, now));
         memberships.save(new CompanyMembership(company.id(), userId, CompanyRole.COMPANY_ADMIN, now));
+        entitlements.provisionDefault(company.id());
         audit.record(company.id(), userId, "ADMIN", "COMPANY_CREATED", "COMPANY", company.id());
         return company;
     }

@@ -25,6 +25,10 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   await page.getByRole('link', { name: 'Empresa', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Administração da empresa' })).toContainText('Candidatos');
   await expect(page.getByRole('navigation', { name: 'Administração da empresa' })).toContainText('Equipe');
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Plano Starter' })).toBeVisible();
+  await expect(page.getByText('Sem cobrança nesta fase.')).toBeVisible();
+  await expect(page.getByText('Vagas ativas').last()).toBeVisible();
 
   await page.getByRole('link', { name: 'Vagas' }).first().click();
   await page.getByRole('button', { name: '+ Nova vaga' }).click();

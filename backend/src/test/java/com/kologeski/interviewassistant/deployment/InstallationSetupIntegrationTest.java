@@ -3,6 +3,7 @@ package com.kologeski.interviewassistant.deployment;
 import com.kologeski.interviewassistant.company.CompanyMembershipRepository;
 import com.kologeski.interviewassistant.company.CompanyRepository;
 import com.kologeski.interviewassistant.user.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +37,7 @@ class InstallationSetupIntegrationTest {
     @Autowired UserRepository users;
     @Autowired CompanyRepository companies;
     @Autowired CompanyMembershipRepository memberships;
+    private final ObjectMapper json = new ObjectMapper();
 
     @Test
     void serializesFirstAdminCreationAndAllowsLogin() throws Exception {
@@ -62,9 +64,18 @@ class InstallationSetupIntegrationTest {
 
         mvc.perform(get("/api/public/setup"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.setupRequired").value(false));
-        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
+        var login = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
                 {"email":"admin@acme.test","password":"strong-password","rememberMe":false}
                 """))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.accessToken").isNotEmpty());
+                .andExpect(status().isOk()).andExpect(jsonPath("$.accessToken").isNotEmpty()).andReturn();
+        String token = json.readTree(login.getResponse().getContentAsString()).get("accessToken").asText();
+        mvc.perform(post("/api/job-positions").header("Authorization", "Bearer " + token)
+                        .header("X-Company-Id", InstallationSetupService.LEGACY_COMPANY_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Vaga On-Premises\",\"seniority\":\"Pleno\",\"requirements\":[\"Java\"]}"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/subscription").header("Authorization", "Bearer " + token)
+                        .header("X-Company-Id", InstallationSetupService.LEGACY_COMPANY_ID))
+                .andExpect(status().isNoContent());
     }
 }

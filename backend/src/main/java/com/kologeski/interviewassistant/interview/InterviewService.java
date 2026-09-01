@@ -18,6 +18,7 @@ import com.kologeski.interviewassistant.company.CompanyContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.kologeski.interviewassistant.interviewkit.InterviewKitService;
 import com.kologeski.interviewassistant.candidate.CandidateService;
+import com.kologeski.interviewassistant.billing.EntitlementService;
 
 @Service
 public class InterviewService {
@@ -30,21 +31,25 @@ public class InterviewService {
     private final AuditTrailService audit;
     private final InterviewKitService kits;
     private final CandidateService candidates;
+    private final EntitlementService entitlements;
 
     @Autowired
     public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
-                            CurrentActor currentActor, Clock clock, CompanyContext companyContext, AuditTrailService audit, InterviewKitService kits, CandidateService candidates) {
+                            CurrentActor currentActor, Clock clock, CompanyContext companyContext, AuditTrailService audit,
+                            InterviewKitService kits, CandidateService candidates, EntitlementService entitlements) {
         this.repository = repository; this.vacancyRepository = vacancyRepository;
-        this.currentActor = currentActor; this.clock = clock; this.companyContext = companyContext; this.audit = audit; this.kits = kits; this.candidates = candidates;
+        this.currentActor = currentActor; this.clock = clock; this.companyContext = companyContext; this.audit = audit;
+        this.kits = kits; this.candidates = candidates; this.entitlements = entitlements;
     }
     public InterviewService(InterviewRepository repository, JobVacancyRepository vacancyRepository,
                             CurrentActor currentActor, Clock clock) {
-        this(repository, vacancyRepository, currentActor, clock, null, null, null, null);
+        this(repository, vacancyRepository, currentActor, clock, null, null, null, null, null);
     }
 
     @Transactional
     public Interview create(UUID vacancyId, String candidateName) {
         UUID companyId = companyId();
+        if (entitlements != null) entitlements.consumeInterview(companyId);
         var vacancy = (companyContext == null ? vacancyRepository.findById(vacancyId)
                 : vacancyRepository.findByIdAndCompanyId(vacancyId, companyId))
                 .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
@@ -62,6 +67,7 @@ public class InterviewService {
     @Transactional
     public Interview createAndStart(UUID vacancyId, String candidateName, String clientCompany) {
         UUID companyId = companyId();
+        if (entitlements != null) entitlements.consumeInterview(companyId);
         var vacancy = (companyContext == null ? vacancyRepository.findById(vacancyId)
                 : vacancyRepository.findByIdAndCompanyId(vacancyId, companyId))
                 .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada."));
