@@ -15,7 +15,14 @@ import static org.mockito.Mockito.*;
 
 class InterviewKitServiceTest {
     @Test void publishingANewVersionDoesNotChangeTheHistoricalSnapshot() {
-        var dataSource = new DriverManagerDataSource("jdbc:h2:mem:kits;MODE=PostgreSQL;DB_CLOSE_DELAY=-1", "sa", "");
+        String baseUrl = System.getenv().getOrDefault("TEST_DATABASE_URL", "jdbc:postgresql://localhost:5432/interview_assistant_test");
+        String username = System.getenv().getOrDefault("TEST_DATABASE_USER", "postgres");
+        String password = System.getenv().getOrDefault("TEST_DATABASE_PASSWORD", "postgres");
+        String schema = "kit_" + UUID.randomUUID().toString().replace("-", "");
+        var admin = new JdbcTemplate(new DriverManagerDataSource(baseUrl, username, password));
+        admin.execute("create schema " + schema);
+        String separator = baseUrl.contains("?") ? "&" : "?";
+        var dataSource = new DriverManagerDataSource(baseUrl + separator + "currentSchema=" + schema, username, password);
         var sql = new JdbcTemplate(dataSource);
         sql.execute("create table interview_kits(id uuid primary key,company_id uuid,vacancy_id uuid,name varchar(160),created_at timestamp with time zone,created_by varchar(255))");
         sql.execute("create table interview_kit_versions(id uuid primary key,kit_id uuid,version_number int,status varchar(24),published_at timestamp with time zone,created_at timestamp with time zone,created_by varchar(255))");
@@ -42,5 +49,6 @@ class InterviewKitServiceTest {
         assertThat(historical).isNotEqualTo(current);
         assertThat(interview.kitSnapshot()).isEqualTo(historical).doesNotContain("Explique concorrência");
         verify(audit).record(company, 42L, "DOMAIN", "KIT_PUBLISHED", "INTERVIEW_KIT_VERSION", draft.id());
+        admin.execute("drop schema " + schema + " cascade");
     }
 }

@@ -43,4 +43,5 @@ public class Company {
         this.createdByUserId = creatorId;
         this.updatedAt = now;
     }
+    public void rename(String value, Instant now) { this.name = required(value, "name"); this.updatedAt = now; }
 }

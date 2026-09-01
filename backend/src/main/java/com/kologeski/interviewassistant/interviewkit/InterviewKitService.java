@@ -54,7 +54,7 @@ public class InterviewKitService {
             int next = current.versions().stream().mapToInt(VersionView::version).max().orElse(0) + 1;
             jdbc.sql("insert into interview_kit_versions(id,kit_id,version_number,status,created_at,created_by) values(:id,:kit,:version,'DRAFT',:now,:actor)")
                     .param("id", versionId).param("kit", current.id()).param("version", next)
-                    .param("now", Instant.now(clock)).param("actor", actor.required().id()).update();
+                    .param("now", java.sql.Timestamp.from(Instant.now(clock))).param("actor", actor.required().id()).update();
         } else jdbc.sql("delete from interview_kit_items where version_id=:id").param("id", versionId).update();
         jdbc.sql("update interview_kits set name=:name where id=:id and company_id=:company")
                 .param("name", required(name, "nome")).param("id", current.id()).param("company", active.companyId()).update();
@@ -79,7 +79,7 @@ public class InterviewKitService {
         jdbc.sql("update interview_kit_versions set status='ARCHIVED' where kit_id=:kit and status='PUBLISHED'")
                 .param("kit", kit.id()).update();
         jdbc.sql("update interview_kit_versions set status='PUBLISHED', published_at=:now where id=:id")
-                .param("now", Instant.now(clock)).param("id", versionId).update();
+                .param("now", java.sql.Timestamp.from(Instant.now(clock))).param("id", versionId).update();
         audit.record(active.companyId(), active.userId(), "DOMAIN", "KIT_PUBLISHED", "INTERVIEW_KIT_VERSION", versionId);
         return version(versionId);
     }
@@ -90,9 +90,9 @@ public class InterviewKitService {
         Instant now = Instant.now(clock);
         jdbc.sql("insert into interview_kits(id,company_id,vacancy_id,name,created_at,created_by) values(:id,:company,:vacancy,:name,:now,:actor)")
                 .param("id", kitId).param("company", companyId).param("vacancy", vacancyId)
-                .param("name", name + " — Kit legado").param("now", now).param("actor", actorId).update();
+                .param("name", name + " — Kit legado").param("now", java.sql.Timestamp.from(now)).param("actor", actorId).update();
         jdbc.sql("insert into interview_kit_versions(id,kit_id,version_number,status,published_at,created_at,created_by) values(:id,:kit,1,'PUBLISHED',:now,:now,:actor)")
-                .param("id", kitId).param("kit", kitId).param("now", now).param("actor", actorId).update();
+                .param("id", kitId).param("kit", kitId).param("now", java.sql.Timestamp.from(now)).param("actor", actorId).update();
         int position = 0;
         for (String requirement : requirements) jdbc.sql("insert into interview_kit_items(version_id,position,criterion,question,weight,rubric) values(:version,:position,:criterion,:question,3,:rubric)")
                 .param("version", kitId).param("position", ++position).param("criterion", requirement)

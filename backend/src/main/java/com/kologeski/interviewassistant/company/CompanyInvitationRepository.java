@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 public interface CompanyInvitationRepository extends JpaRepository<CompanyInvitation, UUID> {
     Optional<CompanyInvitation> findByTokenHash(String tokenHash);
     List<CompanyInvitation> findByCompanyIdOrderByCreatedAtDesc(UUID companyId);
+    org.springframework.data.domain.Page<CompanyInvitation> findByCompanyId(UUID companyId, org.springframework.data.domain.Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select invitation from CompanyInvitation invitation where invitation.tokenHash = :tokenHash")

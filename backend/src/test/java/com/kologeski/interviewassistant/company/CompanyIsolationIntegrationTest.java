@@ -29,22 +29,7 @@ class CompanyIsolationIntegrationTest {
 
     @BeforeEach
     void clean() {
-        jdbc.update("DELETE FROM audit_events");
-        jdbc.update("DELETE FROM candidate_timeline_events");
-        jdbc.update("DELETE FROM candidate_vacancies");
-        jdbc.update("DELETE FROM identity_tokens");
-        jdbc.update("DELETE FROM refresh_tokens");
-        jdbc.update("DELETE FROM interview_requirement_snapshots");
-        jdbc.update("DELETE FROM interviews");
-        jdbc.update("DELETE FROM candidates");
-        jdbc.update("DELETE FROM job_vacancy_requirements");
-        jdbc.update("DELETE FROM job_vacancies");
-        jdbc.update("DELETE FROM company_invitations");
-        jdbc.update("DELETE FROM company_memberships");
-        jdbc.update("DELETE FROM interview_availability");
-        jdbc.update("DELETE FROM user_technical_skills");
-        jdbc.update("DELETE FROM users");
-        jdbc.update("DELETE FROM companies WHERE id <> ?", LEGACY_COMPANY_ID);
+        com.kologeski.interviewassistant.PostgresqlTestDatabase.reset(jdbc);
     }
 
     @Test
@@ -149,6 +134,24 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[?(@.email == 'entrevistador@empresa-a.com')].role").value("INTERVIEWER"));
 
+        mvc.perform(get("/api/companies/members/page").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).param("page", "0").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2));
+
+        mvc.perform(patch("/api/companies/current").header("Authorization", bearer(interviewer))
+                        .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Alteração indevida\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(patch("/api/companies/current").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Empresa A Renovada\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Empresa A Renovada"));
+
         mvc.perform(get("/api/interviewers").header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyA))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(2));
@@ -157,6 +160,19 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
 
         Long interviewerId = jdbc.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, "entrevistador@empresa-a.com");
+        Long adminAId = jdbc.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, "admin-a@empresa-a.com");
+        mvc.perform(patch("/api/companies/members/{userId}/role", adminAId)
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"INTERVIEWER\"}"))
+                .andExpect(status().isConflict());
+        mvc.perform(patch("/api/companies/members/{userId}/role", interviewerId)
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"COMPANY_ADMIN\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("COMPANY_ADMIN"));
+        mvc.perform(patch("/api/companies/members/{userId}/role", interviewerId)
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"INTERVIEWER\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("INTERVIEWER"));
         MvcResult createdInterview = mvc.perform(post("/api/interviews").header("Authorization", bearer(adminA))
                         .header("X-Company-Id", companyA).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"jobPositionId\":\"%s\",\"candidateName\":\"Candidato compartilhado\",\"participantUserIds\":[%d]}".formatted(vacancyA, interviewerId)))
@@ -273,6 +289,12 @@ class CompanyIsolationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.email == 'resend@empresa-a.com')].status")
                         .value(containsInAnyOrder("PENDING", "REVOKED")));
+        mvc.perform(get("/api/companies/invitations/page").header("Authorization", bearer(adminA))
+                        .header("X-Company-Id", companyA).param("page", "0").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.totalElements").value(4));
 
         mvc.perform(delete("/api/companies/members/{userId}", interviewerId)
                         .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))
@@ -290,7 +312,6 @@ class CompanyIsolationIntegrationTest {
                         .header("X-Company-Id", companyA).param("page", "0").param("size", "10"))
                 .andExpect(status().isForbidden());
 
-        Long adminAId = jdbc.queryForObject("SELECT id FROM users WHERE email = ?", Long.class, "admin-a@empresa-a.com");
         mvc.perform(delete("/api/companies/members/{userId}", adminAId)
                         .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
                 .andExpect(status().isConflict());

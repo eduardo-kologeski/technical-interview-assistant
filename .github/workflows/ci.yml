@@ -11,6 +11,21 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: interview_assistant_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd="pg_isready -U postgres -d interview_assistant_test"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      TEST_DATABASE_URL: jdbc:postgresql://127.0.0.1:5432/interview_assistant_test
+      TEST_DATABASE_USER: postgres
+      TEST_DATABASE_PASSWORD: postgres
     defaults:
       run:
         working-directory: backend
@@ -55,6 +70,21 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: interview_assistant_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd="pg_isready -U postgres -d interview_assistant_e2e"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      E2E_DATABASE_URL: jdbc:postgresql://127.0.0.1:5432/interview_assistant_e2e
+      E2E_DATABASE_USER: postgres
+      E2E_DATABASE_PASSWORD: postgres
     defaults:
       run:
         working-directory: frontend

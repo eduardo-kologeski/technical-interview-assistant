@@ -56,6 +56,12 @@ public class InvitationService {
                                 ? InvitationStatus.EXPIRED : item.status(), item.expiresAt(), item.createdAt()))
                 .toList();
     }
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<InvitationSummary> list(org.springframework.data.domain.Pageable pageable) {
+        var active = authorization.require(CompanyCapability.MANAGE_INVITATIONS); Instant now = Instant.now(clock);
+        return invitations.findByCompanyId(active.companyId(), pageable).map(item -> new InvitationSummary(item.id(), item.email(), item.role(),
+                item.status() == InvitationStatus.PENDING && !item.expiresAt().isAfter(now) ? InvitationStatus.EXPIRED : item.status(), item.expiresAt(), item.createdAt()));
+    }
 
     @Transactional
     public void revoke(UUID id) {

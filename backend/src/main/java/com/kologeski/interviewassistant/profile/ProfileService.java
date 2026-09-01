@@ -76,8 +76,8 @@ public class ProfileService {
 
     @Transactional
     public List<AvailabilitySnapshot> addAvailabilityBatch(User user, List<AvailabilityPeriod> periods) {
-        if (periods == null || periods.isEmpty() || periods.size() > 2)
-            throw new IllegalStateException("Informe um ou dois intervalos de disponibilidade.");
+        if (periods == null || periods.isEmpty() || periods.size() > 20)
+            throw new IllegalStateException("Informe de um a vinte intervalos de disponibilidade.");
         for (int index = 0; index < periods.size(); index++) {
             AvailabilityPeriod current = periods.get(index);
             validatePeriod(user, null, current.date(), current.start(), current.end());
