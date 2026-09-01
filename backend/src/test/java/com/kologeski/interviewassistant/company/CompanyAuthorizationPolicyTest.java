@@ -25,6 +25,7 @@ class CompanyAuthorizationPolicyTest {
         assertThat(policy.allows(CompanyRole.INTERVIEWER, CompanyCapability.MANAGE_VACANCIES)).isFalse();
         assertThat(policy.allows(CompanyRole.INTERVIEWER, CompanyCapability.MANAGE_INTERVIEWS)).isFalse();
         assertThat(policy.allows(CompanyRole.INTERVIEWER, CompanyCapability.VIEW_AUDIT_LOG)).isFalse();
+        assertThat(policy.allows(CompanyRole.INTERVIEWER, CompanyCapability.MANAGE_ENTERPRISE_IDENTITY)).isFalse();
     }
 
     @Test

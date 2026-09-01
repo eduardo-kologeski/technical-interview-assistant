@@ -29,6 +29,9 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   await expect(page.getByRole('heading', { name: 'Plano Starter' })).toBeVisible();
   await expect(page.getByText('Sem cobrança nesta fase.')).toBeVisible();
   await expect(page.getByText('Vagas ativas').last()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'SSO e provisionamento' })).toBeVisible();
+  await expect(page.getByText('Aguardando decisões')).toBeVisible();
+  await expect(page.getByText('O provedor de identidade ainda precisa ser aprovado.')).toBeVisible();
 
   await page.getByRole('link', { name: 'Vagas' }).first().click();
   await page.getByRole('button', { name: '+ Nova vaga' }).click();
