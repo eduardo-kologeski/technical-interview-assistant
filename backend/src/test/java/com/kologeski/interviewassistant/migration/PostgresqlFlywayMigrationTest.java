@@ -34,7 +34,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(18);
+        assertThat(migration.migrationsExecuted).isEqualTo(20);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -63,6 +63,10 @@ class PostgresqlFlywayMigrationTest {
             assertThat(tableExists(metadata, "identity_tokens")).isTrue();
             assertThat(tableExists(metadata, "audit_events")).isTrue();
             assertThat(tableExists(metadata, "installation_state")).isTrue();
+            assertThat(tableExists(metadata, "saas_plans")).isTrue();
+            assertThat(tableExists(metadata, "saas_entitlements")).isTrue();
+            assertThat(tableExists(metadata, "saas_subscriptions")).isTrue();
+            assertThat(tableExists(metadata, "saas_usage")).isTrue();
             assertThat(columnExists(metadata, "users", "email_verified_at")).isTrue();
             assertThat(columnExists(metadata, "users", "session_version")).isTrue();
             assertThat(columnExists(metadata, "job_vacancies", "company_id")).isTrue();
@@ -102,7 +106,7 @@ class PostgresqlFlywayMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(7);
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(9);
         assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -134,6 +138,12 @@ class PostgresqlFlywayMigrationTest {
                     .isEqualTo("1");
             assertThat(singleValue(statement,
                     "SELECT COUNT(*)::text FROM candidate_timeline_events WHERE interview_id = '" + interviewId + "'"))
+                    .isEqualTo("1");
+            assertThat(singleValue(statement,
+                    "SELECT plan_code FROM saas_subscriptions WHERE company_id = '00000000-0000-0000-0000-000000000001'"))
+                    .isEqualTo("STARTER");
+            assertThat(singleValue(statement,
+                    "SELECT quantity::text FROM saas_usage WHERE company_id = '00000000-0000-0000-0000-000000000001' AND metric = 'MONTHLY_INTERVIEWS'"))
                     .isEqualTo("1");
         }
     }
