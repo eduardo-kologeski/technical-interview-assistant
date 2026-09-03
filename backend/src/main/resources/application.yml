@@ -26,6 +26,11 @@ app:
     billing-enabled: ${BILLING_ENABLED:}
   identity:
     expose-development-link: ${IDENTITY_EXPOSE_DEVELOPMENT_LINK:false}
+  enterprise-identity:
+    enabled: false
+    provider-approved: false
+    recovery-policy-approved: false
+    verified-domains: []
   invitation:
     expose-development-link: ${INVITATION_EXPOSE_DEVELOPMENT_LINK:false}
   time-zone: ${APP_TIME_ZONE:America/Sao_Paulo}
