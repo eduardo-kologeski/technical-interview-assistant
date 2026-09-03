@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, finalize, map, of, shareReplay, switchMap, tap } from 'rxjs';
+import { API_BASE_URL } from './api-config';
 
 export interface AuthUser { id: number; name: string; email: string; role?: string }
 export interface AuthTokens { accessToken: string; refreshToken?: string; expiresIn?: number }
@@ -8,7 +9,7 @@ export interface AuthTokens { accessToken: string; refreshToken?: string; expire
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = '/api';
+  private readonly apiUrl = API_BASE_URL;
   private readonly userState = signal<AuthUser | null>(null);
   private refreshRequest?: Observable<string>;
   readonly user = this.userState.asReadonly();
