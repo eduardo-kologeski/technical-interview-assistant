@@ -24,13 +24,29 @@ docker compose up --build --wait
 
 Serviços: frontend em `http://localhost:4200`, API em `http://localhost:8081` e PostgreSQL interno ao Compose. O Compose recusa iniciar sem `DATABASE_PASSWORD` e `JWT_SECRET`; nunca reutilize os valores locais em produção.
 
+## Demo / Deploy gratuito
+
+A arquitetura de demo pública recomendada mantém o computador do desenvolvedor fora do runtime:
+
+```text
+Cloudflare Pages (Angular)
+        |
+        v
+Render Free (Spring Boot)
+        |
+        v
+Neon Free (PostgreSQL)
+```
+
+O custo recorrente obrigatório é **R$ 0/mês**, sujeito aos limites, cold starts e políticas dos planos gratuitos. O deploy de produção observa a branch `main`; o Gitflow `feature/* -> develop -> PR -> main` permanece inalterado. Consulte [`docs/deployment-free-tier.md`](docs/deployment-free-tier.md) para configuração, variáveis, limitações e passos manuais.
+
 ## Status
 
 O projeto está em construção. O desenho do produto, a arquitetura, o domínio e o backlog estão em [`docs/architecture.md`](docs/architecture.md).
 
 ## Produção
 
-O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production Readiness](docs/production-readiness.md), o [progresso de remediação](docs/production-readiness-remediation.md) e o [runbook de deployment, backup e rollback](docs/deployment.md) antes de utilizar dados reais.
+O estado atual é **NO-GO para produção comercial**. O free tier documentado é destinado a portfólio, demonstrações e testes com usuários. Consulte a [auditoria de Production Readiness](docs/production-readiness.md), o [progresso de remediação](docs/production-readiness-remediation.md) e o [runbook de deployment, backup e rollback](docs/deployment.md) antes de utilizar dados reais.
 
 ## Princípios
 
