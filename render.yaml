@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: tia-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USER
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: DB_POOL_MAX_SIZE
+        value: "5"
+      - key: DB_POOL_MIN_IDLE
+        value: "0"
+      - key: DB_KEEPALIVE_TIME_MS
+        value: "120000"
