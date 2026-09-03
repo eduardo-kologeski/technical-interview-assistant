@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "watch": "ng build --watch --configuration development",
