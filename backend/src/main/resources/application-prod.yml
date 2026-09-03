@@ -7,9 +7,11 @@ spring:
     username: ${DATABASE_USER}
     password: ${DATABASE_PASSWORD}
     hikari:
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
-      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:5000}
-      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:3000}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:0}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:10000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:5000}
+      keepalive-time: ${DB_KEEPALIVE_TIME_MS:120000}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -19,6 +21,7 @@ spring:
     validate-on-migrate: true
 
 server:
+  port: ${PORT:${SERVER_PORT:8081}}
   tomcat:
     connection-timeout: ${SERVER_CONNECTION_TIMEOUT:5s}
     keep-alive-timeout: ${SERVER_KEEP_ALIVE_TIMEOUT:20s}
