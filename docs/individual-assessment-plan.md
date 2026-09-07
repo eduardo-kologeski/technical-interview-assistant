@@ -218,7 +218,7 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-03 — P0 — Contrato validado de critérios e evidências
 
-**Estado: implementada em `develop`; validação integral pendente do CI com PostgreSQL isolado.**
+**Estado: implementada e validada em `develop`, incluindo a suíte CI com PostgreSQL isolado.**
 
 - Objetivo/contexto: impedir que JSON opaco se torne diretamente contexto de IA.
 - Escopo: DTO schemaVersion, IDs, critérios/evidências e notas; persistência com versão; iniciar/encerrar coleta e regras de edição.
@@ -228,6 +228,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 - Testes: JSON malformado, limites, escala, ID duplicado, referência cruzada, concorrência e isolamento.
 
 ### IND-04 — P0 — Jornada visual de criação e coleta
+
+**Estado: implementada em `develop`; dashboard, criação, retomada, autosave e conclusão cobertos por testes de componente e E2E.**
 
 - Objetivo/contexto: reaproveitar rapidez da sessão sem exigir vaga.
 - Escopo: dashboard mínimo, formulário título/pessoa/contexto, edição direta de critérios, cartões/evidências e autosave.
@@ -315,7 +317,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Primeira issue recomendada: IND-01.** Ela estabelece propriedade real e remove a dependência estrutural que hoje impede todo o fluxo individual. Seu resultado é verificável por API e testes PostgreSQL, antes de alterar cadastro e navegação. IND-01 autorizada e implementada nesta etapa; demais issues aguardam sua execução sequencial. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-04 estão implementadas em `develop`. A próxima etapa é a IND-05, que introduz o contexto mínimo e o contrato do gerador sem iniciar a integração com Ollama. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 

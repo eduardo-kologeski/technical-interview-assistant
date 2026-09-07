@@ -1,6 +1,95 @@
 import { expect, test } from '@playwright/test';
 import { stat } from 'node:fs/promises';
 
+test('creates and completes a personal assessment while preserving autosave edits', async ({ page }) => {
+  test.setTimeout(90_000);
+  const unique = Date.now();
+  const registration = await page.request.post('/api/auth/register', {
+    data: {
+      name: 'Entrevistador Individual E2E',
+      email: `individual-${unique}@example.test`,
+      password: 'E2ePassword123!',
+      rememberMe: false,
+    },
+  });
+  expect(registration.ok()).toBeTruthy();
+  const tokens = await registration.json() as { accessToken: string };
+  await page.goto('/auth/login');
+  await page.evaluate(
+    accessToken => sessionStorage.setItem('tia.accessToken', accessToken),
+    tokens.accessToken,
+  );
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { name: /Olá,/ })).toBeVisible();
+
+  await page.getByRole('link', { name: '+ Criar avaliação' }).click();
+  await page.getByLabel('Título da avaliação *').fill(`Avaliação individual ${unique}`);
+  await page.getByLabel('Nome da pessoa avaliada *').fill('Pessoa avaliada E2E');
+  await page.getByLabel('Contexto ou objetivo').fill('Validação sintética da jornada individual.');
+  await page.getByRole('button', { name: 'Criar avaliação' }).click();
+  await expect(page).toHaveURL(/\/assessments\/[0-9a-f-]+$/);
+
+  await page.getByRole('button', { name: 'Iniciar coleta' }).click();
+  await expect(page.getByRole('heading', { name: 'Critérios e evidências' })).toBeVisible();
+
+  await page.getByLabel('Novo critério').fill('Fundamentos de Java');
+  const criterionSaved = page.waitForResponse(
+    response => response.request().method() === 'PUT' && /\/api\/assessments\/[0-9a-f-]+\/collection$/.test(response.url()) && response.ok(),
+  );
+  await page.locator('.toolbar').getByRole('button', { name: 'Adicionar', exact: true }).click();
+  await criterionSaved;
+
+  await page.getByPlaceholder('Evidência observada para este critério').fill(
+    'Explicou imutabilidade e concorrência com um exemplo verificável.',
+  );
+  const evidenceSaved = page.waitForResponse(
+    response => response.request().method() === 'PUT' && /\/api\/assessments\/[0-9a-f-]+\/collection$/.test(response.url()) && response.ok(),
+  );
+  await page.getByRole('button', { name: 'Registrar evidência' }).click();
+  await evidenceSaved;
+
+  await page.reload();
+  await expect(page.getByLabel('Nome do critério')).toHaveValue('Fundamentos de Java');
+  await expect(page.getByLabel('Evidência')).toHaveValue(
+    'Explicou imutabilidade e concorrência com um exemplo verificável.',
+  );
+
+  let failNextAutosave = true;
+  await page.route('**/api/assessments/*/collection', async route => {
+    if (failNextAutosave && route.request().method() === 'PUT') {
+      failNextAutosave = false;
+      await route.fulfill({ status: 503, contentType: 'application/problem+json', body: '{}' });
+      return;
+    }
+    await route.continue();
+  });
+  await page.getByLabel('Descrição').fill('Alteração mantida localmente após falha simulada.');
+  await expect(page.getByText('Falha ao salvar. Seus registros continuam nesta tela.')).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByLabel('Descrição')).toHaveValue(
+    'Alteração mantida localmente após falha simulada.',
+  );
+
+  const retriedSave = page.waitForResponse(
+    response => response.request().method() === 'PUT' && /\/api\/assessments\/[0-9a-f-]+\/collection$/.test(response.url()) && response.ok(),
+  );
+  await page.getByRole('button', { name: 'Tentar novamente' }).click();
+  await retriedSave;
+  await expect(page.getByText('Salvo', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Encerrar coleta' }).click();
+  await expect(page.getByText('Coleta encerrada', { exact: true })).toBeVisible();
+  await expect(page.getByText('Os dados mínimos para uma futura minuta estão presentes.')).toBeVisible();
+  await expect(page.getByLabel('Nome do critério')).toBeDisabled();
+
+  await page.reload();
+  await expect(page.getByText('Coleta encerrada', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Descrição')).toHaveValue(
+    'Alteração mantida localmente após falha simulada.',
+  );
+});
+
 test('persists the authenticated interview flow, recovers autosave and exports the PDF', async ({
   page,
 }) => {

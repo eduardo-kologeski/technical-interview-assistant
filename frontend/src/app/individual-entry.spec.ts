@@ -46,7 +46,7 @@ describe('individual application entry', () => {
 
   it('loads an empty personal dashboard through the personal API', async () => {
     await TestBed.configureTestingModule({ imports: [PersonalDashboardComponent], providers: [
-      provideHttpClient(), provideHttpClientTesting(),
+      provideRouter([]), provideHttpClient(), provideHttpClientTesting(),
       { provide: AuthService, useValue: { user: signal({ id: 1, name: 'Pessoa Teste', email: 'pessoa@test' }) } },
     ] }).compileComponents();
     const fixture = TestBed.createComponent(PersonalDashboardComponent);

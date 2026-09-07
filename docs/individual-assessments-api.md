@@ -46,4 +46,13 @@ Neste Docker Desktop, o Testcontainers 1.21.3 precisou de `DOCKER_HOST=npipe:///
 - package Maven aprovado;
 - 4 testes unitários do documento versionado aprovados;
 - teste de integração ampliado para ciclo de coleta, isolamento, conflito sem perda, limites, schema, duplicidade e referências;
-- execução local da integração permaneceu bloqueada pelas credenciais do PostgreSQL de teste externo ao Compose; o banco de desenvolvimento não foi usado. A execução integral fica a cargo do CI configurado com PostgreSQL isolado.
+- a suíte CI executou integralmente os testes do backend com PostgreSQL isolado e aprovou a cobertura da IND-03.
+
+### Evidência de execução — IND-04
+
+- dashboard individual permite criar e retomar avaliações sem empresa, vaga ou template;
+- a tela de coleta edita critérios, evidências, notas, pontos positivos e pontos de atenção, com pontuação opcional;
+- o autosave serializa alterações, envia a versão esperada e mantém o documento na tela quando ocorre falha ou conflito;
+- o encerramento aguarda a confirmação do salvamento e torna a coleta somente leitura;
+- 68 testes do frontend e o build de produção foram aprovados;
+- o E2E executado no Docker Compose existente confirmou criação, persistência após recarga, falha simulada, retry e conclusão.
