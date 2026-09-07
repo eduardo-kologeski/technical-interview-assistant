@@ -1,4 +1,4 @@
-# IND-01/IND-03 — API de avaliações pessoais e coleta estruturada
+# Avaliações pessoais, coleta estruturada e contrato de geração
 
 A API exige a sessão JWT existente. O proprietário é o usuário autenticado; `X-Company-Id` não participa dessa autorização. Cadastro e navegação ainda mantêm o comportamento anterior até a IND-02. Usuários sem membership também podem usar esta API.
 
@@ -56,3 +56,13 @@ Neste Docker Desktop, o Testcontainers 1.21.3 precisou de `DOCKER_HOST=npipe:///
 - o encerramento aguarda a confirmação do salvamento e torna a coleta somente leitura;
 - 68 testes do frontend e o build de produção foram aprovados;
 - o E2E executado no Docker Compose existente confirmou criação, persistência após recarga, falha simulada, retry e conclusão.
+
+## Contrato interno de geração — IND-05
+
+A IND-05 não expõe endpoint de geração nem conversa com qualquer provedor. O pacote `report` separa `ReportContextBuilder`, `ReportPromptBuilder`, `ReportGenerationService`, a porta `LlmClient` e o `ReportDraftValidator`. A aplicação só registrará uma implementação dessa porta na IND-06, com `OllamaLlmClient`.
+
+O contexto versão 1 aceita apenas título e contexto da avaliação; critérios com nome, tecnologia e descrição; evidências; notas; pontos positivos e pontos de atenção. A pessoa avaliada, usuário, e-mail, empresa, IDs persistidos, nota numérica, pergunta e rubrica ficam fora. UUIDs são remapeados para referências locais como `criterion-1` e `evidence-1`.
+
+O gate exige coleta encerrada, título, critério e ao menos uma evidência associada. Notas isoladas não tornam a avaliação elegível. O prompt `report-draft-v1` trata todo o contexto como dado não confiável e solicita exatamente cinco seções: contexto, conhecimentos observados, pontos positivos, pontos de atenção e síntese. A conclusão humana não faz parte do schema do modelo.
+
+O validador limita o tamanho das seções, rejeita referências desconhecidas ou duplicadas e exige que sínteses factuais citem evidências ou declarem explicitamente insuficiência. Essa validação é estrutural e não substitui a revisão humana da fidelidade semântica.

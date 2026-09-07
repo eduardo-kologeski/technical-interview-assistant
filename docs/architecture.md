@@ -136,9 +136,13 @@ O entrevistador escolhe um template, informa ao menos a pessoa avaliada e inicia
 
 Os objetivos da pesquisa, as restrições da geração e o método de comparação entre parecer manual e minuta assistida estão em [`academic-objectives.md`](academic-objectives.md).
 
+No fluxo individual já implementado, o usuário cria a avaliação sem empresa ou vaga, inicia a coleta, registra critérios e evidências com autosave e encerra o documento em modo somente leitura. O contrato backend da geração monta uma allowlist sem identificação da pessoa, nota numérica, pergunta ou rubrica; remapeia IDs para referências locais; usa prompt versionado; e valida cinco seções de uma minuta sem campo de conclusão humana. A chamada local ao Ollama e a persistência dessa minuta pertencem à etapa seguinte.
+
 ## 6. Backlog
 
 ### MVP
+
+O MVP acadêmico ativo é acompanhado pelas issues IND-01 a IND-07: entrada individual, avaliação própria, coleta estruturada, contexto mínimo, geração local por Ollama, revisão, conclusão humana e aprovação.
 
 1. Estrutura, banco, migrations e observabilidade básica.
 2. Templates configuráveis e seeds DEV/QA.
@@ -168,8 +172,7 @@ Os objetivos da pesquisa, as restrições da geração e o método de comparaç�
 - colaboração e revisão por mais de um entrevistador;
 - integrações com ATS/calendário;
 - analytics avançado com controles de privacidade;
-- geração assistida de minuta a partir dos registros da avaliação, explícita, rastreável e sempre revisável;
-- comparação controlada entre parecer manual e minuta assistida produzidos com as mesmas informações de entrada.
+- ampliação controlada do protocolo acadêmico depois da validação do MVP individual.
 
 ## 7. Estrutura proposta
 

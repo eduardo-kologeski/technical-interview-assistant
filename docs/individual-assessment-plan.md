@@ -1,6 +1,6 @@
 # TIA — plano de evolução para avaliação individual
 
-Data: 06/09/2026. Baseline inicial: `92e93ef`. Plano aprovado; IND-01 e IND-02 foram integradas em `develop`, e a execução sequencial prosseguiu para IND-03. A decisão Ollama ao final deste documento integra o plano aprovado.
+Data: 06/09/2026. Baseline inicial: `92e93ef`. Plano aprovado; IND-01 a IND-04 foram integradas em `develop`, e a execução sequencial prosseguiu para IND-05. A decisão Ollama ao final deste documento integra o plano aprovado.
 
 ## 1. Diagnóstico e evidências
 
@@ -240,6 +240,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-05 — P0 — Contexto mínimo e contrato do gerador
 
+**Estado: implementada em `develop`; integração HTTP, persistência e endpoint permanecem exclusivamente na IND-06.**
+
 - Objetivo/contexto: separar fatos da avaliação e infraestrutura de IA.
 - Escopo: builder, gate de dados mínimos, prompt versionado, porta e validador de resposta, fake para testes.
 - Aceite: coleta encerrada + critério com evidência; contexto exclui identidade/perfil/terceiros; cinco seções geradas, conclusão exclusivamente humana.
@@ -317,7 +319,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-04 estão implementadas em `develop`. A próxima etapa é a IND-05, que introduz o contexto mínimo e o contrato do gerador sem iniciar a integração com Ollama. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-05 estão implementadas em `develop`. A próxima etapa é a IND-06, responsável pela persistência da minuta e pela primeira integração com Ollama. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 
