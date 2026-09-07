@@ -66,3 +66,42 @@ O contexto versão 1 aceita apenas título e contexto da avaliação; critérios
 O gate exige coleta encerrada, título, critério e ao menos uma evidência associada. Notas isoladas não tornam a avaliação elegível. O prompt `report-draft-v1` trata todo o contexto como dado não confiável e solicita exatamente cinco seções: contexto, conhecimentos observados, pontos positivos, pontos de atenção e síntese. A conclusão humana não faz parte do schema do modelo.
 
 O validador limita o tamanho das seções, rejeita referências desconhecidas ou duplicadas e exige que sínteses factuais citem evidências ou declarem explicitamente insuficiência. Essa validação é estrutural e não substitui a revisão humana da fidelidade semântica.
+
+### Catálogo e justificativa
+
+| Campo autorizado | Obrigatório | Uso na minuta |
+|---|---:|---|
+| `assessment.title` | sim | identifica o tema técnico avaliado, sem identificar a pessoa |
+| `assessment.context` | não | delimita o propósito informado pelo entrevistador |
+| `criteria[].reference` | sim | relaciona dados dentro do snapshot sem expor UUID persistido |
+| `criteria[].name` | sim | nomeia o conhecimento ou comportamento técnico observado |
+| `criteria[].technology` | não | esclarece a tecnologia quando ela faz parte do critério |
+| `criteria[].description` | não | registra o recorte esperado para o critério |
+| `evidence[]` | ao menos uma | fornece o registro factual e sua ligação ao critério |
+| `notes[]` | não | acrescenta observações gerais, sem substituir evidências |
+| `strengths[]` | não | preserva pontos positivos explicitamente registrados pelo entrevistador |
+| `concerns[]` | não | preserva pontos de atenção explicitamente registrados pelo entrevistador |
+
+### Exemplos sintéticos
+
+Entrada mínima válida depois do remapeamento interno:
+
+```json
+{
+  "schemaVersion": 1,
+  "assessment": { "title": "Fundamentos de Java", "context": null },
+  "criteria": [
+    { "reference": "criterion-1", "name": "Orientação a objetos", "technology": "Java", "description": null }
+  ],
+  "evidence": [
+    { "reference": "evidence-1", "criterionReference": "criterion-1", "text": "Explicou encapsulamento com um exemplo." }
+  ],
+  "notes": [],
+  "strengths": [],
+  "concerns": []
+}
+```
+
+Entrada incompleta: um documento encerrado com critério e nota geral, mas sem item em `evidence`, é preservado como avaliação e recusado para geração com a orientação “Registre pelo menos uma evidência vinculada a um critério”.
+
+Entrada inválida: uma evidência cujo `criterionId` não existe em `criteria` é recusada no salvamento da coleta com HTTP 400. IDs duplicados, schema desconhecido, texto obrigatório em branco e pontuação fora de 0–5 também são inválidos e nunca chegam ao contexto de geração.
