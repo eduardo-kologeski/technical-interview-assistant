@@ -30,6 +30,7 @@
 		<java.version>21</java.version>
 		<testcontainers.version>1.21.4</testcontainers.version>
 		<commons-compress.version>1.28.0</commons-compress.version>
+		<tomcat.version>11.0.25</tomcat.version>
 	</properties>
 	<dependencies>
 		<dependency>
