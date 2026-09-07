@@ -22,12 +22,15 @@ import java.util.UUID;
 @Table(name = "interviews")
 public class Interview extends AuditableEntity {
     @Id private UUID id;
-    @Column(name = "company_id", nullable = false, updatable = false) private UUID companyId;
-    @Column(name = "vacancy_id", nullable = false, updatable = false) private UUID vacancyId;
+    @Column(name = "company_id", updatable = false) private UUID companyId;
+    @Column(name = "owner_user_id", updatable = false) private Long ownerUserId;
+    @Column(name = "title", length = 160) private String title;
+    @Column(name = "context", length = 5000) private String context;
+    @Column(name = "vacancy_id", updatable = false) private UUID vacancyId;
     @Column(name = "candidate_name", nullable = false) private String candidateName;
-    @Column(name = "candidate_id", nullable = false, updatable = false) private UUID candidateId;
-    @Column(name = "vacancy_title_snapshot", nullable = false, updatable = false) private String vacancyTitleSnapshot;
-    @Column(name = "seniority_snapshot", nullable = false, updatable = false) private String senioritySnapshot;
+    @Column(name = "candidate_id", updatable = false) private UUID candidateId;
+    @Column(name = "vacancy_title_snapshot", updatable = false) private String vacancyTitleSnapshot;
+    @Column(name = "seniority_snapshot", updatable = false) private String senioritySnapshot;
     @Column(name = "client_company") private String clientCompany;
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "interview_requirement_snapshots", joinColumns = @JoinColumn(name = "interview_id"))
@@ -49,6 +52,22 @@ public class Interview extends AuditableEntity {
     @Column(name = "kit_snapshot", nullable = false, columnDefinition = "text") private String kitSnapshot = "{}";
 
     protected Interview() { }
+
+    public static Interview personal(Long ownerUserId, String title, String candidateName, String context, Instant now) {
+        var interview = new Interview();
+        interview.id = UUID.randomUUID();
+        interview.ownerUserId = java.util.Objects.requireNonNull(ownerUserId, "ownerUserId");
+        interview.title = requiredText(title, "title");
+        interview.candidateName = requiredText(candidateName, "candidateName");
+        interview.context = context == null ? null : context.trim();
+        interview.status = InterviewStatus.CREATED;
+        interview.registerCreation(ownerUserId.toString(), now);
+        return interview;
+    }
+
+    public Long ownerUserId() { return ownerUserId; }
+    public String title() { return title; }
+    public String context() { return context; }
 
     public Interview(UUID vacancyId, String vacancyTitle, List<String> requirementSnapshot,
                      String candidateName, String actorId, Instant now) {

@@ -8,9 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.kologeski.interviewassistant.company.*;
 import com.kologeski.interviewassistant.deployment.DeploymentProperties;
-import com.kologeski.interviewassistant.billing.EntitlementService;
 
 @Service
 public class AuthenticationService {
@@ -19,20 +17,13 @@ public class AuthenticationService {
     private final PasswordEncoder passwords;
     private final JwtService jwt;
     private final RefreshTokenService refreshTokens;
-    private final CompanyMembershipRepository memberships;
-    private final CompanyRepository companies;
     private final DeploymentProperties deployment;
-    private final EntitlementService entitlements;
 
     public AuthenticationService(UserRepository users, PasswordEncoder passwords,
                                  JwtService jwt, RefreshTokenService refreshTokens,
-                                  CompanyMembershipRepository memberships, CompanyRepository companies,
-                                  DeploymentProperties deployment, EntitlementService entitlements) {
+                                  DeploymentProperties deployment) {
         this.users = users; this.passwords = passwords; this.jwt = jwt; this.refreshTokens = refreshTokens;
-        this.memberships = memberships;
-        this.companies = companies;
         this.deployment = deployment;
-        this.entitlements = entitlements;
     }
 
     @Transactional
@@ -42,10 +33,6 @@ public class AuthenticationService {
         if (users.existsByEmail(email)) throw new DuplicateEmailException();
         User user = users.save(new User(request.name().trim(), email,
                 passwords.encode(request.password()), Instant.now()));
-        Instant now = Instant.now();
-        Company company = companies.save(new Company("Empresa de " + user.getName(), "empresa-" + user.getId(), user.getId(), now));
-        memberships.save(new CompanyMembership(company.id(), user.getId(), CompanyRole.COMPANY_ADMIN, now));
-        entitlements.provisionDefault(company.id());
         log.info("event=user_registered userId={} rememberMe={}", user.getId(), Boolean.TRUE.equals(request.rememberMe()));
         return session(user, Boolean.TRUE.equals(request.rememberMe()), metadata);
     }

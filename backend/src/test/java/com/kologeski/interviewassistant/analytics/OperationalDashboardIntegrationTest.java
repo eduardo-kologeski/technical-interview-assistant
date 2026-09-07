@@ -14,6 +14,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -42,8 +44,11 @@ class OperationalDashboardIntegrationTest {
         createInterview(adminA, companyA, vacancyA, "Candidata confidencial 3", false);
         createInterview(adminB, companyB, vacancyB, "Pessoa de outro tenant 1", true);
         createInterview(adminB, companyB, vacancyB, "Pessoa de outro tenant 2", false);
+        String from = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString();
+        String to = LocalDate.now(ZoneOffset.UTC).plusDays(1).toString();
 
         MvcResult companyAResult = mvc.perform(get("/api/analytics/operational")
+                        .param("from", from).param("to", to)
                         .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.summary.total").value(3))
@@ -58,12 +63,15 @@ class OperationalDashboardIntegrationTest {
         assertThat(payload).doesNotContain("Candidata confidencial", "Pessoa de outro tenant", "assessmentData", "email");
 
         mvc.perform(get("/api/analytics/operational").param("status", "COMPLETED")
+                        .param("from", from).param("to", to)
                         .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.summary.total").value(2));
         mvc.perform(get("/api/analytics/operational").param("vacancyId", vacancyB)
+                        .param("from", from).param("to", to)
                         .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.summary.total").value(0));
         mvc.perform(get("/api/analytics/operational")
+                        .param("from", from).param("to", to)
                         .header("Authorization", bearer(adminB)).header("X-Company-Id", companyB))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.summary.total").value(2))
                 .andExpect(jsonPath("$.byVacancy.content[0].vacancyTitle").value("Backend B"));

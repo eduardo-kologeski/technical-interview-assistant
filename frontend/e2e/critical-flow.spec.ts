@@ -9,7 +9,8 @@ test('persists the authenticated interview flow, recovers autosave and exports t
   const email = `e2e-${unique}@example.test`;
   const vacancy = `Vaga E2E ${unique}`;
 
-  await page.goto('/auth/register');
+  await page.goto('/auth/register?company=true');
+  await page.getByLabel('Nome da empresa').fill(`Empresa E2E ${unique}`);
   await page.getByLabel('Nome').fill('Pessoa Entrevistadora E2E');
   await page.getByLabel('E-mail').fill(email);
   await page.getByLabel('Senha', { exact: true }).fill('E2ePassword123!');
@@ -139,7 +140,8 @@ test('keeps the invitation through registration and enters as a read-only interv
   const sharedVacancy = `Vaga compartilhada ${unique}`;
   const sharedCandidate = `Candidato compartilhado ${unique}`;
 
-  await page.goto('/auth/register');
+  await page.goto('/auth/register?company=true');
+  await page.getByLabel('Nome da empresa').fill(`Empresa Convite ${unique}`);
   await page.getByLabel('Nome').fill('Gestor do convite');
   await page.getByLabel('E-mail').fill(adminEmail);
   await page.getByLabel('Senha', { exact: true }).fill('E2ePassword123!');
@@ -192,7 +194,8 @@ test('keeps the invitation through registration and enters as a read-only interv
 test('uses a responsive work-week grid for interviewer availability', async ({ page }) => {
   test.setTimeout(90_000);
   const unique = Date.now();
-  await page.goto('/auth/register');
+  await page.goto('/auth/register?company=true');
+  await page.getByLabel('Nome da empresa').fill(`Empresa Agenda ${unique}`);
   await page.getByLabel('Nome').fill('Entrevistador Calendário');
   await page.getByLabel('E-mail').fill(`calendar-${unique}@example.test`);
   await page.getByLabel('Senha', { exact: true }).fill('E2ePassword123!');

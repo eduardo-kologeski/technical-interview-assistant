@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { AuthPageComponent } from './auth-page.component';
 import { authGuard } from './auth.guard';
-import { DashboardComponent } from './dashboard.component';
 import { InterviewPage } from './app';
 import { JobPositionsComponent } from './job-positions.component';
 import { ShellComponent } from './shell.component';
@@ -13,6 +12,7 @@ import { CompanyAdminComponent } from './company-admin.component';
 import { InterviewsWorkspaceComponent } from './interviews-workspace.component';
 import { IdentityPageComponent } from './identity-page.component';
 import { SetupPageComponent } from './setup-page.component';
+import { HomeComponent } from './home.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', component: LandingPageComponent },
@@ -28,7 +28,7 @@ export const routes: Routes = [
     component: ShellComponent,
     canActivate: [authGuard],
     children: [
-      { path: 'dashboard', component: DashboardComponent },
+      { path: 'dashboard', component: HomeComponent },
       { path: 'job-positions', component: JobPositionsComponent },
       { path: 'interviewers', redirectTo: 'interviews' },
       { path: 'profile', redirectTo: 'interviews' },

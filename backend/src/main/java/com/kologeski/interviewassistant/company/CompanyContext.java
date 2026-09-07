@@ -32,6 +32,7 @@ public class CompanyContext {
             return new ActiveCompany(companyId, userId, membership.role());
         }
         List<CompanyMembership> available = memberships.findByUserIdAndActiveTrueOrderByCreatedAtAsc(userId);
+        if (available.isEmpty()) throw new CompanyAccessDeniedException();
         if (available.size() != 1) throw new CompanySelectionRequiredException();
         CompanyMembership membership = available.getFirst();
         return new ActiveCompany(membership.companyId(), userId, membership.role());

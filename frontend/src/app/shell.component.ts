@@ -9,17 +9,21 @@ import { CompanyService } from './company.service';
       <a class="brand" routerLink="/dashboard"><b>T</b><span>Technical Interview</span></a>
       <nav>
         <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page">Início</a
-        ><a routerLink="/interviews" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistas</a
-        ><a routerLink="/job-positions" routerLinkActive="active" ariaCurrentWhenActive="page">Vagas</a
-        >@if (companies.activeCompany()?.role !== 'INTERVIEWER') {<a routerLink="/company" routerLinkActive="active" ariaCurrentWhenActive="page">Empresa</a>}
+        >@if (companies.activeCompany()) {
+          <a routerLink="/interviews" routerLinkActive="active" ariaCurrentWhenActive="page">Entrevistas</a>
+          <a routerLink="/job-positions" routerLinkActive="active" ariaCurrentWhenActive="page">Vagas</a>
+          @if (companies.activeCompany()?.role !== 'INTERVIEWER') {<a routerLink="/company" routerLinkActive="active" ariaCurrentWhenActive="page">Empresa</a>}
+        } @else { <a routerLink="/dashboard" routerLinkActive="active">Minhas avaliações</a> }
       </nav>
       <div class="user">
         @if (companies.companies().length > 1) {
-          <select aria-label="Empresa ativa" [value]="companies.activeCompanyId() || ''" (change)="selectCompany($event)">
+          <select aria-label="Espaço ativo" [value]="companies.activeCompanyId() || ''" (change)="selectCompany($event)">
+            <option value="">Meu espaço</option>
             @for (company of companies.companies(); track company.id) { <option [value]="company.id">{{ company.name }}</option> }
           </select>
         } @else if (companies.activeCompany()) { <strong>{{ companies.activeCompany()?.name }}</strong> }
-        <a class="profile-link" routerLink="/interviews" title="Perfil e disponibilidade">{{ auth.user()?.name || 'Usuário' }}</a
+        @else { <strong>Meu espaço</strong> }
+        <a class="profile-link" [routerLink]="companies.activeCompany() ? '/interviews' : '/dashboard'">{{ auth.user()?.name || 'Usuário' }}</a
         ><button (click)="logout()">Sair</button>
       </div>
     </header>

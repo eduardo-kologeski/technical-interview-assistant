@@ -123,7 +123,10 @@ class ProfileIntegrationTest {
         addSkill(maria, "Java", "INTERMEDIATE").andExpect(status().isCreated());
         var joaoUser = users.findByEmail("joao.search@example.com").orElseThrow();
         var mariaUser = users.findByEmail("maria.search@example.com").orElseThrow();
-        var joaoCompany = companies.findAll().stream().filter(item -> joaoUser.getId().equals(item.createdByUserId())).findFirst().orElseThrow();
+        MvcResult companyResult = mvc.perform(post("/api/companies").header("Authorization", bearer(joao))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Empresa João\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        var joaoCompany = companies.findById(java.util.UUID.fromString(body(companyResult).get("id").asText())).orElseThrow();
         memberships.save(new CompanyMembership(joaoCompany.id(), mariaUser.getId(), CompanyRole.INTERVIEWER, Instant.now()));
 
         MvcResult vacancy = mvc.perform(post("/api/job-positions").header("Authorization", bearer(joao))

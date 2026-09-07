@@ -34,7 +34,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(20);
+        assertThat(migration.migrationsExecuted).isEqualTo(21);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -102,11 +102,16 @@ class PostgresqlFlywayMigrationTest {
                     """.formatted(interviewId, vacancyId));
         }
 
+        Flyway baseline20 = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration").target("20").load();
+        assertThat(baseline20.migrate().migrationsExecuted).isEqualTo(9);
+
         Flyway upgrade = Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(9);
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
         assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -118,6 +123,9 @@ class PostgresqlFlywayMigrationTest {
             assertThat(singleValue(statement,
                     "SELECT company_id::text FROM interviews WHERE id = '" + interviewId + "'"))
                     .isEqualTo("00000000-0000-0000-0000-000000000001");
+            assertThat(singleValue(statement,
+                    "SELECT (owner_user_id IS NULL)::text FROM interviews WHERE id = '" + interviewId + "'"))
+                    .isEqualTo("true");
             assertThat(singleValue(statement,
                     "SELECT COUNT(*)::text FROM company_memberships WHERE user_id = 1 AND active = TRUE"))
                     .isEqualTo("1");

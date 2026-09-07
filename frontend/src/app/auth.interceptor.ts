@@ -11,7 +11,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const companyId = localStorage.getItem('tia.companyId');
-    if (companyId) headers['X-Company-Id'] = companyId;
+    if (companyId && !request.url.startsWith('/api/assessments')) headers['X-Company-Id'] = companyId;
     return Object.keys(headers).length ? request.clone({ setHeaders: headers }) : request;
   };
   return next(withToken(auth.accessToken())).pipe(catchError(error => {
