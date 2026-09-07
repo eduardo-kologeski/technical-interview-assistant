@@ -18,7 +18,7 @@ atualizadas que já possuam usuários são migradas como configuradas e não rea
 
 ## 1. Escopo e decisões
 
-O roteiro visual fornecido foi usado como referência para identificar dados úteis no parecer: identificação da entrevista, contexto técnico, competências, prós, contras, feedback e recomendação. O produto não replica seções nem regras específicas desse documento; todos esses conceitos são configuráveis.
+O roteiro visual fornecido foi usado como referência para identificar informações úteis no parecer: identificação da avaliação, contexto técnico, critérios, evidências, pontos positivos, pontos de atenção e observações. O produto não replica seções nem regras específicas desse documento; esses conceitos devem permanecer configuráveis e rastreáveis até os registros de origem.
 
 O MVP será um monólito modular com frontend Angular e API Spring Boot. Essa arquitetura reduz custo operacional e mantém separação suficiente para evolução. O backend é a fonte de verdade; o frontend mantém um rascunho local para resiliência de autosave.
 
@@ -42,7 +42,8 @@ Decisões principais:
 - Templates são copiados para um snapshot da entrevista; mudanças posteriores não alteram avaliações históricas.
 - Valores monetários não existem no domínio; notas usam inteiros de 0 a 5 e médias usam `BigDecimal`.
 - Avaliações `NOT_EVALUATED` não entram nas médias.
-- Parecer automático é determinístico e rastreável no MVP, sem inventar informações.
+- O estado atual mantém um parecer determinístico e editável. A evolução acadêmica introduzirá geração assistida de **minutas**, sempre baseada nas informações registradas e submetida à revisão humana.
+- A geração não decide aprovação ou reprovação, não classifica candidatos, não prevê desempenho e não cria conclusões sem evidência registrada.
 - PDF é gerado no backend a partir de um modelo de relatório estável.
 - Exclusão de entrevistas será lógica para preservar auditoria.
 
@@ -131,7 +132,9 @@ Escritas de autosave são idempotentes. Erros seguem Problem Details (RFC 9457),
 
 ## 5. Fluxo principal
 
-O entrevistador escolhe um template, informa ao menos o candidato e inicia a sessão. Na tela de foco, navega pelas skills, atribui 0–5 ou N/A, registra comentários e notas rápidas. O sistema salva após cada alteração e atualiza as médias sem tomar uma decisão. Ao finalizar, o entrevistador revisa os dados, edita o parecer fundamentado, escolhe a recomendação e exporta o PDF. A entrevista permanece disponível no histórico.
+O entrevistador escolhe um template, informa ao menos a pessoa avaliada e inicia a sessão. Na tela de foco, navega pelos critérios, atribui 0–5 ou N/A quando aplicável, registra comentários, evidências e notas rápidas. O sistema salva após cada alteração e atualiza as médias sem tomar uma decisão. Ao encerrar a coleta, o backend reúne somente as informações registradas e poderá gerar uma minuta assistida. O entrevistador revisa e altera essa minuta, escreve sua conclusão, assume a decisão final e então aprova ou exporta o parecer. A avaliação permanece disponível no histórico.
+
+Os objetivos da pesquisa, as restrições da geração e o método de comparação entre parecer manual e minuta assistida estão em [`academic-objectives.md`](academic-objectives.md).
 
 ## 6. Backlog
 
@@ -165,7 +168,8 @@ O entrevistador escolhe um template, informa ao menos o candidato e inicia a ses
 - colaboração e revisão por mais de um entrevistador;
 - integrações com ATS/calendário;
 - analytics avançado com controles de privacidade;
-- assistência de IA opcional, explícita e sempre revisável.
+- geração assistida de minuta a partir dos registros da avaliação, explícita, rastreável e sempre revisável;
+- comparação controlada entre parecer manual e minuta assistida produzidos com as mesmas informações de entrada.
 
 ## 7. Estrutura proposta
 

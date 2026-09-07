@@ -5,7 +5,11 @@ O modo SaaS preserva o cadastro público e multi-tenancy existentes; o modo On-P
 defaults seguros que desabilitam cadastro público, multi-tenancy e billing. Consulte
 `docs/architecture.md` para o contrato de capabilities.
 
-Aplicação para conduzir entrevistas técnicas, registrar avaliações com rapidez e gerar um parecer estruturado e revisável.
+Aplicação para conduzir avaliações técnicas, registrar evidências com rapidez e apoiar a elaboração de pareceres técnicos.
+
+O foco acadêmico do TIA é a **geração assistida de minutas de pareceres de avaliações técnicas a partir das informações registradas durante a avaliação**. A minuta deve permanecer vinculada aos dados de entrada, ser revisável e deixar explícita qualquer insuficiência de informação. O parecer final e a decisão sobre a pessoa avaliada continuam sendo responsabilidade do entrevistador.
+
+O projeto não usa IA para aprovar ou reprovar pessoas, classificar candidatos automaticamente, prever desempenho profissional ou produzir conclusões sem suporte nos registros. Os [objetivos acadêmicos e critérios de avaliação](docs/academic-objectives.md) documentam esse recorte e sua rastreabilidade no backlog.
 
 ## Arquitetura
 
@@ -42,7 +46,8 @@ O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production
 - experiência desktop-first e uso eficiente por teclado;
 - templates configuráveis para diferentes perfis e stacks;
 - decisão final sempre pertencente ao entrevistador;
-- rastreabilidade: textos automáticos usam apenas dados registrados;
+- rastreabilidade: minutas assistidas usam apenas informações registradas na avaliação;
+- revisão humana obrigatória antes de qualquer parecer final;
 - autosave e proteção contra perda de dados durante a entrevista.
 
 ## Branches

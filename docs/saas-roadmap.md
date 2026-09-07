@@ -1,5 +1,7 @@
 # SaaS B2B Roadmap
 
+Este roadmap trata da evolução comercial e organizacional. O uso de IA segue uma trilha acadêmica própria, descrita em [`academic-objectives.md`](academic-objectives.md): gerar minutas de parecer a partir das informações registradas, com revisão humana obrigatória. Ranking automático, previsão de desempenho e decisão de aprovação ou reprovação permanecem fora do escopo.
+
 ## Current state
 
 Baseline auditada em 30/08/2026: `origin/develop` (`c4270aa`) e o trabalho ainda não integrado da Issue #99 / PR #100 (`codex/saas-multitenancy-invitations`). O código, migrations, testes e workflows atuais são a fonte de verdade; os relatórios antigos de production readiness são evidência histórica.
