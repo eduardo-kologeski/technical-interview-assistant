@@ -105,3 +105,23 @@ Entrada mínima válida depois do remapeamento interno:
 Entrada incompleta: um documento encerrado com critério e nota geral, mas sem item em `evidence`, é preservado como avaliação e recusado para geração com a orientação “Registre pelo menos uma evidência vinculada a um critério”.
 
 Entrada inválida: uma evidência cujo `criterionId` não existe em `criteria` é recusada no salvamento da coleta com HTTP 400. IDs duplicados, schema desconhecido, texto obrigatório em branco e pontuação fora de 0–5 também são inválidos e nunca chegam ao contexto de geração.
+
+## Geração e persistência da minuta — IND-06
+
+`POST /api/assessments/{id}/report/generate` recebe `{"version":3}` e exige `Idempotency-Key: <uuid>`. A versão deve ser a da coleta encerrada. Uma primeira geração válida retorna 201; repetir a mesma chave para a mesma avaliação retorna 200, o mesmo relatório e `replayed: true`. Reutilizar a chave em outra avaliação ou tentar criar uma segunda minuta com outra chave retorna 409.
+
+A resposta contém `id`, `assessmentId`, `status: "DRAFT"`, `sourceVersion`, `promptVersion`, `model`, as cinco seções em `draft`, `createdAt` e `replayed`. Não contém snapshot do contexto, identidade da pessoa ou conclusão humana.
+
+V22 cria `assessment_reports` com vínculo composto entre avaliação e proprietário, uma minuta por avaliação e unicidade da chave idempotente por usuário. O snapshot minimizado e a saída original validada são imutáveis nesta etapa. A chamada ao Ollama ocorre fora da transação; antes de persistir, o serviço revalida proprietário, existência e versão da avaliação.
+
+Falhas controladas:
+
+| Situação | HTTP | Persistência |
+|---|---:|---|
+| coleta incompleta ou sem evidência | 422 | avaliação preservada; nenhum relatório |
+| configuração ausente, Ollama indisponível ou modelo ausente | 503 | avaliação preservada; nenhum relatório parcial |
+| timeout | 504 | avaliação preservada; retry explícito permitido |
+| resposta HTTP/schema inválida | 502 | avaliação preservada; nenhum conteúdo inválido salvo |
+| versão desatualizada ou minuta existente | 409 | original existente permanece intacto |
+
+O endpoint foi validado localmente sem Ollama configurado: retornou 503, manteve a coleta `COMPLETED` e sua evidência, não criou linha em `assessment_reports` e não registrou título/evidência nos logs. O smoke real com um modelo local permanece pendente.

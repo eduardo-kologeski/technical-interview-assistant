@@ -28,7 +28,7 @@ Logs podem conter identificadores técnicos, endpoint, status, duração e corre
 
 O contrato da IND-05 permite somente título e contexto da avaliação, critérios descritivos, evidências, notas, pontos positivos e pontos de atenção. Ele exclui nome da pessoa avaliada, dados do usuário, e-mail, empresa, IDs persistidos, nota numérica, pergunta, rubrica, perfil, disponibilidade e histórico de outras avaliações. Identificadores do documento são convertidos em referências locais antes da construção do prompt.
 
-A allowlist reduz o contexto, mas texto livre ainda pode conter identificação e não equivale a anonimização. A integração da IND-06 deve usar apenas Ollama local, sem fallback para serviços externos, e não pode registrar o prompt, o documento da avaliação nem a resposta completa do modelo.
+A allowlist reduz o contexto, mas texto livre ainda pode conter identificação e não equivale a anonimização. O adapter da IND-06 aceita apenas um Ollama alcançável por endereço local, sem fallback para serviços externos, e não registra o prompt, o documento da avaliação nem a resposta completa do modelo. O contexto e a minuta original são persistidos no PostgreSQL para rastreabilidade acadêmica e herdam o mesmo proprietário e ciclo de exclusão da avaliação.
 
 ## Retenção
 

@@ -37,8 +37,16 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `AUTH_LOGIN_RATE_LIMIT` | não | Tentativas de login por origem/janela; padrão `10` |
 | `AUTH_REGISTER_RATE_LIMIT` | não | Cadastros por origem/janela; padrão `5` |
 | `AUTH_REFRESH_RATE_LIMIT` | não | Refreshes por origem/janela; padrão `30` |
+| `OLLAMA_BASE_URL` | para gerar minutas | URL local alcançável pelo backend; destinos externos são recusados |
+| `OLLAMA_MODEL` | para gerar minutas | Nome exato do modelo local instalado; não possui default |
+| `OLLAMA_CONNECT_TIMEOUT` | não | Timeout de conexão com o Ollama; padrão `3s` |
+| `OLLAMA_RESPONSE_TIMEOUT` | não | Timeout total da geração; padrão `60s` |
+| `OLLAMA_MAX_INPUT_CHARS` | não | Limite de caracteres do prompt; padrão `120000`, sem truncamento |
+| `OLLAMA_MAX_RESPONSE_CHARS` | não | Limite da resposta HTTP; padrão `100000` |
 
 Não reutilizar secrets entre ambientes. A aplicação com profile `prod` deve falhar na inicialização quando banco, origem CORS ou chave JWT não forem fornecidos.
+
+Ollama e seus pesos não integram as imagens ou o Compose do TIA. Consulte [`ollama-local-development.md`](ollama-local-development.md) antes de habilitar geração. A operação deve usar modo local, modelo instalado explicitamente e dados sintéticos até concluir a avaliação acadêmica e de privacidade.
 
 O rate limiting atual é mantido na memória de cada instância. Ele é adequado para uma única instância e reduz abuso acidental, mas não fornece limite global em escala horizontal. Antes de executar múltiplas réplicas, aplicar limite compartilhado no gateway/ingress ou adotar armazenamento distribuído; não aumentar os valores apenas para ocultar respostas `429`.
 
@@ -149,7 +157,8 @@ Smoke mínimo, sempre com dados sintéticos identificados:
 4. criar entrevista sintética;
 5. salvar uma avaliação e recarregar;
 6. finalizar e gerar PDF;
-7. remover/expirar os dados sintéticos conforme política.
+7. quando Ollama estiver configurado, gerar uma minuta sintética, confirmar status `DRAFT` e revisar as referências;
+8. remover/expirar os dados sintéticos conforme política.
 
 O CI inicia PostgreSQL, backend e frontend com as imagens já construídas por SHA, aguarda todos os healthchecks e verifica o health da API e a raiz do Nginx. Esse smoke prova a topologia local da release, mas não substitui E2E nem a validação de TLS/ingress em homologação.
 

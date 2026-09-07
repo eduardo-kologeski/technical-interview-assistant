@@ -11,6 +11,8 @@ import com.kologeski.interviewassistant.auth.IdentityToken;
 import com.kologeski.interviewassistant.deployment.InstallationSetupService;
 import com.kologeski.interviewassistant.interview.InterviewService;
 import com.kologeski.interviewassistant.interview.PersonalAssessmentService;
+import com.kologeski.interviewassistant.report.LlmGenerationException;
+import com.kologeski.interviewassistant.report.ReportContextBuilder;
 import com.kologeski.interviewassistant.vacancy.JobVacancyService;
 import com.kologeski.interviewassistant.company.CompanyContext;
 import com.kologeski.interviewassistant.company.InvitationService;
@@ -53,6 +55,22 @@ public class ApiExceptionHandler {
     @ExceptionHandler(PersonalAssessmentService.StalePersonalAssessmentException.class)
     ProblemDetail stalePersonalAssessment(PersonalAssessmentService.StalePersonalAssessmentException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(ReportContextBuilder.ReportContextUnavailableException.class)
+    ProblemDetail reportContextUnavailable(ReportContextBuilder.ReportContextUnavailableException exception) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
+    }
+
+    @ExceptionHandler(LlmGenerationException.class)
+    ProblemDetail llmGeneration(LlmGenerationException exception) {
+        HttpStatus status = switch (exception.kind()) {
+            case TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
+            case INVALID_RESPONSE -> HttpStatus.BAD_GATEWAY;
+            case INPUT_TOO_LARGE -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case CONFIGURATION, UNAVAILABLE, MODEL_NOT_FOUND -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return problem(status, exception.getMessage());
     }
 
     @ExceptionHandler({JobVacancyService.StaleVacancyException.class, ObjectOptimisticLockingFailureException.class})

@@ -17,6 +17,8 @@ O sistema é um monólito modular com um único backend Spring Boot e um único 
 
 ```text
 Angular -> Spring Boot -> PostgreSQL
+                  |
+                  +-> Ollama local (somente pelo backend)
 ```
 
 O backend contém módulos internos para autenticação, usuários, vagas, entrevistas, avaliações e auditoria. O projeto não depende do AuthCore em runtime. Consulte [`docs/modular-monolith.md`](docs/modular-monolith.md).
@@ -32,6 +34,8 @@ docker compose up --build --wait
 ```
 
 Serviços: frontend em `http://localhost:4200`, API em `http://localhost:8081` e PostgreSQL interno ao Compose. O Compose recusa iniciar sem `DATABASE_PASSWORD` e `JWT_SECRET`; nunca reutilize os valores locais em produção.
+
+O Ollama não faz parte do Compose. Para habilitar a geração de minutas, instale-o no host, escolha explicitamente um modelo local e configure `OLLAMA_BASE_URL` e `OLLAMA_MODEL` no `.env`. O Angular nunca acessa o Ollama. Sem essas variáveis ou com o serviço indisponível, o backend responde com erro controlado e preserva a avaliação. Consulte [desenvolvimento local com Ollama](docs/ollama-local-development.md).
 
 ## Status
 

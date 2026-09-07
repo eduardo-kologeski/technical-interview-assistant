@@ -1,11 +1,13 @@
 package com.kologeski.interviewassistant.interview;
 
 import com.kologeski.interviewassistant.api.PageResponse;
+import com.kologeski.interviewassistant.report.PersonalReportService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
@@ -16,8 +18,12 @@ import java.util.UUID;
 @Validated
 public class PersonalAssessmentController {
     private final PersonalAssessmentService service;
+    private final PersonalReportService reports;
 
-    public PersonalAssessmentController(PersonalAssessmentService service) { this.service = service; }
+    public PersonalAssessmentController(PersonalAssessmentService service, PersonalReportService reports) {
+        this.service = service;
+        this.reports = reports;
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -55,6 +61,16 @@ public class PersonalAssessmentController {
         return CollectionResponse.from(service.completeCollection(id, command.version()));
     }
 
+    @PostMapping("/{id}/report/generate")
+    ResponseEntity<ReportResponse> generateReport(
+            @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @Valid @RequestBody VersionCommand command) {
+        PersonalReportService.ReportView report = reports.generate(id, command.version(), idempotencyKey);
+        return ResponseEntity.status(report.replayed() ? HttpStatus.OK : HttpStatus.CREATED)
+                .body(ReportResponse.from(report));
+    }
+
     public record CreateAssessmentCommand(@NotBlank @Size(max = 160) String title,
                                            @NotBlank @Size(max = 160) String personName,
                                            @Size(max = 5000) String context) { }
@@ -79,6 +95,17 @@ public class PersonalAssessmentController {
             Interview assessment = value.assessment();
             return new CollectionResponse(assessment.id(), assessment.status(), assessment.version(),
                     value.document(), value.generationEligible(), assessment.updatedAt());
+        }
+    }
+
+    public record ReportResponse(UUID id, UUID assessmentId, String status, long sourceVersion,
+                                 String promptVersion, String model,
+                                 com.kologeski.interviewassistant.report.ReportDraft draft,
+                                 Instant createdAt, boolean replayed) {
+        static ReportResponse from(PersonalReportService.ReportView value) {
+            return new ReportResponse(value.id(), value.assessmentId(), value.status().name(),
+                    value.sourceVersion(), value.promptVersion(), value.model(), value.draft(),
+                    value.createdAt(), value.replayed());
         }
     }
 }

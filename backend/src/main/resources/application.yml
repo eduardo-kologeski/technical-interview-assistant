@@ -50,6 +50,14 @@ app:
       login: ${AUTH_LOGIN_RATE_LIMIT:10}
       register: ${AUTH_REGISTER_RATE_LIMIT:5}
       refresh: ${AUTH_REFRESH_RATE_LIMIT:30}
+  llm:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:}
+      model: ${OLLAMA_MODEL:}
+      connect-timeout: ${OLLAMA_CONNECT_TIMEOUT:3s}
+      response-timeout: ${OLLAMA_RESPONSE_TIMEOUT:60s}
+      max-input-chars: ${OLLAMA_MAX_INPUT_CHARS:120000}
+      max-response-chars: ${OLLAMA_MAX_RESPONSE_CHARS:100000}
 
 management:
   endpoint:

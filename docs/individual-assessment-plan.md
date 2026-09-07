@@ -251,6 +251,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-06 — P0 — Minuta persistida e integração local com Ollama
 
+**Estado: backend implementado em `develop`; smoke com LLM real pendente porque Ollama e modelo ainda não estão instalados no host avaliado.**
+
 - Objetivo/contexto: provar geração generativa real sem acoplar provedor.
 - Escopo: AssessmentReport/migration, OllamaLlmClient, URL e modelo configuráveis por ambiente (sem modelo hardcoded), geração idempotente, limites/timeouts, snapshot e metadados.
 - Aceite: saída marcada DRAFT; original preservado; falha mantém coleta/minuta; resultado stale rejeitado; segredos e conteúdo ausentes de logs.

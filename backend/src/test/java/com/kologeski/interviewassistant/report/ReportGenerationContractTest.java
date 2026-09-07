@@ -86,6 +86,7 @@ class ReportGenerationContractTest {
 
         assertThat(fake.prompt).isNotNull();
         assertThat(result.promptVersion()).isEqualTo(ReportPromptBuilder.VERSION);
+        assertThat(result.model()).isEqualTo("synthetic-test-model");
         assertThat(result.draft()).isSameAs(draft);
         assertThat(recordFields(ReportDraft.class)).doesNotContain(
                 "conclusion", "decision", "approval", "recommendation");
@@ -136,9 +137,9 @@ class ReportGenerationContractTest {
 
         private CapturingLlmClient(ReportDraft response) { this.response = response; }
 
-        @Override public ReportDraft generateDraft(ReportPrompt prompt) {
+        @Override public LlmDraftResponse generateDraft(ReportPrompt prompt) {
             this.prompt = prompt;
-            return response;
+            return new LlmDraftResponse(response, "synthetic-test-model");
         }
     }
 }
