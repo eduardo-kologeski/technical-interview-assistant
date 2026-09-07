@@ -16,7 +16,7 @@ Usuários com uma membership continuam entrando diretamente no dashboard organiz
 
 Não houve migration: V21 já permite usuário e avaliação pessoal sem Company. Empresas, memberships, convites, subscriptions, entrevistas e candidatos existentes não foram migrados nem removidos. Setup On-Premises continua criando sua organização inicial e o cadastro público continua bloqueado nesse modo.
 
-IND-03, critérios/evidências, autosave pessoal, parecer, Ollama, LLM, PDF e billing pessoal não fazem parte desta entrega.
+Critérios/evidências e o ciclo de coleta foram adicionados na IND-03. Jornada visual completa, parecer, Ollama, LLM, PDF e billing pessoal não fazem parte da IND-02.
 
 ## Validação
 

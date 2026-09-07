@@ -10,6 +10,7 @@ import com.kologeski.interviewassistant.auth.AuthenticationService;
 import com.kologeski.interviewassistant.auth.IdentityToken;
 import com.kologeski.interviewassistant.deployment.InstallationSetupService;
 import com.kologeski.interviewassistant.interview.InterviewService;
+import com.kologeski.interviewassistant.interview.PersonalAssessmentService;
 import com.kologeski.interviewassistant.vacancy.JobVacancyService;
 import com.kologeski.interviewassistant.company.CompanyContext;
 import com.kologeski.interviewassistant.company.InvitationService;
@@ -46,6 +47,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(InterviewService.StaleInterviewException.class)
     ProblemDetail staleInterview(InterviewService.StaleInterviewException exception) {
+        return problem(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(PersonalAssessmentService.StalePersonalAssessmentException.class)
+    ProblemDetail stalePersonalAssessment(PersonalAssessmentService.StalePersonalAssessmentException exception) {
         return problem(HttpStatus.CONFLICT, exception.getMessage());
     }
 

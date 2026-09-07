@@ -35,15 +35,50 @@ public class PersonalAssessmentController {
     @GetMapping("/{id}")
     AssessmentResponse get(@PathVariable UUID id) { return AssessmentResponse.from(service.get(id)); }
 
+    @GetMapping("/{id}/collection")
+    CollectionResponse collection(@PathVariable UUID id) {
+        return CollectionResponse.from(service.collection(id));
+    }
+
+    @PatchMapping("/{id}/collection/start")
+    CollectionResponse startCollection(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return CollectionResponse.from(service.startCollection(id, command.version()));
+    }
+
+    @PutMapping("/{id}/collection")
+    CollectionResponse saveCollection(@PathVariable UUID id, @Valid @RequestBody SaveCollectionCommand command) {
+        return CollectionResponse.from(service.saveCollection(id, command.version(), command.document()));
+    }
+
+    @PatchMapping("/{id}/collection/complete")
+    CollectionResponse completeCollection(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return CollectionResponse.from(service.completeCollection(id, command.version()));
+    }
+
     public record CreateAssessmentCommand(@NotBlank @Size(max = 160) String title,
                                            @NotBlank @Size(max = 160) String personName,
                                            @Size(max = 5000) String context) { }
+
+    public record VersionCommand(@NotNull @PositiveOrZero Long version) { }
+
+    public record SaveCollectionCommand(@NotNull @PositiveOrZero Long version,
+                                        @NotNull @Valid PersonalAssessmentDocument document) { }
 
     public record AssessmentResponse(UUID id, String title, String personName, String context,
                                      InterviewStatus status, long version, Instant createdAt, Instant updatedAt) {
         static AssessmentResponse from(Interview value) {
             return new AssessmentResponse(value.id(), value.title(), value.candidateName(), value.context(),
                     value.status(), value.version(), value.createdAt(), value.updatedAt());
+        }
+    }
+
+    public record CollectionResponse(UUID id, InterviewStatus status, long version,
+                                     PersonalAssessmentDocument document, boolean generationEligible,
+                                     Instant updatedAt) {
+        static CollectionResponse from(PersonalAssessmentService.CollectionView value) {
+            Interview assessment = value.assessment();
+            return new CollectionResponse(assessment.id(), assessment.status(), assessment.version(),
+                    value.document(), value.generationEligible(), assessment.updatedAt());
         }
     }
 }

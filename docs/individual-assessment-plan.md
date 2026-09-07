@@ -1,6 +1,6 @@
 # TIA — plano de evolução para avaliação individual
 
-Data: 06/09/2026. Baseline local: `92e93ef`. Plano aprovado; implementação autorizada exclusivamente para IND-01. A decisão Ollama ao final deste documento integra o plano aprovado.
+Data: 06/09/2026. Baseline inicial: `92e93ef`. Plano aprovado; IND-01 e IND-02 foram integradas em `develop`, e a execução sequencial prosseguiu para IND-03. A decisão Ollama ao final deste documento integra o plano aprovado.
 
 ## 1. Diagnóstico e evidências
 
@@ -217,6 +217,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 - Testes: cadastro sem linhas empresariais, login sem membership, signup desabilitado, convite e navegação legados.
 
 ### IND-03 — P0 — Contrato validado de critérios e evidências
+
+**Estado: implementada em `develop`; validação integral pendente do CI com PostgreSQL isolado.**
 
 - Objetivo/contexto: impedir que JSON opaco se torne diretamente contexto de IA.
 - Escopo: DTO schemaVersion, IDs, critérios/evidências e notas; persistência com versão; iniciar/encerrar coleta e regras de edição.
