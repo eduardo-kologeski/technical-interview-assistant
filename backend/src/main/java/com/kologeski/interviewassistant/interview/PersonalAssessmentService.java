@@ -61,6 +61,7 @@ public class PersonalAssessmentService {
     public CollectionView saveCollection(UUID id, long expectedVersion, PersonalAssessmentDocument document) {
         Interview assessment = required(id);
         requireVersion(assessment, expectedVersion);
+        document.validateReferences();
         if (assessment.status() == InterviewStatus.CREATED) {
             document.requirePreparationOnly();
         } else if (assessment.status() == InterviewStatus.IN_PROGRESS) {
