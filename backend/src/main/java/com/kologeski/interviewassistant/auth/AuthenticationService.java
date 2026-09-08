@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.kologeski.interviewassistant.deployment.DeploymentProperties;
 
 @Service
 public class AuthenticationService {
@@ -16,14 +17,18 @@ public class AuthenticationService {
     private final PasswordEncoder passwords;
     private final JwtService jwt;
     private final RefreshTokenService refreshTokens;
+    private final DeploymentProperties deployment;
 
     public AuthenticationService(UserRepository users, PasswordEncoder passwords,
-                                 JwtService jwt, RefreshTokenService refreshTokens) {
+                                 JwtService jwt, RefreshTokenService refreshTokens,
+                                  DeploymentProperties deployment) {
         this.users = users; this.passwords = passwords; this.jwt = jwt; this.refreshTokens = refreshTokens;
+        this.deployment = deployment;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request, RefreshTokenService.Metadata metadata) {
+        if (!deployment.publicSignupEnabled()) throw new PublicSignupDisabledException();
         String email = normalize(request.email());
         if (users.existsByEmail(email)) throw new DuplicateEmailException();
         User user = users.save(new User(request.name().trim(), email,
@@ -65,5 +70,8 @@ public class AuthenticationService {
     public record AuthResponse(String accessToken, String refreshToken, long expiresIn) { }
     public static final class DuplicateEmailException extends RuntimeException {
         public DuplicateEmailException() { super("E-mail já cadastrado."); }
+    }
+    public static final class PublicSignupDisabledException extends RuntimeException {
+        public PublicSignupDisabledException() { super("Cadastro público indisponível nesta instalação."); }
     }
 }

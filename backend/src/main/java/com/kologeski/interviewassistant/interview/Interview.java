@@ -22,10 +22,15 @@ import java.util.UUID;
 @Table(name = "interviews")
 public class Interview extends AuditableEntity {
     @Id private UUID id;
-    @Column(name = "vacancy_id", nullable = false, updatable = false) private UUID vacancyId;
+    @Column(name = "company_id", updatable = false) private UUID companyId;
+    @Column(name = "owner_user_id", updatable = false) private Long ownerUserId;
+    @Column(name = "title", length = 160) private String title;
+    @Column(name = "context", length = 5000) private String context;
+    @Column(name = "vacancy_id", updatable = false) private UUID vacancyId;
     @Column(name = "candidate_name", nullable = false) private String candidateName;
-    @Column(name = "vacancy_title_snapshot", nullable = false, updatable = false) private String vacancyTitleSnapshot;
-    @Column(name = "seniority_snapshot", nullable = false, updatable = false) private String senioritySnapshot;
+    @Column(name = "candidate_id", updatable = false) private UUID candidateId;
+    @Column(name = "vacancy_title_snapshot", updatable = false) private String vacancyTitleSnapshot;
+    @Column(name = "seniority_snapshot", updatable = false) private String senioritySnapshot;
     @Column(name = "client_company") private String clientCompany;
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "interview_requirement_snapshots", joinColumns = @JoinColumn(name = "interview_id"))
@@ -44,8 +49,25 @@ public class Interview extends AuditableEntity {
     private long version;
     @Column(name = "assessment_data", nullable = false, columnDefinition = "text")
     private String assessmentData = "{}";
+    @Column(name = "kit_snapshot", nullable = false, columnDefinition = "text") private String kitSnapshot = "{}";
 
     protected Interview() { }
+
+    public static Interview personal(Long ownerUserId, String title, String candidateName, String context, Instant now) {
+        var interview = new Interview();
+        interview.id = UUID.randomUUID();
+        interview.ownerUserId = java.util.Objects.requireNonNull(ownerUserId, "ownerUserId");
+        interview.title = requiredText(title, "title");
+        interview.candidateName = requiredText(candidateName, "candidateName");
+        interview.context = context == null ? null : context.trim();
+        interview.status = InterviewStatus.CREATED;
+        interview.registerCreation(ownerUserId.toString(), now);
+        return interview;
+    }
+
+    public Long ownerUserId() { return ownerUserId; }
+    public String title() { return title; }
+    public String context() { return context; }
 
     public Interview(UUID vacancyId, String vacancyTitle, List<String> requirementSnapshot,
                      String candidateName, String actorId, Instant now) {
@@ -54,13 +76,22 @@ public class Interview extends AuditableEntity {
 
     public Interview(UUID vacancyId, String vacancyTitle, String seniority, List<String> requirementSnapshot,
                      String candidateName, String clientCompany, String actorId, Instant now) {
+        this(com.kologeski.interviewassistant.vacancy.JobVacancy.LEGACY_COMPANY_ID, vacancyId, vacancyTitle,
+                seniority, requirementSnapshot, candidateName, clientCompany, actorId, now);
+    }
+
+    public Interview(UUID companyId, UUID vacancyId, String vacancyTitle, String seniority,
+                     List<String> requirementSnapshot, String candidateName, String clientCompany,
+                     String actorId, Instant now) {
         this.id = UUID.randomUUID();
+        this.companyId = java.util.Objects.requireNonNull(companyId, "companyId");
         this.vacancyId = vacancyId;
         this.vacancyTitleSnapshot = requiredText(vacancyTitle, "vacancyTitle");
         this.senioritySnapshot = requiredText(seniority, "seniority");
         this.clientCompany = clientCompany == null ? "" : clientCompany.trim();
         this.requirementSnapshot = new ArrayList<>(requirementSnapshot == null ? List.of() : requirementSnapshot);
         this.candidateName = requiredText(candidateName, "candidateName");
+        this.candidateId = UUID.nameUUIDFromBytes((companyId + ":" + this.candidateName.toLowerCase(java.util.Locale.ROOT)).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         this.status = InterviewStatus.CREATED;
         registerCreation(actorId, now);
     }
@@ -112,10 +143,20 @@ public class Interview extends AuditableEntity {
         this.assessmentData = assessmentData;
         registerUpdate(actorId, now);
     }
+    public void snapshotKit(String value) {
+        if (status != InterviewStatus.CREATED) throw new IllegalStateException("kit snapshot must be captured before start");
+        kitSnapshot = value == null || value.isBlank() ? "{}" : value;
+    }
+    public void linkCandidate(UUID value) {
+        if (status != InterviewStatus.CREATED) throw new IllegalStateException("candidate must be linked before start");
+        candidateId = java.util.Objects.requireNonNull(value, "candidateId");
+    }
 
     public UUID id() { return id; }
+    public UUID companyId() { return companyId; }
     public UUID vacancyId() { return vacancyId; }
     public String candidateName() { return candidateName; }
+    public UUID candidateId() { return candidateId; }
     public String vacancyTitleSnapshot() { return vacancyTitleSnapshot; }
     public String senioritySnapshot() { return senioritySnapshot; }
     public String clientCompany() { return clientCompany; }
@@ -130,4 +171,5 @@ public class Interview extends AuditableEntity {
     public String lastPdfGeneratedBy() { return lastPdfGeneratedBy; }
     public long version() { return version; }
     public String assessmentData() { return assessmentData; }
+    public String kitSnapshot() { return kitSnapshot; }
 }

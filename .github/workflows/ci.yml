@@ -11,17 +11,45 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: interview_assistant_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd="pg_isready -U postgres -d interview_assistant_test"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      TEST_DATABASE_URL: jdbc:postgresql://127.0.0.1:5432/interview_assistant_test
+      TEST_DATABASE_USER: postgres
+      TEST_DATABASE_PASSWORD: postgres
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: temurin
           java-version: 21
           cache: maven
       - run: ./mvnw -B verify
+      - name: Assert PostgreSQL and Flyway tests executed
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          report = Path('target/surefire-reports/TEST-com.kologeski.interviewassistant.migration.PostgresqlFlywayMigrationTest.xml')
+          if not report.exists():
+              raise SystemExit('PostgreSQL/Flyway test report is missing')
+          suite = ElementTree.parse(report).getroot()
+          if int(suite.attrib.get('skipped', '-1')) != 0 or int(suite.attrib.get('failures', '-1')) != 0 or int(suite.attrib.get('errors', '-1')) != 0:
+              raise SystemExit(f'PostgreSQL/Flyway test did not execute successfully: {suite.attrib}')
+          PY
 
   frontend:
     runs-on: ubuntu-latest
@@ -29,8 +57,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -42,17 +70,32 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: interview_assistant_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd="pg_isready -U postgres -d interview_assistant_e2e"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      E2E_DATABASE_URL: jdbc:postgresql://127.0.0.1:5432/interview_assistant_e2e
+      E2E_DATABASE_USER: postgres
+      E2E_DATABASE_PASSWORD: postgres
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: temurin
           java-version: 21
           cache: maven
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -60,7 +103,7 @@ jobs:
       - run: npm ci
       - run: npm run e2e:install
       - run: npm run e2e
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: playwright-report
@@ -72,7 +115,7 @@ jobs:
   container-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate backup and restore scripts
         shell: pwsh
         run: |
@@ -98,6 +141,22 @@ jobs:
           DATABASE_PASSWORD: ci-only-database-password
           JWT_SECRET: Y2ktb25seS1qd3Qtc2VjcmV0LW1hdGVyaWFsLXdpdGgtYXQtbGVhc3Qtc2l4dHktZm91ci1ieXRlcy0yMDI2LTA4LTI4
         run: docker compose config --quiet
+      - name: Validate On-Premises deployment package
+        env:
+          REGISTRY: ghcr.io/example
+          APP_VERSION: 0.0.0-ci
+          PUBLIC_ORIGIN: https://interviews.example.test
+          DATABASE_URL: jdbc:postgresql://database.example.test:5432/interview_assistant
+          DATABASE_USER: ci_user
+          DATABASE_PASSWORD: ci-only-database-password
+          JWT_SECRET: Y2ktb25seS1qd3Qtc2VjcmV0LW1hdGVyaWFsLXdpdGgtYXQtbGVhc3Qtc2l4dHktZm91ci1ieXRlcy0yMDI2LTA4LTI4
+        run: |
+          docker compose --file deployment/docker-compose.yml config --quiet
+          test "$(docker compose --file deployment/docker-compose.yml config --images | sort -u | wc -l)" -eq 2
+          ! grep -Eq '^[[:space:]]*build:' deployment/docker-compose.yml
+          grep -q '^## Upgrade seguro' deployment/OPERATIONS.md
+          grep -q '^## Rollback' deployment/OPERATIONS.md
+          grep -q '^## Ensaio de restore' deployment/OPERATIONS.md
       - name: Build backend image
         run: >-
           docker build

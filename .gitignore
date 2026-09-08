@@ -24,6 +24,7 @@ frontend/blob-report/
 *.log
 
 # Local runtime artifacts that may contain candidate data
+.runtime/
 tmp/
 backups/
 

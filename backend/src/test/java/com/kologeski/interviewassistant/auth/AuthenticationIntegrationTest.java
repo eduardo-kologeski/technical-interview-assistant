@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 class AuthenticationIntegrationTest {
+    @Autowired IdentityTokenRepository identityTokens;
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
@@ -28,14 +29,7 @@ class AuthenticationIntegrationTest {
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach void clean() {
-        refreshTokens.deleteAll();
-        jdbc.update("DELETE FROM interview_requirement_snapshots");
-        jdbc.update("DELETE FROM interviews");
-        jdbc.update("DELETE FROM job_vacancy_requirements");
-        jdbc.update("DELETE FROM job_vacancies");
-        jdbc.update("DELETE FROM interview_availability");
-        jdbc.update("DELETE FROM user_technical_skills");
-        users.deleteAll();
+        com.kologeski.interviewassistant.PostgresqlTestDatabase.reset(jdbc);
     }
 
     @Test void registerLoginAndCurrentUserAreInternal() throws Exception {
@@ -48,6 +42,9 @@ class AuthenticationIntegrationTest {
         mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.email").value("user@example.com"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM companies WHERE created_by_user_id IS NOT NULL", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM company_memberships", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM saas_subscriptions WHERE company_id <> '00000000-0000-0000-0000-000000000001'", Integer.class));
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"user@example.com\",\"password\":\"wrong\",\"rememberMe\":false}"))
                 .andExpect(status().isUnauthorized());
@@ -74,6 +71,9 @@ class AuthenticationIntegrationTest {
         MvcResult refreshed = mvc.perform(post("/api/auth/refresh").contentType(MediaType.APPLICATION_JSON)
                         .content(token(first))).andExpect(status().isOk()).andReturn();
         String second = body(refreshed).get("refreshToken").asText();
+        String access = body(refreshed).get("accessToken").asText();
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.email").value("persistent@example.com"));
         assertNotEquals(first, second);
         assertEquals(2, refreshTokens.count());
         assertEquals(1, refreshTokens.findAll().stream().filter(RefreshToken::isRevoked).count());
@@ -97,6 +97,9 @@ class AuthenticationIntegrationTest {
         MvcResult registration = register("auditor@example.com", false).andReturn();
         String access = body(registration).get("accessToken").asText();
         String userId = String.valueOf(users.findByEmail("auditor@example.com").orElseThrow().getId());
+        mvc.perform(post("/api/companies").header("Authorization", "Bearer " + access)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Empresa Auditora\"}"))
+                .andExpect(status().isCreated());
 
         MvcResult vacancy = mvc.perform(post("/api/job-positions")
                         .header("Authorization", "Bearer " + access)
@@ -123,6 +126,25 @@ class AuthenticationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test void newlyRegisteredIndividualCanUsePersonalApiButNotCompanyApis() throws Exception {
+        MvcResult registration = register("individual@example.com", true).andExpect(status().isCreated()).andReturn();
+        String access = body(registration).get("accessToken").asText();
+        MvcResult created = mvc.perform(post("/api/assessments").header("Authorization", "Bearer " + access)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Java\",\"personName\":\"Pessoa\",\"context\":\"Avaliação individual\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String assessmentId = body(created).get("id").asText();
+        mvc.perform(get("/api/assessments").header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/assessments/{id}", assessmentId).header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Java"));
+        mvc.perform(get("/api/job-positions").header("Authorization", "Bearer " + access))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/subscription").header("Authorization", "Bearer " + access))
+                .andExpect(status().isForbidden());
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM company_memberships", Integer.class));
     }
 
     @Test void cleanupRemovesOnlyRefreshTokensPastRetention() throws Exception {

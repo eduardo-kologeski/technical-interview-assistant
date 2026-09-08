@@ -21,14 +21,14 @@ class SecurityConfigurationTest {
     }
 
     @Test
-    void authenticatedUserAccessDoesNotDependOnRole() throws Exception {
+    void authenticatedPrincipalWithoutCompanyMembershipIsDenied() throws Exception {
         mvc.perform(get("/api/job-positions").with(user("ordinary-user-a").authorities()))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test
-    void anotherAuthenticatedUserHasTheSameAccessWithoutAuthorities() throws Exception {
+    void anotherPrincipalWithoutCompanyMembershipIsAlsoDenied() throws Exception {
         mvc.perform(get("/api/job-positions").with(user("ordinary-user-b").authorities()))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 }

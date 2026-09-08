@@ -21,11 +21,18 @@ services:
         APP_VERSION: ${APP_VERSION:-dev}
         GIT_SHA: ${GIT_SHA:-local}
     environment:
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-SAAS}
       DATABASE_URL: jdbc:postgresql://postgres:5432/interview_assistant
       DATABASE_USER: interview_app
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Defina DATABASE_PASSWORD no ambiente ou arquivo .env local}
       SERVER_PORT: 8081
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no ambiente ou arquivo .env local}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      OLLAMA_CONNECT_TIMEOUT: ${OLLAMA_CONNECT_TIMEOUT:-3s}
+      OLLAMA_RESPONSE_TIMEOUT: ${OLLAMA_RESPONSE_TIMEOUT:-60s}
+      OLLAMA_MAX_INPUT_CHARS: ${OLLAMA_MAX_INPUT_CHARS:-120000}
+      OLLAMA_MAX_RESPONSE_CHARS: ${OLLAMA_MAX_RESPONSE_CHARS:-100000}
     ports:
       - "8081:8081"
     depends_on:

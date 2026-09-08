@@ -20,12 +20,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
                 select s.id from UserTechnicalSkill s
                 where s.user = u and s.normalizedName = :technology
             ))
-            and ((:date is null and :time is null) or exists (
+            and ((cast(:date as date) is null and cast(:time as time) is null) or exists (
                 select a.id from InterviewAvailability a
                 where a.user = u
                   and a.availabilityDate >= :today
-                  and (:date is null or a.availabilityDate = :date)
-                  and (:time is null or (a.startTime <= :time and a.endTime > :time))
+                  and (cast(:date as date) is null or a.availabilityDate = :date)
+                  and (cast(:time as time) is null or (a.startTime <= :time and a.endTime > :time))
             ))
             """)
     Page<User> searchInterviewers(@Param("technology") String technology,
@@ -33,4 +33,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                   @Param("date") LocalDate date,
                                   @Param("time") LocalTime time,
                                   Pageable pageable);
+
+    @Query("""
+            select u from User u where u.id in :userIds
+            and (:technology = '' or exists (
+                select s.id from UserTechnicalSkill s where s.user = u and s.normalizedName = :technology
+            ))
+            and ((cast(:date as date) is null and cast(:time as time) is null) or exists (
+                select a.id from InterviewAvailability a where a.user = u and a.availabilityDate >= :today
+                  and (cast(:date as date) is null or a.availabilityDate = :date)
+                  and (cast(:time as time) is null or (a.startTime <= :time and a.endTime > :time))
+            ))
+            """)
+    Page<User> searchCompanyInterviewers(@Param("userIds") java.util.Collection<Long> userIds,
+                                         @Param("technology") String technology,
+                                         @Param("today") LocalDate today,
+                                         @Param("date") LocalDate date,
+                                         @Param("time") LocalTime time,
+                                         Pageable pageable);
 }

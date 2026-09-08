@@ -2,13 +2,16 @@ package com.kologeski.interviewassistant.profile;
 
 import com.fasterxml.jackson.databind.*;
 import com.kologeski.interviewassistant.auth.RefreshTokenRepository;
+import com.kologeski.interviewassistant.auth.IdentityTokenRepository;
 import com.kologeski.interviewassistant.user.UserRepository;
+import com.kologeski.interviewassistant.company.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.*;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -20,16 +23,17 @@ class ProfileIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired IdentityTokenRepository identityTokens;
     @Autowired UserTechnicalSkillRepository skills;
     @Autowired InterviewAvailabilityRepository availability;
     @Autowired Clock clock;
+    @Autowired CompanyRepository companies;
+    @Autowired CompanyMembershipRepository memberships;
+    @Autowired JdbcTemplate jdbc;
     private final ObjectMapper json = new ObjectMapper();
 
     @BeforeEach void clean() {
-        availability.deleteAll();
-        skills.deleteAll();
-        refreshTokens.deleteAll();
-        users.deleteAll();
+        com.kologeski.interviewassistant.PostgresqlTestDatabase.reset(jdbc);
     }
 
     @Test void profileRequiresAuthenticationAndOnlyUpdatesCurrentUser() throws Exception {
@@ -82,6 +86,33 @@ class ProfileIntegrationTest {
         Assertions.assertEquals(ZoneId.of("America/Sao_Paulo"), clock.getZone());
     }
 
+    @Test void createsThreeAvailabilityIntervalsAtomicallyAndPreservesThemOnReload() throws Exception {
+        String token = register("João", "availability.batch@example.com");
+        LocalDate date = LocalDate.now().plusDays(8);
+        mvc.perform(post("/api/profile/availability/batch").header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"date":"%s","startTime":"08:00","endTime":"09:00"},
+                                 {"date":"%s","startTime":"16:30","endTime":"18:00"},
+                                 {"date":"%s","startTime":"19:00","endTime":"20:00"}]
+                                """.formatted(date, date, date)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(3));
+        mvc.perform(post("/api/profile/availability/batch").header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [{"date":"%s","startTime":"10:00","endTime":"11:00"},
+                                 {"date":"%s","startTime":"10:30","endTime":"11:30"}]
+                                """.formatted(date, date)))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/api/profile/availability").header("Authorization", bearer(token))
+                        .param("from", date.toString()).param("to", date.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].startTime").value("08:00:00"))
+                .andExpect(jsonPath("$[1].startTime").value("16:30:00"))
+                .andExpect(jsonPath("$[2].startTime").value("19:00:00"));
+    }
+
     @Test void searchesByVacancyTechnologyAndAvailabilityWithoutExposingSensitiveData() throws Exception {
         String joao = register("João", "joao.search@example.com");
         addSkill(joao, "Java", "ADVANCED").andExpect(status().isCreated());
@@ -90,6 +121,13 @@ class ProfileIntegrationTest {
         addSlot(joao, interviewDate, "14:00", "17:00").andExpect(status().isCreated());
         String maria = register("Maria", "maria.search@example.com");
         addSkill(maria, "Java", "INTERMEDIATE").andExpect(status().isCreated());
+        var joaoUser = users.findByEmail("joao.search@example.com").orElseThrow();
+        var mariaUser = users.findByEmail("maria.search@example.com").orElseThrow();
+        MvcResult companyResult = mvc.perform(post("/api/companies").header("Authorization", bearer(joao))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Empresa João\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        var joaoCompany = companies.findById(java.util.UUID.fromString(body(companyResult).get("id").asText())).orElseThrow();
+        memberships.save(new CompanyMembership(joaoCompany.id(), mariaUser.getId(), CompanyRole.INTERVIEWER, Instant.now()));
 
         MvcResult vacancy = mvc.perform(post("/api/job-positions").header("Authorization", bearer(joao))
                         .contentType(MediaType.APPLICATION_JSON)

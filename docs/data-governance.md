@@ -24,6 +24,12 @@ Todas as APIs de negócio exigem autenticação. A baseline atual ainda não dif
 
 Logs podem conter identificadores técnicos, endpoint, status, duração e correlation ID. Não registrar senha, token, header `Authorization`, anotações, feedback, parecer integral ou o documento de avaliação. Erros devolvidos ao cliente não devem incluir SQL ou stack trace.
 
+## Contexto de geração assistida
+
+O contrato da IND-05 permite somente título e contexto da avaliação, critérios descritivos, evidências, notas, pontos positivos e pontos de atenção. Ele exclui nome da pessoa avaliada, dados do usuário, e-mail, empresa, IDs persistidos, nota numérica, pergunta, rubrica, perfil, disponibilidade e histórico de outras avaliações. Identificadores do documento são convertidos em referências locais antes da construção do prompt.
+
+A allowlist reduz o contexto, mas texto livre ainda pode conter identificação e não equivale a anonimização. O adapter da IND-06 aceita apenas um Ollama alcançável por endereço local, sem fallback para serviços externos, e não registra o prompt, o documento da avaliação nem a resposta completa do modelo. O contexto e a minuta original são persistidos no PostgreSQL para rastreabilidade acadêmica e herdam o mesmo proprietário e ciclo de exclusão da avaliação.
+
 ## Retenção
 
 O prazo é uma decisão externa pendente. Antes do go-live, a organização deve aprovar períodos para entrevistas concluídas, candidatos não contratados, refresh tokens revogados, auditoria, logs e backups. A futura rotina de retenção deve ser configurável, auditável e operar por status/data, sem apagar registros fora do escopo aprovado.
