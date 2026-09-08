@@ -132,7 +132,8 @@ public class Interview extends AuditableEntity {
     }
 
     public void saveAssessment(String assessmentData, String actorId, Instant now) {
-        if (status != InterviewStatus.IN_PROGRESS && status != InterviewStatus.COMPLETED)
+        boolean personalPreparation = ownerUserId != null && status == InterviewStatus.CREATED;
+        if (!personalPreparation && status != InterviewStatus.IN_PROGRESS && status != InterviewStatus.COMPLETED)
             throw new IllegalStateException("only an active interview can be saved");
         if (assessmentFinalizedAt != null)
             throw new IllegalStateException("a finalized assessment cannot be changed");

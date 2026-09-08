@@ -50,6 +50,9 @@ public class PersonalAssessmentService {
     public CollectionView startCollection(UUID id, long expectedVersion) {
         Interview assessment = required(id);
         requireVersion(assessment, expectedVersion);
+        if (documents.read(assessment.assessmentData()).criteria().isEmpty()) {
+            throw new IllegalStateException("Defina pelo menos um requisito antes de iniciar a avaliação.");
+        }
         assessment.start(actor.required().id(), Instant.now(clock));
         return view(repository.saveAndFlush(assessment));
     }
@@ -58,8 +61,15 @@ public class PersonalAssessmentService {
     public CollectionView saveCollection(UUID id, long expectedVersion, PersonalAssessmentDocument document) {
         Interview assessment = required(id);
         requireVersion(assessment, expectedVersion);
-        if (assessment.status() != InterviewStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Somente uma coleta em andamento pode ser alterada.");
+        if (assessment.status() == InterviewStatus.CREATED) {
+            document.requirePreparationOnly();
+        } else if (assessment.status() == InterviewStatus.IN_PROGRESS) {
+            PersonalAssessmentDocument prepared = documents.read(assessment.assessmentData());
+            if (!document.hasSameRequirementDefinitions(prepared)) {
+                throw new IllegalStateException("Os requisitos ficam bloqueados depois que a avaliação é iniciada.");
+            }
+        } else {
+            throw new IllegalStateException("Uma avaliação encerrada não pode ser alterada.");
         }
         assessment.saveAssessment(documents.write(document), actor.required().id(), Instant.now(clock));
         return view(repository.saveAndFlush(assessment));

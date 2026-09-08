@@ -229,11 +229,11 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-04 — P0 — Jornada visual de criação e coleta
 
-**Estado: implementada em `develop`; dashboard, criação, retomada, autosave e conclusão cobertos por testes de componente e E2E.**
+**Estado: implementada em `develop`; preparação anterior ao início, dashboard, retomada, atalhos, autosave e conclusão cobertos por testes.**
 
 - Objetivo/contexto: reaproveitar rapidez da sessão sem exigir vaga.
-- Escopo: dashboard mínimo, formulário título/pessoa/contexto, edição direta de critérios, cartões/evidências e autosave.
-- Aceite: criar → retomar → registrar sem configurar empresa/template; aguardar save antes de completar; falha e conflito visíveis, notas preservadas.
+- Escopo: dashboard mínimo, formulário título/pessoa/contexto, preparação dos requisitos antes do início, cartões/evidências, frases rápidas e autosave.
+- Aceite: criar → definir e salvar requisitos → iniciar → registrar com atalhos sem configurar empresa/template; requisitos bloqueados após o início; aguardar save antes de completar; falha e conflito visíveis, notas preservadas.
 - Dependências: IND-02, IND-03.
 - Arquivos: dashboard, app/session, cartões, rotas, serviço pessoal; extrair somente trechos necessários do componente grande.
 - Testes: componentes e E2E com reload, falha de autosave e conclusão; não exigir pontuação.

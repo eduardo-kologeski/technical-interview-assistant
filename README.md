@@ -49,6 +49,7 @@ O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production
 
 - experiência desktop-first e uso eficiente por teclado;
 - templates configuráveis para diferentes perfis e stacks;
+- preparação dos requisitos antes da avaliação e frases rápidas para registrar evidências, pontos fortes e pontos de atenção;
 - decisão final sempre pertencente ao entrevistador;
 - rastreabilidade: minutas assistidas usam apenas informações registradas na avaliação;
 - revisão humana obrigatória antes de qualquer parecer final;

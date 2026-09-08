@@ -25,7 +25,9 @@ O TIA não atribui à IA a responsabilidade de:
 ## Fluxo funcional de referência
 
 ```text
-registrar contexto, critérios, observações e evidências
+definir os requisitos que serão avaliados
+  -> iniciar a avaliação
+  -> registrar observações e evidências com atalhos de apoio
   -> encerrar a coleta
   -> montar um contexto estruturado somente com os registros da avaliação
   -> gerar uma minuta

@@ -4,7 +4,27 @@ import { FormsModule } from '@angular/forms';
 
 export type EvaluationSource = 'JOB_REQUIREMENT' | 'COMPLEMENTARY_EXPERIENCE';
 
-type QuickOption = { label: string; text: string; tone: 'positive' | 'neutral' | 'negative' };
+export type QuickOption = { label: string; text: string; tone: 'positive' | 'neutral' | 'negative' };
+
+export const QUICK_EVALUATION_OPTIONS: QuickOption[] = [
+  { label: 'Experiência sólida', text: 'Experiência sólida.', tone: 'positive' },
+  { label: 'Forte experiência prática', text: 'Forte experiência prática.', tone: 'positive' },
+  { label: 'Boa experiência', text: 'Boa experiência.', tone: 'positive' },
+  { label: 'Domínio técnico', text: 'Demonstrou domínio técnico.', tone: 'positive' },
+  { label: 'Resposta completa', text: 'Resposta completa e bem fundamentada.', tone: 'positive' },
+  { label: 'Vivência em produção', text: 'Demonstrou vivência em produção.', tone: 'positive' },
+  { label: 'Experiência razoável', text: 'Experiência razoável.', tone: 'neutral' },
+  { label: 'Conhecimento intermediário', text: 'Demonstrou conhecimento intermediário.', tone: 'neutral' },
+  { label: 'Conhecimento mais teórico', text: 'Conhecimento principalmente teórico.', tone: 'neutral' },
+  { label: 'Experiência limitada', text: 'Experiência prática limitada.', tone: 'neutral' },
+  { label: 'Necessita aprofundamento', text: 'Necessita aprofundamento.', tone: 'neutral' },
+  { label: 'Pouca experiência prática', text: 'Pouca experiência prática.', tone: 'negative' },
+  { label: 'Conhecimento superficial', text: 'Demonstrou conhecimento superficial.', tone: 'negative' },
+  { label: 'Resposta insuficiente', text: 'Resposta insuficiente.', tone: 'negative' },
+  { label: 'Não soube responder', text: 'Não soube responder.', tone: 'negative' },
+  { label: 'Sem experiência prática', text: 'Sem experiência prática.', tone: 'negative' },
+  { label: 'Não demonstrou domínio', text: 'Não demonstrou domínio.', tone: 'negative' },
+];
 
 @Component({
   selector: 'app-skill-evaluation-card',
@@ -53,25 +73,7 @@ export class SkillEvaluationCardComponent {
   @Output() remove = new EventEmitter<void>();
 
   readonly scores = [0, 1, 2, 3, 4, 5];
-  readonly quickOptions: QuickOption[] = [
-    { label: 'Experiência sólida', text: 'Experiência sólida.', tone: 'positive' },
-    { label: 'Forte experiência prática', text: 'Forte experiência prática.', tone: 'positive' },
-    { label: 'Boa experiência', text: 'Boa experiência.', tone: 'positive' },
-    { label: 'Domínio técnico', text: 'Demonstrou domínio técnico.', tone: 'positive' },
-    { label: 'Resposta completa', text: 'Resposta completa e bem fundamentada.', tone: 'positive' },
-    { label: 'Vivência em produção', text: 'Demonstrou vivência em produção.', tone: 'positive' },
-    { label: 'Experiência razoável', text: 'Experiência razoável.', tone: 'neutral' },
-    { label: 'Conhecimento intermediário', text: 'Demonstrou conhecimento intermediário.', tone: 'neutral' },
-    { label: 'Conhecimento mais teórico', text: 'Conhecimento principalmente teórico.', tone: 'neutral' },
-    { label: 'Experiência limitada', text: 'Experiência prática limitada.', tone: 'neutral' },
-    { label: 'Necessita aprofundamento', text: 'Necessita aprofundamento.', tone: 'neutral' },
-    { label: 'Pouca experiência prática', text: 'Pouca experiência prática.', tone: 'negative' },
-    { label: 'Conhecimento superficial', text: 'Demonstrou conhecimento superficial.', tone: 'negative' },
-    { label: 'Resposta insuficiente', text: 'Resposta insuficiente.', tone: 'negative' },
-    { label: 'Não soube responder', text: 'Não soube responder.', tone: 'negative' },
-    { label: 'Sem experiência prática', text: 'Sem experiência prática.', tone: 'negative' },
-    { label: 'Não demonstrou domínio', text: 'Não demonstrou domínio.', tone: 'negative' },
-  ];
+  readonly quickOptions = QUICK_EVALUATION_OPTIONS;
 
   get sourceLabel() { return this.source === 'JOB_REQUIREMENT' ? 'Requisito da vaga' : 'Experiência complementar'; }
 }

@@ -14,7 +14,7 @@ const summary: PersonalAssessmentSummary = {
 const collection: PersonalAssessmentCollection = {
   id: summary.id, status: 'IN_PROGRESS', version: 1, generationEligible: false,
   updatedAt: summary.updatedAt,
-  document: { schemaVersion: 1, criteria: [], evidence: [], notes: [], strengths: [], concerns: [] },
+  document: { schemaVersion: 1, criteria: [{ id: 'criterion-1', name: 'APIs REST', technology: 'Spring', description: 'Integrações', question: 'Como desenha uma API?', rubric: 'Explique contratos', score: null }], evidence: [], notes: [], strengths: [], concerns: [] },
 };
 
 describe('personal assessment flow', () => {
@@ -62,13 +62,51 @@ describe('personal assessment flow', () => {
       { provide: PersonalAssessmentService, useValue: service },
     ] }).compileComponents();
     const fixture = TestBed.createComponent(PersonalAssessmentCollectionComponent); fixture.detectChanges();
-    fixture.componentInstance.newCriterion = 'APIs REST'; fixture.componentInstance.addCriterion();
+    fixture.componentInstance.updateScore('criterion-1', 4);
     fixture.componentInstance.complete();
     expect(service.complete).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(500); fixture.detectChanges();
     expect(service.save).toHaveBeenCalled();
-    expect(fixture.componentInstance.document().criteria[0].name).toBe('APIs REST');
+    expect(fixture.componentInstance.document().criteria[0].score).toBe(4);
     expect(fixture.componentInstance.saveError()).toContain('outra sessão');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('outra sessão');
+  });
+
+  it('requires saved requirements before starting the assessment', async () => {
+    vi.useFakeTimers();
+    const createdCollection: PersonalAssessmentCollection = { ...collection, status: 'CREATED', version: 0,
+      document: { schemaVersion: 1, criteria: [], evidence: [], notes: [], strengths: [], concerns: [] } };
+    const service = {
+      get: vi.fn(() => of(summary)), collection: vi.fn(() => of(createdCollection)),
+      save: vi.fn((_id: string, _version: number, document: PersonalAssessmentCollection['document']) => of({ ...createdCollection, version: 1, document })),
+      start: vi.fn(() => of({ ...collection, version: 2 })), complete: vi.fn(),
+    };
+    await TestBed.configureTestingModule({ imports: [PersonalAssessmentCollectionComponent], providers: [
+      provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
+      { provide: PersonalAssessmentService, useValue: service },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PersonalAssessmentCollectionComponent); fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Defina os requisitos antes da entrevista');
+    fixture.componentInstance.start(); expect(service.start).not.toHaveBeenCalled();
+    fixture.componentInstance.newCriterion = 'Mensageria'; fixture.componentInstance.addCriterion();
+    await vi.advanceTimersByTimeAsync(500);
+    fixture.componentInstance.start();
+    expect(service.save).toHaveBeenCalled();
+    expect(service.start).toHaveBeenCalledWith('assessment-1', 1);
+  });
+
+  it('restores quick phrases and records positive observations as evidence and strengths', async () => {
+    const service = { get: vi.fn(() => of(summary)), collection: vi.fn(() => of(collection)),
+      save: vi.fn(() => of(collection)), start: vi.fn(), complete: vi.fn() };
+    await TestBed.configureTestingModule({ imports: [PersonalAssessmentCollectionComponent], providers: [
+      provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
+      { provide: PersonalAssessmentService, useValue: service },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PersonalAssessmentCollectionComponent); fixture.detectChanges();
+    const option = fixture.componentInstance.quickOptions.find(item => item.label === 'Forte experiência prática')!;
+    fixture.componentInstance.appendQuickObservation('criterion-1', option); fixture.detectChanges();
+    expect(fixture.componentInstance.document().evidence[0].text).toBe('Forte experiência prática.');
+    expect(fixture.componentInstance.document().strengths[0].criterionId).toBe('criterion-1');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Resposta completa');
   });
 });

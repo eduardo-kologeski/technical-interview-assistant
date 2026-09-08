@@ -123,19 +123,36 @@ class PersonalAssessmentIntegrationTest {
 
         mvc.perform(patch("/api/assessments/{id}/collection/start", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
+                .andExpect(status().isConflict());
+
+        String preparation = """
+                {"version":0,"document":{"schemaVersion":1,
+                  "criteria":[{"id":"%s","name":"APIs REST","technology":"Spring Boot",
+                    "description":"Experiência com APIs","question":"Como estrutura uma API?",
+                    "rubric":"Separação entre controllers e services","score":null}],
+                  "evidence":[],"notes":[],"strengths":[],"concerns":[]}}
+                """.formatted(criterionId);
+        mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(preparation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+
+        mvc.perform(patch("/api/assessments/{id}/collection/start", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("IN_PROGRESS"))
-                .andExpect(jsonPath("$.version").value(1));
+                .andExpect(jsonPath("$.version").value(2));
 
         String document = """
-                {"version":1,"document":{"schemaVersion":1,
-                  "criteria":[{"id":"%s","name":"APIs REST","technology":"Spring Boot","score":4}],
+                {"version":2,"document":{"schemaVersion":1,
+                  "criteria":[{"id":"%s","name":"APIs REST","technology":"Spring Boot",
+                    "description":"Experiência com APIs","question":"Como estrutura uma API?",
+                    "rubric":"Separação entre controllers e services","score":4}],
                   "evidence":[{"id":"%s","criterionId":"%s","text":"Explicou controllers, services e repositories."}],
                   "notes":[{"id":"%s","text":"Observação geral permitida sem critério."}],
                   "strengths":[],"concerns":[]}}
                 """.formatted(criterionId, evidenceId, criterionId, noteId);
         mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content(document))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(3))
                 .andExpect(jsonPath("$.document.criteria[0].score").value(4))
                 .andExpect(jsonPath("$.generationEligible").value(false));
 
@@ -150,35 +167,35 @@ class PersonalAssessmentIntegrationTest {
                 .andExpect(status().isNotFound());
 
         mvc.perform(patch("/api/assessments/{id}/collection/complete", id).header("Authorization", tokenA)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":2}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETED"))
-                .andExpect(jsonPath("$.version").value(3))
+                .andExpect(jsonPath("$.version").value(4))
                 .andExpect(jsonPath("$.generationEligible").value(true));
         mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(document.replace("\"version\":1", "\"version\":3")))
+                        .content(document.replace("\"version\":2", "\"version\":4")))
                 .andExpect(status().isConflict());
     }
 
-    @Test void acceptsEmptyDraftButRejectsInvalidIdsReferencesScoresAndSchema() throws Exception {
+    @Test void enforcesPreparationBeforeStartAndRejectsInvalidDocuments() throws Exception {
         String id = create();
         mvc.perform(patch("/api/assessments/{id}/collection/start", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
-                .andExpect(status().isOk());
+                .andExpect(status().isConflict());
 
         String empty = """
-                {"version":1,"document":{"schemaVersion":1,"criteria":[],"evidence":[],
+                {"version":0,"document":{"schemaVersion":1,"criteria":[],"evidence":[],
                   "notes":[],"strengths":[],"concerns":[]}}
                 """;
         mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content(empty))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1))
                 .andExpect(jsonPath("$.generationEligible").value(false));
 
         UUID criterionId = UUID.randomUUID();
         UUID duplicateId = UUID.randomUUID();
         String invalidReference = """
-                {"version":2,"document":{"schemaVersion":1,
+                {"version":1,"document":{"schemaVersion":1,
                   "criteria":[{"id":"%s","name":"Java"}],
                   "evidence":[{"id":"%s","criterionId":"%s","text":"Evidência"}]}}
                 """.formatted(criterionId, UUID.randomUUID(), UUID.randomUUID());
@@ -187,7 +204,7 @@ class PersonalAssessmentIntegrationTest {
                 .andExpect(status().isBadRequest());
 
         String duplicateIds = """
-                {"version":2,"document":{"schemaVersion":1,
+                {"version":1,"document":{"schemaVersion":1,
                   "criteria":[{"id":"%s","name":"Java"}],
                   "notes":[{"id":"%s","text":"Nota"}]}}
                 """.formatted(duplicateId, duplicateId);
@@ -196,7 +213,7 @@ class PersonalAssessmentIntegrationTest {
                 .andExpect(status().isBadRequest());
 
         String invalidScore = """
-                {"version":2,"document":{"schemaVersion":1,
+                {"version":1,"document":{"schemaVersion":1,
                   "criteria":[{"id":"%s","name":"Java","score":6}]}}
                 """.formatted(criterionId);
         mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
@@ -204,11 +221,25 @@ class PersonalAssessmentIntegrationTest {
                 .andExpect(status().isBadRequest());
         mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"version\":2,\"document\":{\"schemaVersion\":2}}"))
+                        .content("{\"version\":1,\"document\":{\"schemaVersion\":2}}"))
                 .andExpect(status().isBadRequest());
 
-        mvc.perform(patch("/api/assessments/{id}/collection/complete", id).header("Authorization", tokenA)
+        String requirement = """
+                {"version":1,"document":{"schemaVersion":1,
+                  "criteria":[{"id":"%s","name":"Java","score":null}],
+                  "evidence":[],"notes":[],"strengths":[],"concerns":[]}}
+                """.formatted(criterionId);
+        mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(requirement))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2));
+        mvc.perform(patch("/api/assessments/{id}/collection/start", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\":2}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.generationEligible").value(false));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(3));
+
+        String changedRequirement = requirement.replace("\"version\":1", "\"version\":3")
+                .replace("\"Java\"", "\"Kotlin\"");
+        mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(changedRequirement))
+                .andExpect(status().isConflict());
     }
 }

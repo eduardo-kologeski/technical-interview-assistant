@@ -65,4 +65,29 @@ class PersonalAssessmentDocumentTest {
         assertThat(document.criteria()).isEmpty();
         assertThat(document.hasEvidenceForGeneration()).isFalse();
     }
+
+    @Test void separatesRequirementPreparationFromObservedEvidence() {
+        UUID criterionId = UUID.randomUUID();
+        var preparedCriterion = new PersonalAssessmentDocument.Criterion(criterionId, "Java", "JVM",
+                "Experiência esperada", "Como funciona concorrência?", "Procure exemplos práticos", null);
+        var prepared = new PersonalAssessmentDocument(1, List.of(preparedCriterion),
+                List.of(), List.of(), List.of(), List.of());
+        prepared.requirePreparationOnly();
+
+        var evaluated = new PersonalAssessmentDocument(1,
+                List.of(new PersonalAssessmentDocument.Criterion(criterionId, "Java", "JVM",
+                        "Experiência esperada", "Como funciona concorrência?", "Procure exemplos práticos", 4)),
+                List.of(new PersonalAssessmentDocument.Evidence(UUID.randomUUID(), criterionId,
+                        "Explicou isolamento de estado.")), List.of(), List.of(), List.of());
+
+        assertThat(evaluated.hasSameRequirementDefinitions(prepared)).isTrue();
+        assertThatThrownBy(evaluated::requirePreparationOnly)
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("Antes de iniciar");
+
+        var changed = new PersonalAssessmentDocument(1,
+                List.of(new PersonalAssessmentDocument.Criterion(criterionId, "Kotlin", "JVM",
+                        "Experiência esperada", "Como funciona concorrência?", "Procure exemplos práticos", 4)),
+                evaluated.evidence(), List.of(), List.of(), List.of());
+        assertThat(changed.hasSameRequirementDefinitions(prepared)).isFalse();
+    }
 }
