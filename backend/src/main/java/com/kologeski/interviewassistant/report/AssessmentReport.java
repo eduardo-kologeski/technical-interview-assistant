@@ -34,13 +34,15 @@ public class AssessmentReport extends AuditableEntity {
     @Column(name = "approval_idempotency_key") private UUID approvalIdempotencyKey;
     @Column(name = "approved_at") private Instant approvedAt;
     @Column(name = "approved_by") private String approvedBy;
+    @Column(name = "generation_latency_millis") private Long generationLatencyMillis;
+    @Column(name = "review_active_millis", nullable = false) private long reviewActiveMillis;
     @Version @Column(nullable = false) private long version;
 
     protected AssessmentReport() { }
 
     public static AssessmentReport draft(UUID assessmentId, Long ownerUserId, long sourceVersion,
                                          UUID idempotencyKey, String promptVersion, String modelName,
-                                         String contextSnapshot, String originalDraft, Instant now) {
+                                         String contextSnapshot, String originalDraft, long generationLatencyMillis, Instant now) {
         AssessmentReport report = new AssessmentReport();
         report.id = UUID.randomUUID();
         report.assessmentId = Objects.requireNonNull(assessmentId);
@@ -52,25 +54,29 @@ public class AssessmentReport extends AuditableEntity {
         report.modelName = requiredText(modelName, "modelName");
         report.contextSnapshot = requiredText(contextSnapshot, "contextSnapshot");
         report.originalDraft = requiredText(originalDraft, "originalDraft");
+        if (generationLatencyMillis < 0 || generationLatencyMillis > 86_400_000L) throw new IllegalArgumentException("generationLatencyMillis is invalid");
+        report.generationLatencyMillis = generationLatencyMillis;
         report.registerCreation(ownerUserId.toString(), now);
         return report;
     }
 
-    public void revise(String reviewedDraft, String humanConclusion, boolean reviewConfirmed,
+    public void revise(String reviewedDraft, String humanConclusion, boolean reviewConfirmed, long activeMillis,
                        String actorId, Instant now) {
         requireDraft();
         this.reviewedDraft = requiredText(reviewedDraft, "reviewedDraft");
         this.humanConclusion = optionalText(humanConclusion);
         this.reviewConfirmed = reviewConfirmed;
+        recordReviewActiveMillis(activeMillis);
         registerUpdate(actorId, now);
     }
 
-    public void approve(UUID idempotencyKey, String actorId, Instant now) {
+    public void approve(UUID idempotencyKey, long activeMillis, String actorId, Instant now) {
         requireDraft();
         if (reviewedDraft == null || !reviewConfirmed || humanConclusion == null) {
             throw new ReviewRequiredException();
         }
         approvalIdempotencyKey = Objects.requireNonNull(idempotencyKey);
+        recordReviewActiveMillis(activeMillis);
         approvedAt = Objects.requireNonNull(now);
         approvedBy = requiredText(actorId, "actorId");
         status = ReportStatus.APPROVED;
@@ -84,6 +90,7 @@ public class AssessmentReport extends AuditableEntity {
     private static String optionalText(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
+    private void recordReviewActiveMillis(long value) { if (value < reviewActiveMillis || value > 604_800_000L) throw new IllegalArgumentException("O tempo ativo de revisão é inválido."); reviewActiveMillis = value; }
 
     public UUID id() { return id; }
     public UUID assessmentId() { return assessmentId; }
@@ -101,6 +108,8 @@ public class AssessmentReport extends AuditableEntity {
     public UUID approvalIdempotencyKey() { return approvalIdempotencyKey; }
     public Instant approvedAt() { return approvedAt; }
     public String approvedBy() { return approvedBy; }
+    public Long generationLatencyMillis() { return generationLatencyMillis; }
+    public long reviewActiveMillis() { return reviewActiveMillis; }
     public long version() { return version; }
 
     public static final class ReviewRequiredException extends IllegalStateException {

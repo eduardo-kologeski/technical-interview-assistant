@@ -37,20 +37,22 @@ public class AcademicStudySummaryService {
         reports.findByOwnerUserId(owner).forEach(report -> reportsByAssessment.put(report.assessmentId(), report));
         Map<GroupKey, GroupAccumulator> groups = new LinkedHashMap<>();
         TotalsAccumulator totals = new TotalsAccumulator();
+        TimingAccumulator timings = new TimingAccumulator();
         for (AssessmentStudy study : studies.findByOwnerUserIdAndEvaluationFinalizedAtIsNotNull(owner)) {
             AssessmentReport report = reportsByAssessment.get(study.assessmentId());
             if (report == null || report.sourceVersion() != study.sourceVersion()) continue;
             AcademicReportEvaluation evaluation = read(study.reportEvaluation());
             GroupAccumulator group = groups.computeIfAbsent(
                     new GroupKey(report.promptVersion(), report.modelName()), ignored -> new GroupAccumulator());
-            group.add(evaluation);
+            group.add(evaluation, study, report);
             totals.add(evaluation);
+            timings.add(study, report);
         }
         List<GroupSummary> summaries = groups.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.comparing(GroupKey::promptVersion)
                         .thenComparing(GroupKey::model)))
                 .map(entry -> entry.getValue().view(entry.getKey())).toList();
-        return new Summary(PROTOCOL_VERSION, totals.cases, totals.view(), summaries);
+        return new Summary(PROTOCOL_VERSION, totals.cases, totals.view(), timings.view(), summaries);
     }
 
     public String csv() {
@@ -62,6 +64,14 @@ public class AcademicStudySummaryService {
                     .append(dimension.cases()).append(',').append(dimension.averageScore()).append(',')
                     .append(dimension.score0()).append(',').append(dimension.score1()).append(',')
                     .append(dimension.score2()).append('\n');
+        }
+        result.append("\ntimingVersion,promptVersion,model,cases,averageManualActiveMillis,averageGenerationLatencyMillis,averageReviewActiveMillis\n");
+        for (GroupSummary group : summary.groups()) if (group.timings().cases() > 0) {
+            result.append(csv(AssessmentStudy.TIMING_VERSION)).append(',').append(csv(group.promptVersion())).append(',')
+                    .append(csv(group.model())).append(',').append(group.timings().cases()).append(',')
+                    .append(group.timings().averageManualActiveMillis()).append(',')
+                    .append(group.timings().averageGenerationLatencyMillis()).append(',')
+                    .append(group.timings().averageReviewActiveMillis()).append('\n');
         }
         result.append("\nmetric,value\n")
                 .append("totalCases,").append(summary.totalCases()).append('\n')
@@ -85,16 +95,30 @@ public class AcademicStudySummaryService {
     private static final class GroupAccumulator {
         private int cases;
         private final Map<AcademicReportEvaluation.Dimension, Scores> scores = new LinkedHashMap<>();
-        private void add(AcademicReportEvaluation evaluation) {
+        private final TimingAccumulator timings = new TimingAccumulator();
+        private void add(AcademicReportEvaluation evaluation, AssessmentStudy study, AssessmentReport report) {
             cases++;
             for (AcademicReportEvaluation.DimensionRating rating : evaluation.dimensions())
                 scores.computeIfAbsent(rating.dimension(), ignored -> new Scores()).add(rating.score());
+            timings.add(study, report);
         }
         private GroupSummary view(GroupKey key) {
             List<DimensionSummary> dimensions = java.util.Arrays.stream(AcademicReportEvaluation.Dimension.values())
                     .map(dimension -> scores.getOrDefault(dimension, new Scores()).view(dimension)).toList();
-            return new GroupSummary(key.promptVersion(), key.model(), cases, dimensions);
+            return new GroupSummary(key.promptVersion(), key.model(), cases, dimensions, timings.view());
         }
+    }
+
+    private static final class TimingAccumulator {
+        private int cases; private long manual; private long generation; private long review;
+        private void add(AssessmentStudy study, AssessmentReport report) {
+            if (!AssessmentStudy.TIMING_VERSION.equals(study.timingVersion()) || report.generationLatencyMillis() == null) return;
+            cases++; manual += study.manualActiveMillis(); generation += report.generationLatencyMillis(); review += report.reviewActiveMillis();
+        }
+        private TimingSummary view() { return new TimingSummary(AssessmentStudy.TIMING_VERSION, cases,
+                average(manual, cases), average(generation, cases), average(review, cases)); }
+        private static BigDecimal average(long sum, int count) { return count == 0 ? BigDecimal.ZERO : BigDecimal.valueOf(sum)
+                .divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP); }
     }
 
     private static final class Scores {
@@ -114,9 +138,11 @@ public class AcademicStudySummaryService {
     }
 
     private record GroupKey(String promptVersion, String model) { }
-    public record Summary(String protocolVersion, int totalCases, CountTotals totals, List<GroupSummary> groups) { }
+    public record Summary(String protocolVersion, int totalCases, CountTotals totals, TimingSummary timings, List<GroupSummary> groups) { }
     public record CountTotals(int expectedInformationMissing, int factualClaimsAnalyzed, int unsupportedClaims, int revisedSections) { }
-    public record GroupSummary(String promptVersion, String model, int cases, List<DimensionSummary> dimensions) { }
+    public record GroupSummary(String promptVersion, String model, int cases, List<DimensionSummary> dimensions, TimingSummary timings) { }
+    public record TimingSummary(String timingVersion, int cases, BigDecimal averageManualActiveMillis,
+                                BigDecimal averageGenerationLatencyMillis, BigDecimal averageReviewActiveMillis) { }
     public record DimensionSummary(AcademicReportEvaluation.Dimension dimension, int cases, BigDecimal averageScore,
                                    int score0, int score1, int score2) { }
 }

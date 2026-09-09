@@ -63,13 +63,13 @@ export interface PersonalAssessmentReport {
   id: string; assessmentId: string; status: 'DRAFT' | 'APPROVED'; sourceVersion: number; version: number;
   promptVersion: string; model: string; originalDraft: ReportDraft; draft: ReportDraft;
   humanConclusion: string | null; reviewConfirmed: boolean; createdAt: string; updatedAt: string;
-  approvedAt: string | null; replayed: boolean;
+  approvedAt: string | null; generationLatencyMillis: number | null; reviewActiveMillis: number; replayed: boolean;
 }
 export interface ManualReport { context: string; observedKnowledge: string; strengths: string; concerns: string; synthesis: string; conclusion: string; }
 export type AcademicDimension = 'PRESENCE' | 'CORRESPONDENCE' | 'SUPPORT' | 'INSUFFICIENCY_HANDLING' | 'DECISION_SEPARATION';
 export interface AcademicDimensionRating { dimension: AcademicDimension; score: number | null; justification: string; sourceReferences: string[]; draftReferences: string[]; }
 export interface AcademicReportEvaluation { dimensions: AcademicDimensionRating[]; expectedInformationMissing: number; factualClaimsAnalyzed: number; unsupportedClaims: number; revisedSections: number; }
-export interface AssessmentStudy { id: string; assessmentId: string; sourceVersion: number; version: number; manualReport: ManualReport; finalized: boolean; contextHash: string | null; createdAt: string; updatedAt: string; finalizedAt: string | null; finalizedBy: string | null; evaluation: AcademicReportEvaluation | null; evaluationFinalized: boolean; evaluationFinalizedAt: string | null; evaluationFinalizedBy: string | null; }
+export interface AssessmentStudy { id: string; assessmentId: string; sourceVersion: number; version: number; manualReport: ManualReport; finalized: boolean; contextHash: string | null; createdAt: string; updatedAt: string; finalizedAt: string | null; finalizedBy: string | null; evaluation: AcademicReportEvaluation | null; evaluationFinalized: boolean; evaluationFinalizedAt: string | null; evaluationFinalizedBy: string | null; timingVersion: string | null; manualActiveMillis: number; }
 
 @Injectable({ providedIn: 'root' })
 export class PersonalAssessmentService {
@@ -93,18 +93,18 @@ export class PersonalAssessmentService {
   generateReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID()) {
     return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/generate`, { version }, { headers: { 'Idempotency-Key': idempotencyKey } });
   }
-  saveReport(id: string, version: number, draft: ReportDraft, humanConclusion: string, reviewConfirmed: boolean) {
-    return this.http.put<PersonalAssessmentReport>(`/api/assessments/${id}/report`, { version, draft, humanConclusion, reviewConfirmed });
+  saveReport(id: string, version: number, draft: ReportDraft, humanConclusion: string, reviewConfirmed: boolean, reviewActiveMillis?: number) {
+    return this.http.put<PersonalAssessmentReport>(`/api/assessments/${id}/report`, { version, draft, humanConclusion, reviewConfirmed, reviewActiveMillis });
   }
-  approveReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID()) {
-    return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/approve`, { version }, { headers: { 'Idempotency-Key': idempotencyKey } });
+  approveReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID(), reviewActiveMillis?: number) {
+    return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/approve`, { version, reviewActiveMillis }, { headers: { 'Idempotency-Key': idempotencyKey } });
   }
   study(id: string) { return this.http.get<AssessmentStudy>(`/api/assessments/${id}/study`); }
-  saveManualReport(id: string, assessmentVersion: number, version: number, manualReport: ManualReport) {
-    return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/manual`, { assessmentVersion, version, manualReport });
+  saveManualReport(id: string, assessmentVersion: number, version: number, manualReport: ManualReport, manualActiveMillis?: number) {
+    return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/manual`, { assessmentVersion, version, manualReport, manualActiveMillis });
   }
-  finalizeManualReport(id: string, version: number) {
-    return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/manual/finalize`, { version });
+  finalizeManualReport(id: string, version: number, manualActiveMillis?: number) {
+    return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/manual/finalize`, { version, manualActiveMillis });
   }
   saveStudyEvaluation(id: string, version: number, evaluation: AcademicReportEvaluation) {
     return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/evaluation`, { version, evaluation });

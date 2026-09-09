@@ -47,7 +47,7 @@ Além dos escores, registrar contagens de informações esperadas ausentes, afir
 
 ## Tempos e comparação
 
-Registrar separadamente tempo ativo de redação manual, latência da geração local e tempo ativo de revisão. Pausas e espera pelo modelo não entram como tempo de edição. Comparações usam estatística descritiva por dimensão e por caso; amostras pequenas não sustentam generalização ou inferência causal.
+Registrar separadamente tempo ativo de redação manual, latência da geração local e tempo ativo de revisão. Em `active-timing-v1`, o navegador conta somente o período em que um campo editável da etapa está em foco, a página está visível e houve atividade nos últimos 30 segundos. Troca de aba, campos sem foco e intervalos maiores que esse limite são pausas. A latência é medida no backend ao redor da geração local e nunca é somada ao tempo de revisão. Os totais de edição são monotônicos e persistidos no salvamento ou na finalização. Comparações usam estatística descritiva por dimensão e por caso; amostras pequenas não sustentam generalização ou inferência causal.
 
 Quando houver mais de um avaliador, selecionar antes da análise uma parcela dos casos para dupla avaliação independente. Divergências devem ser conciliadas com justificativa preservada. A concordância pode ser relatada por dimensão, junto do tamanho da amostra, sem transformar o resultado em ranking de candidatos ou entrevistadores.
 
@@ -70,6 +70,6 @@ Aplicam-se a minimização e o ciclo de exclusão descritos em `data-governance.
 
 ## Estado da implementação
 
-O TIA preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão e metadados do modelo. A ficha humana registra as cinco dimensões da rubrica com escore 0–2, justificativa e referências separadas para a entrada e para a minuta, além das contagens definidas neste protocolo. A ficha só pode ser preenchida depois da geração, fica vinculada ao mesmo caso e se torna imutável quando finalizada; seu conteúdo nunca integra o contexto do LLM. O resumo CSV agrega apenas fichas finalizadas do usuário, por versão de prompt e modelo, sem IDs, nomes, textos, justificativas ou referências dos casos.
+O TIA preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão, metadados do modelo e os três tempos separados. A ficha humana registra as cinco dimensões da rubrica com escore 0–2, justificativa e referências separadas para a entrada e para a minuta, além das contagens definidas neste protocolo. A ficha só pode ser preenchida depois da geração, fica vinculada ao mesmo caso e se torna imutável quando finalizada; seu conteúdo nunca integra o contexto do LLM. O resumo CSV agrega apenas fichas finalizadas do usuário, por versão de prompt e modelo, sem IDs, nomes, textos, justificativas ou referências dos casos. Médias de tempo incluem somente casos identificados com a mesma versão de temporização.
 
-Ainda precisam ser implementadas a temporização ativa e, quando houver mais de um avaliador, a dupla avaliação e conciliação. Esses itens são acompanhados pelas issues acadêmicas #139 e #140.
+Quando houver mais de um avaliador, ainda precisa ser implementado o fluxo de dupla avaliação e conciliação. A calibração da rubrica e regenerações experimentais versionadas também permanecem acompanhadas pelas issues acadêmicas #139 e #140.

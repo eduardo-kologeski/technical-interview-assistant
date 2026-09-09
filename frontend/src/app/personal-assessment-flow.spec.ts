@@ -5,7 +5,7 @@ import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { PersonalAssessmentCollectionComponent } from './personal-assessment-collection.component';
 import { PersonalAssessmentCreateComponent } from './personal-assessment-create.component';
-import { PersonalAssessmentReportComponent } from './personal-assessment-report.component';
+import { ActiveTimeTracker, PersonalAssessmentReportComponent } from './personal-assessment-report.component';
 import { PersonalAssessmentCollection, PersonalAssessmentReport, PersonalAssessmentService, PersonalAssessmentSummary, ReportDraft } from './personal-assessment.service';
 
 const summary: PersonalAssessmentSummary = {
@@ -27,7 +27,7 @@ const reportDraft: ReportDraft = {
 const report: PersonalAssessmentReport = { id: 'report-1', assessmentId: summary.id, status: 'DRAFT', sourceVersion: 4,
   version: 0, promptVersion: 'v1', model: 'local-model', originalDraft: reportDraft, draft: reportDraft,
   humanConclusion: null, reviewConfirmed: false, createdAt: summary.createdAt, updatedAt: summary.updatedAt,
-  approvedAt: null, replayed: false };
+  approvedAt: null, generationLatencyMillis: 120, reviewActiveMillis: 0, replayed: false };
 
 describe('personal assessment flow', () => {
   afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); });
@@ -67,7 +67,7 @@ describe('personal assessment flow', () => {
     const saveManual = http.expectOne('/api/assessments/assessment-1/study/manual');
     expect(saveManual.request.body.assessmentVersion).toBe(4); saveManual.flush({});
     service.finalizeManualReport('assessment-1', 1).subscribe();
-    expect(http.expectOne('/api/assessments/assessment-1/study/manual/finalize').request.body).toEqual({ version: 1 });
+    expect(http.expectOne('/api/assessments/assessment-1/study/manual/finalize').request.body).toEqual({ version: 1, manualActiveMillis: undefined });
     const evaluation = { dimensions: [], expectedInformationMissing: 0, factualClaimsAnalyzed: 0, unsupportedClaims: 0, revisedSections: 0 };
     service.saveStudyEvaluation('assessment-1', 2, evaluation).subscribe();
     const saveEvaluation = http.expectOne('/api/assessments/assessment-1/study/evaluation');
@@ -176,7 +176,7 @@ describe('personal assessment flow', () => {
     expect(service.saveReport).toHaveBeenCalled();
     expect(fixture.componentInstance.canApprove()).toBe(true);
     fixture.componentInstance.approve(); fixture.detectChanges();
-    expect(service.approveReport).toHaveBeenCalledWith('assessment-1', 1, expect.any(String));
+    expect(service.approveReport).toHaveBeenCalledWith('assessment-1', 1, expect.any(String), 0);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('PARECER APROVADO');
     const pdf = await fixture.componentInstance.exportPdf(false);
     expect(pdf?.getNumberOfPages()).toBeGreaterThanOrEqual(1);
@@ -191,7 +191,8 @@ describe('personal assessment flow', () => {
     const emptyManual = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
     const study = { id: 'study-1', assessmentId: summary.id, sourceVersion: 4, version: 0, manualReport: emptyManual,
       finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null,
-      finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null };
+      finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null,
+      timingVersion: 'active-timing-v1', manualActiveMillis: 0 };
     let manualSaves = 0;
     const service = {
       get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)),
@@ -213,7 +214,7 @@ describe('personal assessment flow', () => {
     for (const [key, value] of Object.entries(fields)) fixture.componentInstance.updateManual(key as keyof typeof fields, value);
     fixture.componentInstance.saveManual();
     fixture.componentInstance.finalizeManual();
-    expect(service.finalizeManualReport).toHaveBeenCalledWith('assessment-1', 1);
+    expect(service.finalizeManualReport).toHaveBeenCalledWith('assessment-1', 1, 0);
     fixture.componentInstance.generate();
     expect(service.generateReport).toHaveBeenCalledWith('assessment-1', 4);
     for(let index=0;index<5;index++){
@@ -225,5 +226,22 @@ describe('personal assessment flow', () => {
     expect(fixture.componentInstance.evaluationComplete()).toBe(true);
     fixture.componentInstance.saveEvaluation();
     expect(service.saveStudyEvaluation).toHaveBeenCalledWith('assessment-1',2,expect.objectContaining({dimensions:expect.any(Array)}));
+  });
+
+  it('counts focused active time and excludes idle or hidden intervals', () => {
+    let now=0,visible=true;
+    const tracker=new ActiveTimeTracker(()=>now,()=>visible);
+    tracker.begin('MANUAL');
+    now=1000;tracker.tick();
+    now=2000;tracker.activity('MANUAL');
+    expect(tracker.total('MANUAL')).toBe(2000);
+    visible=false;now=3000;tracker.visibilityChanged();
+    now=10_000;tracker.tick();
+    visible=true;tracker.visibilityChanged();
+    now=11_000;tracker.tick();
+    tracker.end('MANUAL');
+    expect(tracker.total('MANUAL')).toBe(3000);
+    tracker.hydrate('REVIEW',4500);
+    expect(tracker.total('REVIEW')).toBe(4500);
   });
 });

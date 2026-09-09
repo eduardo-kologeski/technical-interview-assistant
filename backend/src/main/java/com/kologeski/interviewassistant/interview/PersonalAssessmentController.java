@@ -93,14 +93,14 @@ public class PersonalAssessmentController {
     @PutMapping("/{id}/report")
     ReportResponse saveReport(@PathVariable UUID id, @Valid @RequestBody SaveReportCommand command) {
         return ReportResponse.from(reports.saveReview(id, command.version(), command.draft(),
-                command.humanConclusion(), command.reviewConfirmed()));
+                command.humanConclusion(), command.reviewConfirmed(), command.reviewActiveMillis()));
     }
 
     @PostMapping("/{id}/report/approve")
     ReportResponse approveReport(@PathVariable UUID id,
                                  @RequestHeader("Idempotency-Key") UUID idempotencyKey,
-                                 @Valid @RequestBody VersionCommand command) {
-        return ReportResponse.from(reports.approve(id, command.version(), idempotencyKey));
+                                 @Valid @RequestBody ApproveReportCommand command) {
+        return ReportResponse.from(reports.approve(id, command.version(), idempotencyKey, command.reviewActiveMillis()));
     }
 
     @GetMapping("/{id}/study")
@@ -108,12 +108,12 @@ public class PersonalAssessmentController {
 
     @PutMapping("/{id}/study/manual")
     StudyResponse saveManual(@PathVariable UUID id, @Valid @RequestBody SaveManualCommand command) {
-        return StudyResponse.from(studies.save(id, command.assessmentVersion(), command.version(), command.manualReport()));
+        return StudyResponse.from(studies.save(id, command.assessmentVersion(), command.version(), command.manualReport(), command.manualActiveMillis()));
     }
 
     @PostMapping("/{id}/study/manual/finalize")
-    StudyResponse finalizeManual(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
-        return StudyResponse.from(studies.finalizeManual(id, command.version()));
+    StudyResponse finalizeManual(@PathVariable UUID id, @Valid @RequestBody FinalizeManualCommand command) {
+        return StudyResponse.from(studies.finalizeManual(id, command.version(), command.manualActiveMillis()));
     }
 
     @PutMapping("/{id}/study/evaluation")
@@ -137,9 +137,14 @@ public class PersonalAssessmentController {
 
     public record SaveReportCommand(@NotNull @PositiveOrZero Long version, @NotNull ReportDraft draft,
                                     @Size(max = 8000) String humanConclusion,
-                                    boolean reviewConfirmed) { }
+                                    boolean reviewConfirmed, @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
+    public record ApproveReportCommand(@NotNull @PositiveOrZero Long version,
+                                       @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
     public record SaveManualCommand(@NotNull @PositiveOrZero Long assessmentVersion,
-                                    @NotNull @PositiveOrZero Long version, @NotNull ManualReport manualReport) { }
+                                    @NotNull @PositiveOrZero Long version, @NotNull ManualReport manualReport,
+                                    @PositiveOrZero @Max(604800000) Long manualActiveMillis) { }
+    public record FinalizeManualCommand(@NotNull @PositiveOrZero Long version,
+                                        @PositiveOrZero @Max(604800000) Long manualActiveMillis) { }
     public record SaveEvaluationCommand(@NotNull @PositiveOrZero Long version,
                                         @NotNull AcademicReportEvaluation evaluation) { }
 
@@ -164,17 +169,19 @@ public class PersonalAssessmentController {
     public record ReportResponse(UUID id, UUID assessmentId, String status, long sourceVersion, long version,
                                  String promptVersion, String model, ReportDraft originalDraft, ReportDraft draft,
                                  String humanConclusion, boolean reviewConfirmed, Instant createdAt,
-                                 Instant updatedAt, Instant approvedAt, boolean replayed) {
+                                 Instant updatedAt, Instant approvedAt, Long generationLatencyMillis,
+                                 long reviewActiveMillis, boolean replayed) {
         static ReportResponse from(PersonalReportService.ReportView value) {
             return new ReportResponse(value.id(), value.assessmentId(), value.status().name(),
                     value.sourceVersion(), value.version(), value.promptVersion(), value.model(),
                     value.originalDraft(), value.draft(), value.humanConclusion(), value.reviewConfirmed(),
-                    value.createdAt(), value.updatedAt(), value.approvedAt(), value.replayed());
+                    value.createdAt(), value.updatedAt(), value.approvedAt(), value.generationLatencyMillis(),
+                    value.reviewActiveMillis(), value.replayed());
         }
     }
     public record StudyResponse(UUID id,UUID assessmentId,long sourceVersion,long version,ManualReport manualReport,
                                 boolean finalized,String contextHash,Instant createdAt,Instant updatedAt,Instant finalizedAt,String finalizedBy,
-                                AcademicReportEvaluation evaluation,boolean evaluationFinalized,Instant evaluationFinalizedAt,String evaluationFinalizedBy){
-        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy());}
+                                AcademicReportEvaluation evaluation,boolean evaluationFinalized,Instant evaluationFinalizedAt,String evaluationFinalizedBy,String timingVersion,long manualActiveMillis){
+        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy(),value.timingVersion(),value.manualActiveMillis());}
     }
 }
