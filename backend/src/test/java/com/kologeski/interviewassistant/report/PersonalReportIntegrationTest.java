@@ -273,6 +273,19 @@ class PersonalReportIntegrationTest {
                 .contains("Verificação humana");
         assertThat(jdbc.queryForObject("SELECT context_snapshot FROM assessment_reports", String.class))
                 .doesNotContain("Verificação humana");
+        MvcResult summary = mvc.perform(get("/api/assessment-studies/summary").header("Authorization", tokenA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.protocolVersion").value("comparison-v1"))
+                .andExpect(jsonPath("$.totalCases").value(1))
+                .andExpect(jsonPath("$.totals.unsupportedClaims").value(1))
+                .andExpect(jsonPath("$.groups[0].dimensions.length()").value(5)).andReturn();
+        assertThat(summary.getResponse().getContentAsString()).doesNotContain(
+                "Pessoa sintética", phrase, "Verificação humana", "evidence-1");
+        MvcResult csv = mvc.perform(get("/api/assessment-studies/summary.csv").header("Authorization", tokenA))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(csv.getResponse().getContentAsString()).contains("comparison-v1", "totalCases,1")
+                .doesNotContain("Pessoa sintética", phrase, "Verificação humana", "evidence-1");
+        mvc.perform(get("/api/assessment-studies/summary").header("Authorization", tokenB))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCases").value(0));
     }
 
     private MvcResult generate(UUID assessmentId, UUID requestKey, CountDownLatch ready,

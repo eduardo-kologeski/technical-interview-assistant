@@ -295,7 +295,7 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-10 — P2 — Templates pessoais e acompanhamento acadêmico
 
-**Estado: parcial em `develop`; requisitos podem ser copiados sem histórico, e o modo acadêmico congela parecer manual, versão e hash do contexto antes de revelar a minuta. A ficha persistida avalia as cinco dimensões do protocolo, preserva justificativas e referências e fica imutável após a finalização. Métricas ativas, agregação anonimizada, dupla avaliação e regenerações versionadas continuam nas issues acadêmicas #139–#140.**
+**Estado: parcial em `develop`; requisitos podem ser copiados sem histórico, e o modo acadêmico congela parecer manual, versão e hash do contexto antes de revelar a minuta. A ficha persistida avalia as cinco dimensões do protocolo, preserva justificativas e referências e fica imutável após a finalização. Um CSV agrega somente fichas finalizadas por prompt/modelo, sem conteúdo dos casos. Métricas ativas, dupla avaliação e regenerações versionadas continuam nas issues acadêmicas #139–#140.**
 
 - Objetivo/contexto: reduzir repetição e medir apoio da IA após provar o núcleo.
 - Escopo: cópia de critérios pessoais, regenerações versionadas quando justificadas, tempos e comparação original/final com protocolo definido.

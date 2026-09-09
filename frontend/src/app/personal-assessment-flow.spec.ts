@@ -74,6 +74,9 @@ describe('personal assessment flow', () => {
     expect(saveEvaluation.request.body).toEqual({ version: 2, evaluation }); saveEvaluation.flush({});
     service.finalizeStudyEvaluation('assessment-1', 3).subscribe();
     expect(http.expectOne('/api/assessments/assessment-1/study/evaluation/finalize').request.body).toEqual({ version: 3 });
+    service.academicSummaryCsv().subscribe();
+    const summaryCsv = http.expectOne('/api/assessment-studies/summary.csv');
+    expect(summaryCsv.request.responseType).toBe('text'); summaryCsv.flush('metric,value');
     http.verify();
   });
 

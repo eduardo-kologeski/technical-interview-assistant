@@ -112,4 +112,7 @@ export class PersonalAssessmentService {
   finalizeStudyEvaluation(id: string, version: number) {
     return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/evaluation/finalize`, { version });
   }
+  academicSummaryCsv() {
+    return this.http.get('/api/assessment-studies/summary.csv', { responseType: 'text' });
+  }
 }
