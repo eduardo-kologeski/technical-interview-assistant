@@ -68,6 +68,12 @@ describe('personal assessment flow', () => {
     expect(saveManual.request.body.assessmentVersion).toBe(4); saveManual.flush({});
     service.finalizeManualReport('assessment-1', 1).subscribe();
     expect(http.expectOne('/api/assessments/assessment-1/study/manual/finalize').request.body).toEqual({ version: 1 });
+    const evaluation = { dimensions: [], expectedInformationMissing: 0, factualClaimsAnalyzed: 0, unsupportedClaims: 0, revisedSections: 0 };
+    service.saveStudyEvaluation('assessment-1', 2, evaluation).subscribe();
+    const saveEvaluation = http.expectOne('/api/assessments/assessment-1/study/evaluation');
+    expect(saveEvaluation.request.body).toEqual({ version: 2, evaluation }); saveEvaluation.flush({});
+    service.finalizeStudyEvaluation('assessment-1', 3).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/evaluation/finalize').request.body).toEqual({ version: 3 });
     http.verify();
   });
 
@@ -181,7 +187,8 @@ describe('personal assessment flow', () => {
     const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
     const emptyManual = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
     const study = { id: 'study-1', assessmentId: summary.id, sourceVersion: 4, version: 0, manualReport: emptyManual,
-      finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null };
+      finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null,
+      finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null };
     let manualSaves = 0;
     const service = {
       get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)),
@@ -189,6 +196,8 @@ describe('personal assessment flow', () => {
       saveManualReport: vi.fn((_id: string, _assessmentVersion: number, _version: number, manualReport: typeof emptyManual) => of({ ...study, version: manualSaves++, manualReport })),
       finalizeManualReport: vi.fn(() => of({ ...study, version: 2, manualReport: { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' }, finalized: true, contextHash: 'a'.repeat(64), finalizedAt: summary.updatedAt })),
       generateReport: vi.fn(() => of(report)), saveReport: vi.fn(), approveReport: vi.fn(),
+      saveStudyEvaluation: vi.fn((_id: string, _version: number, evaluation: unknown) => of({ ...study, version: 3, finalized: true, evaluation })),
+      finalizeStudyEvaluation: vi.fn(() => of({ ...study, version: 4, finalized: true, evaluation: null, evaluationFinalized: true })),
     };
     await TestBed.configureTestingModule({ imports: [PersonalAssessmentReportComponent], providers: [
       provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
@@ -204,5 +213,14 @@ describe('personal assessment flow', () => {
     expect(service.finalizeManualReport).toHaveBeenCalledWith('assessment-1', 1);
     fixture.componentInstance.generate();
     expect(service.generateReport).toHaveBeenCalledWith('assessment-1', 4);
+    for(let index=0;index<5;index++){
+      fixture.componentInstance.updateRating(index,'score',2);
+      fixture.componentInstance.updateRating(index,'justification','Verificação humana');
+      fixture.componentInstance.updateReferences(index,'sourceReferences','evidence-1');
+      fixture.componentInstance.updateReferences(index,'draftReferences','synthesis: frase 1');
+    }
+    expect(fixture.componentInstance.evaluationComplete()).toBe(true);
+    fixture.componentInstance.saveEvaluation();
+    expect(service.saveStudyEvaluation).toHaveBeenCalledWith('assessment-1',2,expect.objectContaining({dimensions:expect.any(Array)}));
   });
 });

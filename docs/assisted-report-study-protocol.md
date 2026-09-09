@@ -66,6 +66,8 @@ Aplicam-se a minimização e o ciclo de exclusão descritos em `data-governance.
 - avaliação humana contém julgamento e exige calibração da rubrica;
 - tempo e volume de edição não demonstram, isoladamente, melhora de qualidade.
 
-## Lacunas de implementação
+## Estado da implementação
 
-O TIA já preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão e metadados do modelo. Ainda precisam ser implementados: ficha de avaliação por dimensão, temporização ativa e exportação agregada anonimizada. Esses itens são acompanhados pelas issues acadêmicas #139 e #140.
+O TIA preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão e metadados do modelo. A ficha humana registra as cinco dimensões da rubrica com escore 0–2, justificativa e referências separadas para a entrada e para a minuta, além das contagens definidas neste protocolo. A ficha só pode ser preenchida depois da geração, fica vinculada ao mesmo caso e se torna imutável quando finalizada; seu conteúdo nunca integra o contexto do LLM.
+
+Ainda precisam ser implementadas a temporização ativa, a exportação agregada anonimizada e, quando houver mais de um avaliador, o fluxo de dupla avaliação e conciliação. Esses itens são acompanhados pelas issues acadêmicas #139 e #140.

@@ -232,6 +232,47 @@ class PersonalReportIntegrationTest {
         assertThat(llm.calls.get()).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT context_snapshot FROM assessment_reports", String.class))
                 .doesNotContain(phrase, "Conclusão exclusivamente humana");
+
+        String incompleteEvaluation = """
+                {"version":2,"evaluation":{"dimensions":[],"expectedInformationMissing":0,
+                "factualClaimsAnalyzed":0,"unsupportedClaims":0,"revisedSections":0}}
+                """;
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(incompleteEvaluation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(3));
+        mvc.perform(post("/api/assessments/{id}/study/evaluation/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":3}"))
+                .andExpect(status().isConflict());
+
+        String ratings = java.util.Arrays.stream(AcademicReportEvaluation.Dimension.values())
+                .map(dimension -> """
+                        {"dimension":"%s","score":2,"justification":"Verificação humana %s",
+                        "sourceReferences":["evidence-1"],"draftReferences":["synthesis: frase 1"]}
+                        """.formatted(dimension, dimension))
+                .collect(java.util.stream.Collectors.joining(","));
+        String completeEvaluation = """
+                {"version":3,"evaluation":{"dimensions":[%s],"expectedInformationMissing":1,
+                "factualClaimsAnalyzed":4,"unsupportedClaims":1,"revisedSections":2}}
+                """.formatted(ratings);
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.evaluation.dimensions.length()").value(5))
+                .andExpect(jsonPath("$.evaluation.unsupportedClaims").value(1));
+        mvc.perform(post("/api/assessments/{id}/study/evaluation/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":4}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.evaluationFinalized").value(true));
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation.replace("\"version\":3", "\"version\":5")))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT report_evaluation FROM assessment_studies", String.class))
+                .contains("Verificação humana");
+        assertThat(jdbc.queryForObject("SELECT context_snapshot FROM assessment_reports", String.class))
+                .doesNotContain("Verificação humana");
     }
 
     private MvcResult generate(UUID assessmentId, UUID requestKey, CountDownLatch ready,

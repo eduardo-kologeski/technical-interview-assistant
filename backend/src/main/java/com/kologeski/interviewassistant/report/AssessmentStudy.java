@@ -16,11 +16,18 @@ public class AssessmentStudy extends AuditableEntity {
     @Column(name="context_hash",length=64) private String contextHash;
     @Column(name="manual_finalized_at") private Instant manualFinalizedAt;
     @Column(name="manual_finalized_by",length=100) private String manualFinalizedBy;
+    @Column(name="report_evaluation",columnDefinition="text") private String reportEvaluation;
+    @Column(name="evaluation_finalized_at") private Instant evaluationFinalizedAt;
+    @Column(name="evaluation_finalized_by",length=100) private String evaluationFinalizedBy;
     @Version @Column(nullable=false) private long version;
     protected AssessmentStudy() { }
     public static AssessmentStudy create(UUID assessmentId,Long ownerId,long sourceVersion,String manualReport,String actor,Instant now){var value=new AssessmentStudy();value.id=UUID.randomUUID();value.assessmentId=assessmentId;value.ownerUserId=ownerId;value.sourceVersion=sourceVersion;value.manualReport=requiredText(manualReport,"manualReport");value.registerCreation(actor,now);return value;}
     public void revise(String value,String actor,Instant now){requireOpen();manualReport=requiredText(value,"manualReport");registerUpdate(actor,now);}
     public void finalizeManual(String value,String hash,String actor,Instant now){requireOpen();manualReport=requiredText(value,"manualReport");contextHash=requiredText(hash,"contextHash");manualFinalizedAt=now;manualFinalizedBy=requiredText(actor,"actor");registerUpdate(actor,now);}
+    public void reviseEvaluation(String value,String actor,Instant now){requireManualFinalized();requireEvaluationOpen();reportEvaluation=requiredText(value,"reportEvaluation");registerUpdate(actor,now);}
+    public void finalizeEvaluation(String value,String actor,Instant now){requireManualFinalized();requireEvaluationOpen();reportEvaluation=requiredText(value,"reportEvaluation");evaluationFinalizedAt=now;evaluationFinalizedBy=requiredText(actor,"actor");registerUpdate(actor,now);}
     private void requireOpen(){if(manualFinalizedAt!=null)throw new IllegalStateException("O parecer manual finalizado é imutável.");}
-    public UUID id(){return id;} public UUID assessmentId(){return assessmentId;} public Long ownerUserId(){return ownerUserId;} public long sourceVersion(){return sourceVersion;} public String manualReport(){return manualReport;} public String contextHash(){return contextHash;} public Instant manualFinalizedAt(){return manualFinalizedAt;} public String manualFinalizedBy(){return manualFinalizedBy;} public long version(){return version;} public boolean finalized(){return manualFinalizedAt!=null;}
+    private void requireManualFinalized(){if(manualFinalizedAt==null)throw new IllegalStateException("Finalize o parecer manual antes de avaliar a minuta.");}
+    private void requireEvaluationOpen(){if(evaluationFinalizedAt!=null)throw new IllegalStateException("A ficha de avaliação finalizada é imutável.");}
+    public UUID id(){return id;} public UUID assessmentId(){return assessmentId;} public Long ownerUserId(){return ownerUserId;} public long sourceVersion(){return sourceVersion;} public String manualReport(){return manualReport;} public String contextHash(){return contextHash;} public Instant manualFinalizedAt(){return manualFinalizedAt;} public String manualFinalizedBy(){return manualFinalizedBy;} public String reportEvaluation(){return reportEvaluation;} public Instant evaluationFinalizedAt(){return evaluationFinalizedAt;} public String evaluationFinalizedBy(){return evaluationFinalizedBy;} public long version(){return version;} public boolean finalized(){return manualFinalizedAt!=null;} public boolean evaluationFinalized(){return evaluationFinalizedAt!=null;}
 }

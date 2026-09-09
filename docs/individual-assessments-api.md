@@ -127,3 +127,11 @@ Falhas controladas:
 | versão desatualizada ou minuta existente | 409 | original existente permanece intacto |
 
 O endpoint foi validado localmente sem Ollama configurado: retornou 503, manteve a coleta `COMPLETED` e sua evidência, não criou linha em `assessment_reports` e não registrou título/evidência nos logs. O smoke real com um modelo local permanece pendente.
+
+## Caso acadêmico e ficha de avaliação
+
+`PUT /api/assessments/{id}/study/manual` cria ou salva o parecer manual de controle para uma avaliação encerrada. `POST /api/assessments/{id}/study/manual/finalize` valida todas as seções, persiste a versão e o hash SHA-256 do contexto estruturado e torna o artefato imutável. Enquanto esse caso acadêmico existir sem finalização, a geração da minuta retorna 409. O parecer manual e sua conclusão humana não integram o snapshot nem o prompt.
+
+Depois da geração da minuta original, `PUT /api/assessments/{id}/study/evaluation` salva a ficha humana usando a versão otimista do caso. A ficha contém exatamente as dimensões `PRESENCE`, `CORRESPONDENCE`, `SUPPORT`, `INSUFFICIENCY_HANDLING` e `DECISION_SEPARATION`; cada dimensão aceita nota de 0 a 2, justificativa, referências à entrada e referências ao trecho da minuta. Ela também registra contagens de informações esperadas ausentes, afirmações factuais analisadas, afirmações sem sustentação e seções alteradas.
+
+`POST /api/assessments/{id}/study/evaluation/finalize` exige todas as dimensões completas, ao menos uma referência de cada tipo por dimensão e contagens coerentes. A finalização registra autor e horário e torna a ficha imutável. Todos os endpoints aplicam o proprietário da avaliação; a ficha não é enviada ao Ollama nem incluída em logs ou métricas de conteúdo.

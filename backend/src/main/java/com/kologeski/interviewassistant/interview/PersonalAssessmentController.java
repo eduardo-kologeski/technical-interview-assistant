@@ -5,6 +5,7 @@ import com.kologeski.interviewassistant.report.PersonalReportService;
 import com.kologeski.interviewassistant.report.ReportDraft;
 import com.kologeski.interviewassistant.report.AssessmentStudyService;
 import com.kologeski.interviewassistant.report.ManualReport;
+import com.kologeski.interviewassistant.report.AcademicReportEvaluation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.PageRequest;
@@ -115,6 +116,16 @@ public class PersonalAssessmentController {
         return StudyResponse.from(studies.finalizeManual(id, command.version()));
     }
 
+    @PutMapping("/{id}/study/evaluation")
+    StudyResponse saveEvaluation(@PathVariable UUID id, @Valid @RequestBody SaveEvaluationCommand command) {
+        return StudyResponse.from(studies.saveEvaluation(id, command.version(), command.evaluation()));
+    }
+
+    @PostMapping("/{id}/study/evaluation/finalize")
+    StudyResponse finalizeEvaluation(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return StudyResponse.from(studies.finalizeEvaluation(id, command.version()));
+    }
+
     public record CreateAssessmentCommand(@NotBlank @Size(max = 160) String title,
                                            @NotBlank @Size(max = 160) String personName,
                                            @Size(max = 5000) String context) { }
@@ -129,6 +140,8 @@ public class PersonalAssessmentController {
                                     boolean reviewConfirmed) { }
     public record SaveManualCommand(@NotNull @PositiveOrZero Long assessmentVersion,
                                     @NotNull @PositiveOrZero Long version, @NotNull ManualReport manualReport) { }
+    public record SaveEvaluationCommand(@NotNull @PositiveOrZero Long version,
+                                        @NotNull AcademicReportEvaluation evaluation) { }
 
     public record AssessmentResponse(UUID id, String title, String personName, String context,
                                      InterviewStatus status, long version, Instant createdAt, Instant updatedAt) {
@@ -160,7 +173,8 @@ public class PersonalAssessmentController {
         }
     }
     public record StudyResponse(UUID id,UUID assessmentId,long sourceVersion,long version,ManualReport manualReport,
-                                boolean finalized,String contextHash,Instant createdAt,Instant updatedAt,Instant finalizedAt,String finalizedBy){
-        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy());}
+                                boolean finalized,String contextHash,Instant createdAt,Instant updatedAt,Instant finalizedAt,String finalizedBy,
+                                AcademicReportEvaluation evaluation,boolean evaluationFinalized,Instant evaluationFinalizedAt,String evaluationFinalizedBy){
+        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy());}
     }
 }
