@@ -229,11 +229,11 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-04 — P0 — Jornada visual de criação e coleta
 
-**Estado: implementada em `develop`; dashboard, criação, retomada, autosave e conclusão cobertos por testes de componente e E2E.**
+**Estado: implementada em `develop`; preparação anterior ao início, dashboard, retomada, atalhos, autosave e conclusão cobertos por testes.**
 
 - Objetivo/contexto: reaproveitar rapidez da sessão sem exigir vaga.
-- Escopo: dashboard mínimo, formulário título/pessoa/contexto, edição direta de critérios, cartões/evidências e autosave.
-- Aceite: criar → retomar → registrar sem configurar empresa/template; aguardar save antes de completar; falha e conflito visíveis, notas preservadas.
+- Escopo: dashboard mínimo, formulário título/pessoa/contexto, preparação dos requisitos antes do início, cartões/evidências, frases rápidas e autosave.
+- Aceite: criar → definir e salvar requisitos → iniciar → registrar com atalhos sem configurar empresa/template; requisitos bloqueados após o início; aguardar save antes de completar; falha e conflito visíveis, notas preservadas.
 - Dependências: IND-02, IND-03.
 - Arquivos: dashboard, app/session, cartões, rotas, serviço pessoal; extrair somente trechos necessários do componente grande.
 - Testes: componentes e E2E com reload, falha de autosave e conclusão; não exigir pontuação.
@@ -262,6 +262,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-07 — P0 — Revisão, conclusão humana e aprovação
 
+**Estado: implementada em `develop`; editor, autosave, conclusão humana separada, aprovação imutável e isolamento estão cobertos por testes. O smoke com Ollama real continua como pendência operacional da IND-06.**
+
 - Objetivo/contexto: transformar minuta em parecer final por ação humana rastreável.
 - Escopo: GET/PUT/approve, editor de seis seções, confirmação de revisão, conclusão humana separada e final imutável.
 - Aceite: original não muda com edição; aprovação exige versão salva, fonte atual e conclusão humana; consultar depois de login retorna final; exportar não aprova.
@@ -270,6 +272,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 - Testes: A/B em todas as operações, final imutável, stale source, autosave pendente, duplo clique e E2E completo com fake; verificação manual do smoke real.
 
 ### IND-08 — P1 — Exclusão de avaliações e conta
+
+**Estado: implementada em `develop`; exclusão por proprietário, cascata do parecer, invalidação de sessões, limpeza do perfil e anonimização organizacional cobertas pela política e por testes. A expiração de cópias históricas continua dependente da política externa de backups.**
 
 - Objetivo/contexto: controlar ciclo de vida dos dados pessoais e do snapshot enviado.
 - Escopo: excluir conteúdo pessoal/parecer/snapshot, invalidar sessões na exclusão de conta, tratar autoria e vínculos empresariais sem apagar dados de outras pessoas, limpar rascunhos locais.
@@ -280,6 +284,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-09 — P1 — Exportação neutra e documentação coerente
 
+**Estado: implementada em `develop`; o PDF é gerado somente a partir do parecer aprovado, usa linguagem neutra de avaliação e não altera o status persistido.**
+
 - Objetivo/contexto: reaproveitar jsPDF e corrigir documentação obsoleta.
 - Escopo: PDF de parecer aprovado com linguagem de avaliação; atualizar README/arquitetura/governança/backlog; acesso a perfil básico.
 - Aceite: exportação não conclui coleta nem aprova; PDF corresponde ao final persistido; revisão visual com texto longo e acentos; documentação separa implementado/proposto.
@@ -288,6 +294,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 - Testes: PDF multipágina, escape de conteúdo, download e conteúdo aprovado; links da documentação.
 
 ### IND-10 — P2 — Templates pessoais e acompanhamento acadêmico
+
+**Estado: parcial em `develop`; requisitos de uma avaliação podem ser copiados para uma nova avaliação sem levar notas, evidências, pontuação ou histórico. O protocolo experimental, as métricas e regenerações versionadas continuam nas issues acadêmicas #138–#140.**
 
 - Objetivo/contexto: reduzir repetição e medir apoio da IA após provar o núcleo.
 - Escopo: cópia de critérios pessoais, regenerações versionadas quando justificadas, tempos e comparação original/final com protocolo definido.
@@ -321,7 +329,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-05 estão implementadas em `develop`. A próxima etapa é a IND-06, responsável pela persistência da minuta e pela primeira integração com Ollama. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-09 estão implementadas em `develop`. A próxima etapa é a IND-10, dedicada à reutilização de critérios pessoais e ao protocolo de acompanhamento acadêmico. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo local estarem disponíveis no host. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 

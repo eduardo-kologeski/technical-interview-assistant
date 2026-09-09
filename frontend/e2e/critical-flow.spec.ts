@@ -26,31 +26,39 @@ test('creates and completes a personal assessment while preserving autosave edit
   await page.getByLabel('Título da avaliação *').fill(`Avaliação individual ${unique}`);
   await page.getByLabel('Nome da pessoa avaliada *').fill('Pessoa avaliada E2E');
   await page.getByLabel('Contexto ou objetivo').fill('Validação sintética da jornada individual.');
+  const assessmentCreated = page.waitForResponse(
+    response => response.request().method() === 'POST' && /\/api\/assessments$/.test(response.url()),
+  );
   await page.getByRole('button', { name: 'Criar avaliação' }).click();
+  const createResponse = await assessmentCreated;
+  expect(createResponse.ok(), `create assessment returned HTTP ${createResponse.status()}`).toBeTruthy();
   await expect(page).toHaveURL(/\/assessments\/[0-9a-f-]+$/);
 
-  await page.getByRole('button', { name: 'Iniciar coleta' }).click();
-  await expect(page.getByRole('heading', { name: 'Critérios e evidências' })).toBeVisible();
-
-  await page.getByLabel('Novo critério').fill('Fundamentos de Java');
+  await expect(page.getByRole('heading', { name: 'Defina os requisitos antes da entrevista' })).toBeVisible();
+  await page.getByLabel('Novo requisito').fill('Fundamentos de Java');
   const criterionSaved = page.waitForResponse(
     response => response.request().method() === 'PUT' && /\/api\/assessments\/[0-9a-f-]+\/collection$/.test(response.url()) && response.ok(),
   );
-  await page.locator('.toolbar').getByRole('button', { name: 'Adicionar', exact: true }).click();
+  await page.getByRole('button', { name: 'Adicionar requisito' }).click();
   await criterionSaved;
+  await page.getByRole('button', { name: 'Iniciar avaliação' }).click();
+  await expect(page.getByRole('heading', { name: 'Registre o que foi observado' })).toBeVisible();
 
-  await page.getByPlaceholder('Evidência observada para este critério').fill(
-    'Explicou imutabilidade e concorrência com um exemplo verificável.',
+  const quickPhraseSaved = page.waitForResponse(
+    response => response.request().method() === 'PUT' && /\/api\/assessments\/[0-9a-f-]+\/collection$/.test(response.url()) && response.ok(),
   );
+  await page.getByRole('button', { name: 'Forte experiência prática' }).click();
+  await quickPhraseSaved;
+  const evidence = page.getByLabel('Evidência de Fundamentos de Java');
   const evidenceSaved = page.waitForResponse(
     response => response.request().method() === 'PUT' && /\/api\/assessments\/[0-9a-f-]+\/collection$/.test(response.url()) && response.ok(),
   );
-  await page.getByRole('button', { name: 'Registrar evidência' }).click();
+  await evidence.fill('Explicou imutabilidade e concorrência com um exemplo verificável.');
   await evidenceSaved;
 
   await page.reload();
-  await expect(page.getByLabel('Nome do critério')).toHaveValue('Fundamentos de Java');
-  await expect(page.getByLabel('Evidência')).toHaveValue(
+  await expect(page.getByRole('heading', { name: 'Fundamentos de Java' })).toBeVisible();
+  await expect(page.getByLabel('Evidência de Fundamentos de Java')).toHaveValue(
     'Explicou imutabilidade e concorrência com um exemplo verificável.',
   );
 
@@ -63,11 +71,11 @@ test('creates and completes a personal assessment while preserving autosave edit
     }
     await route.continue();
   });
-  await page.getByLabel('Descrição').fill('Alteração mantida localmente após falha simulada.');
+  await page.getByLabel('Evidência de Fundamentos de Java').fill('Alteração mantida localmente após falha simulada.');
   await expect(page.getByText('Falha ao salvar. Seus registros continuam nesta tela.')).toBeVisible({
     timeout: 10_000,
   });
-  await expect(page.getByLabel('Descrição')).toHaveValue(
+  await expect(page.getByLabel('Evidência de Fundamentos de Java')).toHaveValue(
     'Alteração mantida localmente após falha simulada.',
   );
 
@@ -79,15 +87,13 @@ test('creates and completes a personal assessment while preserving autosave edit
   await expect(page.getByText('Salvo', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Encerrar coleta' }).click();
-  await expect(page.getByText('Coleta encerrada', { exact: true })).toBeVisible();
-  await expect(page.getByText('Os dados mínimos para uma futura minuta estão presentes.')).toBeVisible();
-  await expect(page.getByLabel('Nome do critério')).toBeDisabled();
+  await expect(page.getByText('COLETA ENCERRADA', { exact: true })).toBeVisible();
+  await expect(page.getByText('Os requisitos e as evidências estão prontos para gerar uma minuta.')).toBeVisible();
+  await expect(page.getByText('1 pontos fortes')).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText('Coleta encerrada', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Descrição')).toHaveValue(
-    'Alteração mantida localmente após falha simulada.',
-  );
+  await expect(page.getByText('COLETA ENCERRADA', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 evidências')).toBeVisible();
 });
 
 test('persists the authenticated interview flow, recovers autosave and exports the PDF', async ({

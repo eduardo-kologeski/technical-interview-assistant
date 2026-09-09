@@ -16,4 +16,5 @@ public interface IdentityTokenRepository extends JpaRepository<IdentityToken, Lo
     @Query("select token from IdentityToken token where token.user.id = :userId and token.purpose = :purpose and token.usedAt is null")
     List<IdentityToken> lockActiveByUserAndPurpose(@Param("userId") Long userId,
                                                     @Param("purpose") IdentityToken.Purpose purpose);
+    long deleteByUserId(Long userId);
 }

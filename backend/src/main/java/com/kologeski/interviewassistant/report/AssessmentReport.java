@@ -28,6 +28,12 @@ public class AssessmentReport extends AuditableEntity {
     private String contextSnapshot;
     @Column(name = "original_draft", nullable = false, updatable = false, columnDefinition = "text")
     private String originalDraft;
+    @Column(name = "reviewed_draft", columnDefinition = "text") private String reviewedDraft;
+    @Column(name = "human_conclusion", columnDefinition = "text") private String humanConclusion;
+    @Column(name = "review_confirmed", nullable = false) private boolean reviewConfirmed;
+    @Column(name = "approval_idempotency_key") private UUID approvalIdempotencyKey;
+    @Column(name = "approved_at") private Instant approvedAt;
+    @Column(name = "approved_by") private String approvedBy;
     @Version @Column(nullable = false) private long version;
 
     protected AssessmentReport() { }
@@ -50,6 +56,35 @@ public class AssessmentReport extends AuditableEntity {
         return report;
     }
 
+    public void revise(String reviewedDraft, String humanConclusion, boolean reviewConfirmed,
+                       String actorId, Instant now) {
+        requireDraft();
+        this.reviewedDraft = requiredText(reviewedDraft, "reviewedDraft");
+        this.humanConclusion = optionalText(humanConclusion);
+        this.reviewConfirmed = reviewConfirmed;
+        registerUpdate(actorId, now);
+    }
+
+    public void approve(UUID idempotencyKey, String actorId, Instant now) {
+        requireDraft();
+        if (reviewedDraft == null || !reviewConfirmed || humanConclusion == null) {
+            throw new ReviewRequiredException();
+        }
+        approvalIdempotencyKey = Objects.requireNonNull(idempotencyKey);
+        approvedAt = Objects.requireNonNull(now);
+        approvedBy = requiredText(actorId, "actorId");
+        status = ReportStatus.APPROVED;
+        registerUpdate(actorId, now);
+    }
+
+    private void requireDraft() {
+        if (status != ReportStatus.DRAFT) throw new ReportAlreadyApprovedException();
+    }
+
+    private static String optionalText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     public UUID id() { return id; }
     public UUID assessmentId() { return assessmentId; }
     public Long ownerUserId() { return ownerUserId; }
@@ -60,5 +95,21 @@ public class AssessmentReport extends AuditableEntity {
     public String modelName() { return modelName; }
     public String contextSnapshot() { return contextSnapshot; }
     public String originalDraft() { return originalDraft; }
+    public String reviewedDraft() { return reviewedDraft; }
+    public String humanConclusion() { return humanConclusion; }
+    public boolean reviewConfirmed() { return reviewConfirmed; }
+    public UUID approvalIdempotencyKey() { return approvalIdempotencyKey; }
+    public Instant approvedAt() { return approvedAt; }
+    public String approvedBy() { return approvedBy; }
     public long version() { return version; }
+
+    public static final class ReviewRequiredException extends IllegalStateException {
+        public ReviewRequiredException() {
+            super("Revise a minuta, confirme a revisão e escreva sua conclusão antes de aprovar.");
+        }
+    }
+
+    public static final class ReportAlreadyApprovedException extends IllegalStateException {
+        public ReportAlreadyApprovedException() { super("O parecer aprovado é imutável."); }
+    }
 }

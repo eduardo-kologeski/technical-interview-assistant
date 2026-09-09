@@ -13,13 +13,13 @@ Resposta: `id`, `title`, `personName`, `context`, `status`, `version`, `createdA
 ## Coleta estruturada
 
 - `GET /api/assessments/{id}/collection` consulta o documento próprio;
-- `PATCH /api/assessments/{id}/collection/start` inicia a coleta a partir da versão informada;
-- `PUT /api/assessments/{id}/collection` salva o documento completo com controle otimista;
+- `PUT /api/assessments/{id}/collection` salva primeiro a preparação e depois os registros, sempre com controle otimista;
+- `PATCH /api/assessments/{id}/collection/start` inicia a coleta somente depois de existir ao menos um requisito salvo;
 - `PATCH /api/assessments/{id}/collection/complete` encerra a coleta.
 
 Os comandos de início e conclusão recebem `{"version":0}`. O salvamento recebe `version` e `document`. O documento `schemaVersion: 1` contém listas de `criteria`, `evidence`, `notes`, `strengths` e `concerns`. Cada item possui UUID estável; toda evidência deve referenciar um critério existente. Pontuação é opcional e, quando informada, fica entre 0 e 5. Notas gerais não exigem critério; pontos positivos e de atenção podem referenciá-lo opcionalmente.
 
-IDs duplicados, referências inexistentes, schema desconhecido e limites inválidos retornam 400. Versão desatualizada retorna 409 sem sobrescrever o documento atual. Somente uma coleta `IN_PROGRESS` pode ser salva; depois de `COMPLETED`, o documento fica protegido. `generationEligible` só é verdadeiro quando a coleta foi encerrada e existe ao menos um critério com evidência textual. Esse indicador não inicia geração nem avalia a pessoa.
+IDs duplicados, referências inexistentes, schema desconhecido e limites inválidos retornam 400. Versão desatualizada retorna 409 sem sobrescrever o documento atual. Em `CREATED`, o documento aceita somente requisitos sem pontuação ou registros; o início exige ao menos um requisito. Em `IN_PROGRESS`, as definições dos requisitos ficam bloqueadas, enquanto pontuação, evidências, notas e apontamentos podem ser salvos. Depois de `COMPLETED`, todo o documento fica protegido. `generationEligible` só é verdadeiro quando a coleta foi encerrada e existe ao menos um critério com evidência textual. Esse indicador não inicia geração nem avalia a pessoa.
 
 ## Persistência e compatibilidade
 
@@ -51,11 +51,13 @@ Neste Docker Desktop, o Testcontainers 1.21.3 precisou de `DOCKER_HOST=npipe:///
 ### Evidência de execução — IND-04
 
 - dashboard individual permite criar e retomar avaliações sem empresa, vaga ou template;
-- a tela de coleta edita critérios, evidências, notas, pontos positivos e pontos de atenção, com pontuação opcional;
+- a tela separa a preparação dos requisitos da avaliação e bloqueia suas definições depois do início;
+- durante a avaliação, 17 frases rápidas preenchem a experiência observada; opções positivas também registram ponto forte e opções negativas registram ponto de atenção;
 - o autosave serializa alterações, envia a versão esperada e mantém o documento na tela quando ocorre falha ou conflito;
 - o encerramento aguarda a confirmação do salvamento e torna a coleta somente leitura;
-- 68 testes do frontend e o build de produção foram aprovados;
+- 70 testes do frontend e o build de produção foram aprovados;
 - o E2E executado no Docker Compose existente confirmou criação, persistência após recarga, falha simulada, retry e conclusão.
+- `npm run e2e:local-compose -- --grep "personal assessment"` reutiliza os três serviços locais, sem iniciar outro backend, frontend ou banco.
 
 ## Contrato interno de geração — IND-05
 

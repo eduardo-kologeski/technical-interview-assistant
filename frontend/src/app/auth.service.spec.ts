@@ -48,4 +48,18 @@ describe('AuthService integrated session', () => {
     expect(sessionStorage.getItem('tia.accessToken')).toBe('short-access');
     expect(localStorage.getItem('tia.refreshToken')).toBeNull();
   });
+
+  it('clears every local session value after deleting the account', () => {
+    sessionStorage.setItem('tia.accessToken', 'access');
+    localStorage.setItem('tia.refreshToken', 'refresh');
+    localStorage.setItem('tia.companyId', 'company');
+    auth.deleteAccount('current-password').subscribe();
+    const request = http.expectOne('/api/users/me');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toEqual({ password: 'current-password' });
+    request.flush(null);
+    expect(sessionStorage.getItem('tia.accessToken')).toBeNull();
+    expect(localStorage.getItem('tia.refreshToken')).toBeNull();
+    expect(localStorage.getItem('tia.companyId')).toBeNull();
+  });
 });

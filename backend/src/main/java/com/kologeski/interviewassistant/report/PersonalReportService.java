@@ -10,6 +10,7 @@ import com.kologeski.interviewassistant.interview.PersonalAssessmentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.core.JacksonException;
@@ -29,6 +30,7 @@ public class PersonalReportService {
     private final AssessmentReportRepository reports;
     private final PersonalAssessmentDocumentCodec documents;
     private final ReportGenerationService generation;
+    private final ReportDraftValidator validator;
     private final CurrentActor actor;
     private final Clock clock;
     private final ObjectMapper json;
@@ -37,12 +39,13 @@ public class PersonalReportService {
 
     public PersonalReportService(InterviewRepository assessments, AssessmentReportRepository reports,
                                  PersonalAssessmentDocumentCodec documents, ReportGenerationService generation,
-                                 CurrentActor actor, Clock clock, ObjectMapper json,
+                                 ReportDraftValidator validator, CurrentActor actor, Clock clock, ObjectMapper json,
                                  TransactionTemplate transactions) {
         this.assessments = assessments;
         this.reports = reports;
         this.documents = documents;
         this.generation = generation;
+        this.validator = validator;
         this.actor = actor;
         this.clock = clock;
         this.json = json;
@@ -74,6 +77,68 @@ public class PersonalReportService {
         } finally {
             inFlight.remove(key, mine);
         }
+    }
+
+    public ReportView get(UUID assessmentId) {
+        Long ownerId = Long.valueOf(actor.required().id());
+        requiredAssessment(ownerId, assessmentId);
+        return view(requiredReport(ownerId, assessmentId), false);
+    }
+
+    public ReportView saveReview(UUID assessmentId, long expectedVersion, ReportDraft draft,
+                                 String humanConclusion, boolean reviewConfirmed) {
+        Long ownerId = Long.valueOf(actor.required().id());
+        ReportView saved = transactions.execute(status -> {
+            requiredAssessment(ownerId, assessmentId);
+            AssessmentReport report = requiredReport(ownerId, assessmentId);
+            requireReportVersion(report, expectedVersion);
+            if (humanConclusion != null && humanConclusion.trim().length() > 8_000) {
+                throw new IllegalArgumentException("A conclusão humana excede o limite permitido.");
+            }
+            ReportContext context = read(report.contextSnapshot(), ReportContext.class,
+                    "O contexto persistido da minuta possui formato inválido.");
+            ReportDraft validated = validator.validate(draft, context);
+            report.revise(write(validated), humanConclusion, reviewConfirmed,
+                    ownerId.toString(), Instant.now(clock));
+            return view(reports.saveAndFlush(report), false);
+        });
+        if (saved == null) throw new IllegalStateException("Não foi possível salvar a revisão.");
+        return saved;
+    }
+
+    public ReportView approve(UUID assessmentId, long expectedVersion, UUID idempotencyKey) {
+        Long ownerId = Long.valueOf(actor.required().id());
+        ReportView replay = approvalReplay(ownerId, assessmentId, idempotencyKey);
+        if (replay != null) return replay;
+        try {
+            ReportView approved = transactions.execute(status -> approveOnce(
+                    ownerId, assessmentId, expectedVersion, idempotencyKey));
+            if (approved == null) throw new IllegalStateException("Não foi possível aprovar o parecer.");
+            log.info("event=personal_report_approved assessmentId={} reportId={}", assessmentId, approved.id());
+            return approved;
+        } catch (ObjectOptimisticLockingFailureException | DataIntegrityViolationException error) {
+            ReportView concurrentReplay = approvalReplay(ownerId, assessmentId, idempotencyKey);
+            if (concurrentReplay != null) return concurrentReplay;
+            throw new StaleReportException();
+        }
+    }
+
+    private ReportView approveOnce(Long ownerId, UUID assessmentId, long expectedVersion, UUID idempotencyKey) {
+        Interview assessment = requiredAssessment(ownerId, assessmentId);
+        AssessmentReport report = requiredReport(ownerId, assessmentId);
+        if (report.status() == ReportStatus.APPROVED) {
+            if (idempotencyKey.equals(report.approvalIdempotencyKey())) return view(report, true);
+            throw new AssessmentReport.ReportAlreadyApprovedException();
+        }
+        requireReportVersion(report, expectedVersion);
+        if (assessment.version() != report.sourceVersion()) throw new StaleReportSourceException();
+        report.approve(idempotencyKey, ownerId.toString(), Instant.now(clock));
+        return view(reports.saveAndFlush(report), false);
+    }
+
+    private ReportView approvalReplay(Long ownerId, UUID assessmentId, UUID idempotencyKey) {
+        return reports.findByApprovalIdempotencyKeyAndOwnerUserId(idempotencyKey, ownerId)
+                .map(report -> view(matchingEntity(assessmentId, report), true)).orElse(null);
     }
 
     private ReportView generateOnce(Long ownerId, UUID assessmentId, long expectedVersion, UUID idempotencyKey) {
@@ -132,20 +197,35 @@ public class PersonalReportService {
                 .orElseThrow(() -> new ResourceNotFoundException("Avaliação não encontrada."));
     }
 
+    private AssessmentReport requiredReport(Long ownerId, UUID assessmentId) {
+        return reports.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Minuta não encontrada."));
+    }
+
     private static void requireVersion(Interview assessment, long expectedVersion) {
         if (assessment.version() != expectedVersion) {
             throw new PersonalAssessmentService.StalePersonalAssessmentException();
         }
     }
 
+    private static void requireReportVersion(AssessmentReport report, long expectedVersion) {
+        if (report.version() != expectedVersion) throw new StaleReportException();
+    }
+
     private ReportView view(AssessmentReport report, boolean replayed) {
-        try {
-            ReportDraft draft = json.readValue(report.originalDraft(), ReportDraft.class);
-            return new ReportView(report.id(), report.assessmentId(), report.status(), report.sourceVersion(),
-                    report.promptVersion(), report.modelName(), draft, report.createdAt(), replayed);
-        } catch (JacksonException error) {
-            throw new IllegalStateException("A minuta persistida possui formato inválido.", error);
-        }
+        ReportDraft original = read(report.originalDraft(), ReportDraft.class,
+                "A minuta original persistida possui formato inválido.");
+        ReportDraft reviewed = report.reviewedDraft() == null ? original : read(report.reviewedDraft(),
+                ReportDraft.class, "A minuta revisada persistida possui formato inválido.");
+        return new ReportView(report.id(), report.assessmentId(), report.status(), report.sourceVersion(),
+                report.version(), report.promptVersion(), report.modelName(), original, reviewed,
+                report.humanConclusion(), report.reviewConfirmed(), report.createdAt(), report.updatedAt(),
+                report.approvedAt(), replayed);
+    }
+
+    private <T> T read(String value, Class<T> type, String message) {
+        try { return json.readValue(value, type); }
+        catch (JacksonException error) { throw new IllegalStateException(message, error); }
     }
 
     private String write(Object value) {
@@ -168,7 +248,9 @@ public class PersonalReportService {
 
     private static ReportView asReplay(ReportView report) {
         return new ReportView(report.id(), report.assessmentId(), report.status(), report.sourceVersion(),
-                report.promptVersion(), report.model(), report.draft(), report.createdAt(), true);
+                report.version(), report.promptVersion(), report.model(), report.originalDraft(), report.draft(),
+                report.humanConclusion(), report.reviewConfirmed(), report.createdAt(), report.updatedAt(),
+                report.approvedAt(), true);
     }
 
     private static ReportView await(CompletableFuture<ReportView> future) {
@@ -185,9 +267,10 @@ public class PersonalReportService {
     private record GenerationKey(Long ownerId, UUID idempotencyKey) { }
     private record Capture(Interview assessment, PersonalAssessmentDocument document, long sourceVersion,
                            AssessmentReport existing) { }
-    public record ReportView(UUID id, UUID assessmentId, ReportStatus status, long sourceVersion,
-                             String promptVersion, String model, ReportDraft draft, Instant createdAt,
-                             boolean replayed) { }
+    public record ReportView(UUID id, UUID assessmentId, ReportStatus status, long sourceVersion, long version,
+                             String promptVersion, String model, ReportDraft originalDraft, ReportDraft draft,
+                             String humanConclusion, boolean reviewConfirmed, Instant createdAt, Instant updatedAt,
+                             Instant approvedAt, boolean replayed) { }
 
     public static final class DraftAlreadyExistsException extends IllegalStateException {
         public DraftAlreadyExistsException() { super("Esta avaliação já possui uma minuta."); }
@@ -195,6 +278,14 @@ public class PersonalReportService {
     public static final class IdempotencyKeyConflictException extends IllegalStateException {
         public IdempotencyKeyConflictException() {
             super("A chave de idempotência já foi usada em outra avaliação.");
+        }
+    }
+    public static final class StaleReportException extends IllegalStateException {
+        public StaleReportException() { super("A minuta mudou em outra sessão. Recarregue antes de continuar."); }
+    }
+    public static final class StaleReportSourceException extends IllegalStateException {
+        public StaleReportSourceException() {
+            super("A avaliação mudou depois da geração. Gere e revise uma nova minuta antes de aprovar.");
         }
     }
 }

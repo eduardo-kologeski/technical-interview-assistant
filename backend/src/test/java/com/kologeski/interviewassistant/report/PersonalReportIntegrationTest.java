@@ -89,7 +89,7 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.replayed").value(true))
                 .andExpect(jsonPath("$.draft.conclusion").doesNotExist());
@@ -97,11 +97,11 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isConflict());
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenB).header("Idempotency-Key", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isNotFound());
         assertThat(llm.calls.get()).isEqualTo(1);
     }
@@ -113,7 +113,7 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.detail").value("Ollama sintético indisponível."));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isZero();
@@ -124,9 +124,72 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("DRAFT"));
         assertThat(llm.calls.get()).isEqualTo(2);
+    }
+
+    @Test void keepsOriginalDraftWhileOwnerReviewsConcludesAndApprovesAnImmutableReport() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        MvcResult generated = mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.version").value(0)).andReturn();
+        var report = json.readTree(generated.getResponse().getContentAsString());
+        String originalText = report.get("originalDraft").get("context").get("text").asText();
+        var revisedDraft = report.get("draft").deepCopy();
+        ((tools.jackson.databind.node.ObjectNode) revisedDraft.get("context")).put("text", "Contexto revisado pelo entrevistador.");
+        var review = json.createObjectNode();
+        review.put("version", 0);
+        review.set("draft", revisedDraft);
+        review.put("humanConclusion", "Conclusão escrita exclusivamente pelo entrevistador.");
+        review.put("reviewConfirmed", true);
+
+        mvc.perform(get("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.originalDraft.context.text").value(originalText))
+                .andExpect(jsonPath("$.draft.context.text").value("Contexto revisado pelo entrevistador."))
+                .andExpect(jsonPath("$.humanConclusion").value("Conclusão escrita exclusivamente pelo entrevistador."));
+
+        UUID approvalKey = UUID.randomUUID();
+        mvc.perform(post("/api/assessments/{id}/report/approve", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", approvalKey)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.version").value(2)).andExpect(jsonPath("$.approvedAt").isNotEmpty());
+        mvc.perform(post("/api/assessments/{id}/report/approve", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", approvalKey)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.replayed").value(true));
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT original_draft FROM assessment_reports", String.class))
+                .contains(originalText).doesNotContain("Contexto revisado pelo entrevistador.");
+    }
+
+    @Test void deletingAnOwnedAssessmentAlsoDeletesItsDraftAndAnotherUserCannotDeleteIt() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/assessments/{id}", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isEqualTo(1);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/assessments/{id}", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isZero();
+        mvc.perform(get("/api/assessments/{id}", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isNotFound());
     }
 
     private MvcResult generate(UUID assessmentId, UUID requestKey, CountDownLatch ready,
@@ -135,7 +198,7 @@ class PersonalReportIntegrationTest {
         assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
         return mvc.perform(post("/api/assessments/{id}/report/generate", assessmentId)
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andReturn();
     }
 
@@ -148,21 +211,29 @@ class PersonalReportIntegrationTest {
         UUID id = UUID.fromString(json.readTree(created.getResponse().getContentAsString()).get("id").asText());
         UUID criterionId = UUID.randomUUID();
         UUID evidenceId = UUID.randomUUID();
+        String preparation = """
+                {"version":0,"document":{"schemaVersion":1,
+                  "criteria":[{"id":"%s","name":"Java","score":null}],
+                  "evidence":[],"notes":[],"strengths":[],"concerns":[]}}
+                """.formatted(criterionId);
+        mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(preparation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
         mvc.perform(patch("/api/assessments/{id}/collection/start", id).header("Authorization", tokenA)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
-                .andExpect(status().isOk());
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2));
         String document = """
-                {"version":1,"document":{"schemaVersion":1,
+                {"version":2,"document":{"schemaVersion":1,
                   "criteria":[{"id":"%s","name":"Java","score":5}],
                   "evidence":[{"id":"%s","criterionId":"%s","text":"Explicou encapsulamento."}],
                   "notes":[],"strengths":[],"concerns":[]}}
                 """.formatted(criterionId, evidenceId, criterionId);
         mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content(document))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2));
-        mvc.perform(patch("/api/assessments/{id}/collection/complete", id).header("Authorization", tokenA)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":2}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(3));
+        mvc.perform(patch("/api/assessments/{id}/collection/complete", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(4));
         return new CompletedAssessment(id, criterionId);
     }
 

@@ -11,6 +11,7 @@ public interface CompanyInvitationRepository extends JpaRepository<CompanyInvita
     Optional<CompanyInvitation> findByTokenHash(String tokenHash);
     List<CompanyInvitation> findByCompanyIdOrderByCreatedAtDesc(UUID companyId);
     org.springframework.data.domain.Page<CompanyInvitation> findByCompanyId(UUID companyId, org.springframework.data.domain.Pageable pageable);
+    List<CompanyInvitation> findByEmailIgnoreCase(String email);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select invitation from CompanyInvitation invitation where invitation.tokenHash = :tokenHash")
