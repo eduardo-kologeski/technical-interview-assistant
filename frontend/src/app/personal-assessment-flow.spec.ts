@@ -62,6 +62,12 @@ describe('personal assessment flow', () => {
     service.copyRequirements('assessment-1', { title: 'Nova', personName: 'Outra pessoa', context: '' }).subscribe();
     const copy = http.expectOne('/api/assessments/assessment-1/copy-requirements');
     expect(copy.request.method).toBe('POST'); expect(copy.request.body.personName).toBe('Outra pessoa'); copy.flush(summary);
+    const manualReport = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
+    service.saveManualReport('assessment-1', 4, 0, manualReport).subscribe();
+    const saveManual = http.expectOne('/api/assessments/assessment-1/study/manual');
+    expect(saveManual.request.body.assessmentVersion).toBe(4); saveManual.flush({});
+    service.finalizeManualReport('assessment-1', 1).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/manual/finalize').request.body).toEqual({ version: 1 });
     http.verify();
   });
 
@@ -142,7 +148,7 @@ describe('personal assessment flow', () => {
     vi.useFakeTimers();
     const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
     const service = {
-      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)), report: vi.fn(() => of(report)),
+      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)), report: vi.fn(() => of(report)), study: vi.fn(() => throwError(() => ({ status: 404 }))),
       saveReport: vi.fn((_id: string, _version: number, draft: ReportDraft, humanConclusion: string, reviewConfirmed: boolean) => of({ ...report, version: 1, draft, humanConclusion, reviewConfirmed })),
       approveReport: vi.fn(() => of({ ...report, status: 'APPROVED' as const, version: 2, humanConclusion: 'Conclusão humana', reviewConfirmed: true, approvedAt: '2026-09-07T01:00:00Z' })),
       generateReport: vi.fn(),
@@ -169,5 +175,34 @@ describe('personal assessment flow', () => {
     const longPdf = await fixture.componentInstance.exportPdf(false);
     expect(longPdf?.getNumberOfPages()).toBeGreaterThan(1);
     expect(service.approveReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a frozen manual report before revealing the draft in study mode', async () => {
+    const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
+    const emptyManual = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
+    const study = { id: 'study-1', assessmentId: summary.id, sourceVersion: 4, version: 0, manualReport: emptyManual,
+      finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null };
+    let manualSaves = 0;
+    const service = {
+      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)),
+      report: vi.fn(() => throwError(() => ({ status: 404 }))), study: vi.fn(() => throwError(() => ({ status: 404 }))),
+      saveManualReport: vi.fn((_id: string, _assessmentVersion: number, _version: number, manualReport: typeof emptyManual) => of({ ...study, version: manualSaves++, manualReport })),
+      finalizeManualReport: vi.fn(() => of({ ...study, version: 2, manualReport: { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' }, finalized: true, contextHash: 'a'.repeat(64), finalizedAt: summary.updatedAt })),
+      generateReport: vi.fn(() => of(report)), saveReport: vi.fn(), approveReport: vi.fn(),
+    };
+    await TestBed.configureTestingModule({ imports: [PersonalAssessmentReportComponent], providers: [
+      provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
+      { provide: PersonalAssessmentService, useValue: service },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PersonalAssessmentReportComponent); fixture.detectChanges();
+    fixture.componentInstance.startStudy();
+    fixture.componentInstance.generate(); expect(service.generateReport).not.toHaveBeenCalled();
+    const fields = { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' };
+    for (const [key, value] of Object.entries(fields)) fixture.componentInstance.updateManual(key as keyof typeof fields, value);
+    fixture.componentInstance.saveManual();
+    fixture.componentInstance.finalizeManual();
+    expect(service.finalizeManualReport).toHaveBeenCalledWith('assessment-1', 1);
+    fixture.componentInstance.generate();
+    expect(service.generateReport).toHaveBeenCalledWith('assessment-1', 4);
   });
 });

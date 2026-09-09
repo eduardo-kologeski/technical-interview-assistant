@@ -28,6 +28,7 @@ public class PersonalReportService {
     private static final Logger log = LoggerFactory.getLogger(PersonalReportService.class);
     private final InterviewRepository assessments;
     private final AssessmentReportRepository reports;
+    private final AssessmentStudyRepository studies;
     private final PersonalAssessmentDocumentCodec documents;
     private final ReportGenerationService generation;
     private final ReportDraftValidator validator;
@@ -37,12 +38,13 @@ public class PersonalReportService {
     private final TransactionTemplate transactions;
     private final ConcurrentHashMap<GenerationKey, CompletableFuture<ReportView>> inFlight = new ConcurrentHashMap<>();
 
-    public PersonalReportService(InterviewRepository assessments, AssessmentReportRepository reports,
+    public PersonalReportService(InterviewRepository assessments, AssessmentReportRepository reports, AssessmentStudyRepository studies,
                                  PersonalAssessmentDocumentCodec documents, ReportGenerationService generation,
                                  ReportDraftValidator validator, CurrentActor actor, Clock clock, ObjectMapper json,
                                  TransactionTemplate transactions) {
         this.assessments = assessments;
         this.reports = reports;
+        this.studies = studies;
         this.documents = documents;
         this.generation = generation;
         this.validator = validator;
@@ -170,6 +172,13 @@ public class PersonalReportService {
         if (current != null) throw new DraftAlreadyExistsException();
         Interview assessment = requiredAssessment(ownerId, assessmentId);
         requireVersion(assessment, expectedVersion);
+        AssessmentStudy study = studies.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId).orElse(null);
+        if (study != null && !study.finalized()) {
+            throw new IllegalStateException("Finalize o parecer manual antes de revelar a minuta deste caso acadêmico.");
+        }
+        if (study != null && study.sourceVersion() != assessment.version()) {
+            throw new AssessmentStudyService.StaleStudySourceException();
+        }
         return new Capture(assessment, documents.read(assessment.assessmentData()), assessment.version(), null);
     }
 

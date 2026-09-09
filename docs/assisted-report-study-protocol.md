@@ -68,4 +68,4 @@ Aplicam-se a minimização e o ciclo de exclusão descritos em `data-governance.
 
 ## Lacunas de implementação
 
-O TIA já preserva snapshot, minuta original, revisão, conclusão e metadados do modelo. Ainda precisam ser implementados: armazenamento do parecer manual anterior à revelação, hash explícito do snapshot, ficha de avaliação por dimensão, temporização ativa e exportação agregada anonimizada. Esses itens são acompanhados pelas issues acadêmicas #138, #139 e #140.
+O TIA já preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão e metadados do modelo. Ainda precisam ser implementados: ficha de avaliação por dimensão, temporização ativa e exportação agregada anonimizada. Esses itens são acompanhados pelas issues acadêmicas #139 e #140.

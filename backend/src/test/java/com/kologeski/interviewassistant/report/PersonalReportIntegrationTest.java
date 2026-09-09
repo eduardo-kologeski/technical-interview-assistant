@@ -192,6 +192,48 @@ class PersonalReportIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test void freezesManualReportBeforeRevealingDraftAndNeverSendsItToTheModelContext() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        String emptyManual = """
+                {"assessmentVersion":4,"version":0,"manualReport":{"context":"","observedKnowledge":"",
+                "strengths":"","concerns":"","synthesis":"","conclusion":""}}
+                """;
+        mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(emptyManual))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.finalized").value(false));
+        mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isConflict());
+        assertThat(llm.calls.get()).isZero();
+        String phrase = "CONTROLE MANUAL QUE NÃO PODE IR AO MODELO";
+        String completeManual = """
+                {"assessmentVersion":4,"version":0,"manualReport":{"context":"%s","observedKnowledge":"Conhecimento manual",
+                "strengths":"Ponto positivo manual","concerns":"Atenção manual","synthesis":"Síntese manual",
+                "conclusion":"Conclusão exclusivamente humana"}}
+                """.formatted(phrase);
+        mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeManual))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+        mvc.perform(post("/api/assessments/{id}/study/manual/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.finalized").value(true))
+                .andExpect(jsonPath("$.contextHash").value(org.hamcrest.Matchers.matchesPattern("[0-9a-f]{64}")));
+        mvc.perform(get("/api/assessments/{id}/study", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeManual.replace("\"version\":0", "\"version\":2")))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated());
+        assertThat(llm.calls.get()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT context_snapshot FROM assessment_reports", String.class))
+                .doesNotContain(phrase, "Conclusão exclusivamente humana");
+    }
+
     private MvcResult generate(UUID assessmentId, UUID requestKey, CountDownLatch ready,
                                CountDownLatch start) throws Exception {
         ready.countDown();
