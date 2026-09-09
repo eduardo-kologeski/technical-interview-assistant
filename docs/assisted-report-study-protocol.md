@@ -45,6 +45,8 @@ Cada dimensão recebe uma justificativa textual e referências ao snapshot e ao 
 
 Além dos escores, registrar contagens de informações esperadas ausentes, afirmações factuais analisadas, afirmações sem sustentação e seções alteradas na revisão. Quantidade de edições e fluência textual não representam qualidade por si só.
 
+Antes da amostra principal, aplicar a rubrica aos [casos sintéticos de calibração](academic-rubric-calibration.md). As notas âncora distinguem cobertura, fidelidade, sustentação, tratamento de lacunas e decisão indevida. Divergências devem produzir uma regra documentada e versionada antes da avaliação de novos casos.
+
 ## Tempos e comparação
 
 Registrar separadamente tempo ativo de redação manual, latência da geração local e tempo ativo de revisão. Em `active-timing-v1`, o navegador conta somente o período em que um campo editável da etapa está em foco, a página está visível e houve atividade nos últimos 30 segundos. Troca de aba, campos sem foco e intervalos maiores que esse limite são pausas. A latência é medida no backend ao redor da geração local e nunca é somada ao tempo de revisão. Os totais de edição são monotônicos e persistidos no salvamento ou na finalização. Comparações usam estatística descritiva por dimensão e por caso; amostras pequenas não sustentam generalização ou inferência causal.
@@ -72,4 +74,4 @@ Aplicam-se a minimização e o ciclo de exclusão descritos em `data-governance.
 
 O TIA preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão, metadados do modelo e os três tempos separados. A ficha humana registra as cinco dimensões da rubrica com escore 0–2, justificativa e referências separadas para a entrada e para a minuta, além das contagens definidas neste protocolo. A ficha só pode ser preenchida depois da geração, fica vinculada ao mesmo caso e se torna imutável quando finalizada; seu conteúdo nunca integra o contexto do LLM. O resumo CSV agrega apenas fichas finalizadas do usuário, por versão de prompt e modelo, sem IDs, nomes, textos, justificativas ou referências dos casos. Médias de tempo incluem somente casos identificados com a mesma versão de temporização.
 
-Quando houver mais de um avaliador, ainda precisa ser implementado o fluxo de dupla avaliação e conciliação. A calibração da rubrica e regenerações experimentais versionadas também permanecem acompanhadas pelas issues acadêmicas #139 e #140.
+Quando houver mais de um avaliador, ainda precisa ser implementado o armazenamento das avaliações independentes e da conciliação. Regenerações experimentais versionadas também permanecem acompanhadas pela issue acadêmica #140.
