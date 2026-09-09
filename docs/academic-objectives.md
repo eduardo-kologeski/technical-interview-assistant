@@ -38,6 +38,8 @@ definir os requisitos que serão avaliados
 
 O contexto enviado ao mecanismo de geração deve ser minimizado e estruturado. Prompt, contexto e saída precisam permitir rastrear se cada afirmação da minuta corresponde às informações fornecidas. Conteúdo integral de avaliações e respostas do modelo não devem aparecer em logs.
 
+O procedimento de comparação, a rubrica e as limitações de validade estão definidos no [protocolo de comparação de pareceres](assisted-report-study-protocol.md).
+
 ## Estratégia de comparação e avaliação
 
 Para o estudo, o parecer manual e a minuta assistida devem partir do mesmo conjunto congelado de informações de entrada. A comparação não usa o parecer manual como instrução para o modelo. Os artefatos devem ser identificados como manual, minuta gerada e versão final revisada, preservando autoria e momento de criação.
