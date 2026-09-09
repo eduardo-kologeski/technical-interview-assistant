@@ -53,6 +53,7 @@ O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production
 - decisão final sempre pertencente ao entrevistador;
 - rastreabilidade: minutas assistidas usam apenas informações registradas na avaliação;
 - revisão humana obrigatória antes de qualquer parecer final;
+- PDF disponível somente para o parecer aprovado, sem alterar o estado da avaliação;
 - autosave e proteção contra perda de dados durante a entrevista.
 
 ## Branches

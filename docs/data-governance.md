@@ -48,6 +48,8 @@ Pedidos fora dos fluxos pessoais implementados, como exclusão de candidatos org
 
 Backups herdam a sensibilidade do banco e precisam de criptografia, acesso mínimo, retenção e descarte controlado. Uma exclusão no banco primário não remove imediatamente cópias históricas: a política deve determinar expiração das cópias e impedir restauração operacional de dados expirados sem reaplicar exclusões registradas.
 
+O PDF baixado fica fora do controle técnico do TIA. A interface só permite exportar o parecer aprovado e deixa claro que o download não aprova nem altera o registro; armazenamento, compartilhamento e descarte do arquivo passam a depender do usuário e da política aplicável ao destino.
+
 Os scripts em `scripts/` criam dump customizado e checksum, e recusam restore sobre banco não vazio. Credenciais são fornecidas somente por variáveis de ambiente. Um volume Docker não é backup.
 
 ## Decisões externas obrigatórias

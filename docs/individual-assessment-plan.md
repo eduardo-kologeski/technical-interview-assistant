@@ -284,6 +284,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-09 — P1 — Exportação neutra e documentação coerente
 
+**Estado: implementada em `develop`; o PDF é gerado somente a partir do parecer aprovado, usa linguagem neutra de avaliação e não altera o status persistido.**
+
 - Objetivo/contexto: reaproveitar jsPDF e corrigir documentação obsoleta.
 - Escopo: PDF de parecer aprovado com linguagem de avaliação; atualizar README/arquitetura/governança/backlog; acesso a perfil básico.
 - Aceite: exportação não conclui coleta nem aprova; PDF corresponde ao final persistido; revisão visual com texto longo e acentos; documentação separa implementado/proposto.
@@ -325,7 +327,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-08 estão implementadas em `develop`. A próxima etapa é a IND-09, responsável pela exportação neutra do parecer aprovado e pela atualização final da documentação. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo local estarem disponíveis no host. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-09 estão implementadas em `develop`. A próxima etapa é a IND-10, dedicada à reutilização de critérios pessoais e ao protocolo de acompanhamento acadêmico. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo local estarem disponíveis no host. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 

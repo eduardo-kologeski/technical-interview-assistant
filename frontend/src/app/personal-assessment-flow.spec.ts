@@ -160,5 +160,11 @@ describe('personal assessment flow', () => {
     fixture.componentInstance.approve(); fixture.detectChanges();
     expect(service.approveReport).toHaveBeenCalledWith('assessment-1', 1, expect.any(String));
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('PARECER APROVADO');
+    const pdf = await fixture.componentInstance.exportPdf(false);
+    expect(pdf?.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+    fixture.componentInstance.draft.set({ ...reportDraft, synthesis: { ...reportDraft.synthesis, text: 'Registro sustentado. '.repeat(300) } });
+    const longPdf = await fixture.componentInstance.exportPdf(false);
+    expect(longPdf?.getNumberOfPages()).toBeGreaterThan(1);
+    expect(service.approveReport).toHaveBeenCalledTimes(1);
   });
 });
