@@ -15,7 +15,7 @@ import { FormsModule } from '@angular/forms';
       @else if (error()) { <p class="error" role="alert">{{ error() }}</p> }
       @else if (!assessments().length) { <p>Nenhuma avaliação criada ainda.</p><small>Crie a primeira avaliação para definir critérios e registrar evidências.</small> }
       @else { @for (assessment of assessments(); track assessment.id) {
-        <div class="assessment"><a [routerLink]="['/assessments',assessment.id]"><strong>{{ assessment.title }}</strong><span>{{ assessment.personName }}</span></a><small>{{ label(assessment.status) }}</small><button type="button" (click)="remove(assessment)">Excluir</button></div>
+        <div class="assessment"><a [routerLink]="['/assessments',assessment.id]"><strong>{{ assessment.title }}</strong><span>{{ assessment.personName }}</span></a><small>{{ label(assessment.status) }}</small><div class="row-actions"><button type="button" (click)="reuse(assessment)">Reutilizar requisitos</button><button type="button" (click)="remove(assessment)">Excluir</button></div></div>
       }}
     </section>
     <section class="danger"><h2>Excluir minha conta</h2><p>Remove permanentemente suas avaliações pessoais, minutas, perfil e sessões. Sua autoria em registros empresariais será anonimizada.</p>
@@ -23,7 +23,7 @@ import { FormsModule } from '@angular/forms';
       @else{<label>Confirme com sua senha atual<input type="password" [(ngModel)]="deletionPassword" autocomplete="current-password"></label>@if(deletionError()){<p class="error" role="alert">{{deletionError()}}</p>}<div><button type="button" (click)="showAccountDeletion.set(false);deletionPassword=''">Cancelar</button><button type="button" class="delete-account" (click)="deleteAccount()" [disabled]="deletingAccount()||deletionPassword.length<8">{{deletingAccount()?'Excluindo…':'Excluir conta permanentemente'}}</button></div>}
     </section>
   </section>`,
-  styles: [`.page{max-width:900px;margin:auto;padding:48px 28px}.eyebrow{color:#176b66;font-size:11px;font-weight:900;letter-spacing:.14em}h1{font-size:36px;margin:7px 0}.intro{color:#64747d}.panel{margin-top:28px;padding:24px;border:1px solid #dce5e8;border-radius:12px;background:#fff}.panel-title{display:flex;align-items:center;justify-content:space-between;gap:15px}.panel h2{margin-top:0}.panel-title a{padding:10px 13px;border-radius:8px;background:#176b66;color:#fff;text-decoration:none;font-size:12px;font-weight:800}.panel>p,.panel>small{color:#718089}.error{color:#a44035!important}.assessment{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:16px;padding:15px 0;border-top:1px solid #edf1f3}.assessment>a{display:grid;gap:4px;color:inherit;text-decoration:none}.assessment>a:hover strong{color:#176b66}.assessment span,.assessment small{color:#718089;font-size:12px}.assessment button,.danger button{border:0;background:transparent;color:#a44035;font-weight:750}.danger{margin-top:28px;padding:22px;border:1px solid #edcbc7;border-radius:12px;background:#fff}.danger h2{margin-top:0;font-size:18px;color:#8e3d35}.danger p{color:#6e777c}.danger label{display:grid;gap:6px;max-width:380px;font-size:12px;font-weight:800}.danger input{padding:10px;border:1px solid #d6c2bf;border-radius:7px}.danger>div{display:flex;gap:10px;margin-top:14px}.danger .delete-account{padding:10px 13px;border-radius:7px;background:#a44035;color:#fff}.danger button:disabled{opacity:.45}@media(max-width:560px){.page{padding:28px 14px}.panel-title{align-items:flex-start;flex-direction:column}.assessment{grid-template-columns:1fr auto}.assessment small{display:none}}`]
+  styles: [`.page{max-width:900px;margin:auto;padding:48px 28px}.eyebrow{color:#176b66;font-size:11px;font-weight:900;letter-spacing:.14em}h1{font-size:36px;margin:7px 0}.intro{color:#64747d}.panel{margin-top:28px;padding:24px;border:1px solid #dce5e8;border-radius:12px;background:#fff}.panel-title{display:flex;align-items:center;justify-content:space-between;gap:15px}.panel h2{margin-top:0}.panel-title a{padding:10px 13px;border-radius:8px;background:#176b66;color:#fff;text-decoration:none;font-size:12px;font-weight:800}.panel>p,.panel>small{color:#718089}.error{color:#a44035!important}.assessment{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:16px;padding:15px 0;border-top:1px solid #edf1f3}.assessment>a{display:grid;gap:4px;color:inherit;text-decoration:none}.assessment>a:hover strong{color:#176b66}.assessment span,.assessment small{color:#718089;font-size:12px}.row-actions{display:flex;gap:7px}.assessment button,.danger button{border:0;background:transparent;color:#a44035;font-weight:750}.assessment .row-actions button:first-child{color:#176b66}.danger{margin-top:28px;padding:22px;border:1px solid #edcbc7;border-radius:12px;background:#fff}.danger h2{margin-top:0;font-size:18px;color:#8e3d35}.danger p{color:#6e777c}.danger label{display:grid;gap:6px;max-width:380px;font-size:12px;font-weight:800}.danger input{padding:10px;border:1px solid #d6c2bf;border-radius:7px}.danger>div{display:flex;gap:10px;margin-top:14px}.danger .delete-account{padding:10px 13px;border-radius:7px;background:#a44035;color:#fff}.danger button:disabled{opacity:.45}@media(max-width:560px){.page{padding:28px 14px}.panel-title{align-items:flex-start;flex-direction:column}.assessment{grid-template-columns:1fr}.assessment small{display:none}.row-actions{justify-content:space-between}}`]
 })
 export class PersonalDashboardComponent {
   private readonly auth = inject(AuthService);
@@ -45,6 +45,14 @@ export class PersonalDashboardComponent {
     this.service.delete(assessment.id).subscribe({
       next: () => this.assessments.update(items => items.filter(item => item.id !== assessment.id)),
       error: () => this.error.set('Não foi possível excluir a avaliação.'),
+    });
+  }
+  reuse(assessment: PersonalAssessmentSummary) {
+    const personName = prompt('Nome da pessoa para a nova avaliação:')?.trim();
+    if (!personName) return;
+    this.service.copyRequirements(assessment.id, { title: assessment.title, personName, context: assessment.context || '' }).subscribe({
+      next: created => this.router.navigate(['/assessments', created.id]),
+      error: () => this.error.set('Não foi possível reutilizar os requisitos desta avaliação.'),
     });
   }
   deleteAccount() {

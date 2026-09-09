@@ -32,6 +32,12 @@ public class PersonalAssessmentController {
         return AssessmentResponse.from(service.create(command.title(), command.personName(), command.context()));
     }
 
+    @PostMapping("/{id}/copy-requirements")
+    @ResponseStatus(HttpStatus.CREATED)
+    AssessmentResponse copyRequirements(@PathVariable UUID id, @Valid @RequestBody CreateAssessmentCommand command) {
+        return AssessmentResponse.from(service.copyRequirements(id, command.title(), command.personName(), command.context()));
+    }
+
     @GetMapping
     PageResponse<AssessmentResponse> list(@RequestParam(defaultValue = "0") @Min(0) int page,
                                          @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {

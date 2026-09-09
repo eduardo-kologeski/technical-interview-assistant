@@ -242,4 +242,35 @@ class PersonalAssessmentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(changedRequirement))
                 .andExpect(status().isConflict());
     }
+
+    @Test void copiesOnlyRequirementDefinitionsIntoANewOwnedAssessment() throws Exception {
+        String sourceId = create();
+        UUID sourceCriterion = UUID.randomUUID();
+        String preparation = """
+                {"version":0,"document":{"schemaVersion":1,
+                  "criteria":[{"id":"%s","name":"Mensageria","technology":"Kafka",
+                    "description":"Experiência prática","question":"Como trata reprocessamento?",
+                    "rubric":"Idempotência e observabilidade","score":null}],
+                  "evidence":[],"notes":[],"strengths":[],"concerns":[]}}
+                """.formatted(sourceCriterion);
+        mvc.perform(put("/api/assessments/{id}/collection", sourceId).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(preparation))
+                .andExpect(status().isOk());
+        String body = "{\"title\":\"Nova avaliação\",\"personName\":\"Outra pessoa\",\"context\":\"Backend\"}";
+        mvc.perform(post("/api/assessments/{id}/copy-requirements", sourceId).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());
+        var copied = mvc.perform(post("/api/assessments/{id}/copy-requirements", sourceId)
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("CREATED"))
+                .andExpect(jsonPath("$.version").value(0)).andReturn();
+        String copiedId = new ObjectMapper().readTree(copied.getResponse().getContentAsString()).get("id").asText();
+        mvc.perform(get("/api/assessments/{id}/collection", copiedId).header("Authorization", tokenA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.document.criteria[0].name").value("Mensageria"))
+                .andExpect(jsonPath("$.document.criteria[0].score").isEmpty())
+                .andExpect(jsonPath("$.document.evidence").isEmpty())
+                .andExpect(jsonPath("$.document.notes").isEmpty());
+        assertThat(jdbc.queryForObject("SELECT assessment_data FROM interviews WHERE id=?", String.class,
+                UUID.fromString(copiedId))).doesNotContain(sourceCriterion.toString());
+    }
 }

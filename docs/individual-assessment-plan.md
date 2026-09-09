@@ -295,6 +295,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-10 — P2 — Templates pessoais e acompanhamento acadêmico
 
+**Estado: parcial em `develop`; requisitos de uma avaliação podem ser copiados para uma nova avaliação sem levar notas, evidências, pontuação ou histórico. O protocolo experimental, as métricas e regenerações versionadas continuam nas issues acadêmicas #138–#140.**
+
 - Objetivo/contexto: reduzir repetição e medir apoio da IA após provar o núcleo.
 - Escopo: cópia de critérios pessoais, regenerações versionadas quando justificadas, tempos e comparação original/final com protocolo definido.
 - Aceite: cópia não altera histórico; métricas não enviam PII e distinguem tempo de espera de tempo de edição; template não é obrigatório.

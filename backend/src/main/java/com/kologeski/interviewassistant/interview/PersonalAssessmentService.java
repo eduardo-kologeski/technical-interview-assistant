@@ -31,6 +31,21 @@ public class PersonalAssessmentService {
         return repository.save(Interview.personal(ownerId(), title, personName, context, Instant.now(clock)));
     }
 
+    @Transactional
+    public Interview copyRequirements(UUID sourceId, String title, String personName, String context) {
+        PersonalAssessmentDocument source = documents.read(required(sourceId).assessmentData());
+        if (source.criteria().isEmpty()) throw new IllegalStateException("A avaliação de origem não possui requisitos para copiar.");
+        PersonalAssessmentDocument prepared = new PersonalAssessmentDocument(1,
+                source.criteria().stream().map(item -> new PersonalAssessmentDocument.Criterion(
+                        UUID.randomUUID(), item.name(), item.technology(), item.description(),
+                        item.question(), item.rubric(), null)).toList(),
+                java.util.List.of(), java.util.List.of(), java.util.List.of(), java.util.List.of());
+        Instant now = Instant.now(clock);
+        Interview copy = Interview.personal(ownerId(), title, personName, context, now);
+        copy.saveAssessment(documents.write(prepared), actor.required().id(), now);
+        return repository.saveAndFlush(copy);
+    }
+
     @Transactional(readOnly = true)
     public Page<Interview> list(Pageable pageable) {
         return repository.findByOwnerUserId(ownerId(), pageable);
