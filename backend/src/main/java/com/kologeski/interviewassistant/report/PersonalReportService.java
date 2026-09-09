@@ -29,6 +29,7 @@ public class PersonalReportService {
     private final InterviewRepository assessments;
     private final AssessmentReportRepository reports;
     private final AssessmentStudyRepository studies;
+    private final ReportGenerationClaimRepository claims;
     private final PersonalAssessmentDocumentCodec documents;
     private final ReportGenerationService generation;
     private final ReportDraftValidator validator;
@@ -36,15 +37,18 @@ public class PersonalReportService {
     private final Clock clock;
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
+    private final java.time.Duration claimTtl;
     private final ConcurrentHashMap<GenerationKey, CompletableFuture<ReportView>> inFlight = new ConcurrentHashMap<>();
 
     public PersonalReportService(InterviewRepository assessments, AssessmentReportRepository reports, AssessmentStudyRepository studies,
+                                 ReportGenerationClaimRepository claims,
                                  PersonalAssessmentDocumentCodec documents, ReportGenerationService generation,
                                  ReportDraftValidator validator, CurrentActor actor, Clock clock, ObjectMapper json,
-                                 TransactionTemplate transactions) {
+                                 TransactionTemplate transactions, OllamaProperties ollama) {
         this.assessments = assessments;
         this.reports = reports;
         this.studies = studies;
+        this.claims = claims;
         this.documents = documents;
         this.generation = generation;
         this.validator = validator;
@@ -52,6 +56,7 @@ public class PersonalReportService {
         this.clock = clock;
         this.json = json;
         this.transactions = transactions;
+        this.claimTtl = ollama.getConnectTimeout().plus(ollama.getResponseTimeout()).plusSeconds(60);
     }
 
     public ReportView generate(UUID assessmentId, long expectedVersion, UUID idempotencyKey) {
@@ -148,8 +153,8 @@ public class PersonalReportService {
         if (capture == null) throw new IllegalStateException("Não foi possível capturar a avaliação.");
         if (capture.existing() != null) return view(capture.existing(), true);
 
-        ReportGenerationService.GenerationResult result = generation.generate(capture.assessment(), capture.document());
         try {
+            ReportGenerationService.GenerationResult result = generation.generate(capture.assessment(), capture.document());
             AssessmentReport persisted = transactions.execute(status -> persist(
                     ownerId, assessmentId, capture.sourceVersion(), idempotencyKey, result));
             if (persisted == null) throw new IllegalStateException("Não foi possível persistir a minuta.");
@@ -161,6 +166,9 @@ public class PersonalReportService {
                 throw new DraftAlreadyExistsException();
             }
             throw error;
+        } finally {
+            transactions.executeWithoutResult(status -> claims.deleteByAssessmentIdAndOwnerUserIdAndIdempotencyKey(
+                    assessmentId, ownerId, idempotencyKey));
         }
     }
 
@@ -168,10 +176,18 @@ public class PersonalReportService {
         AssessmentReport sameRequest = reports.findByIdempotencyKeyAndOwnerUserId(idempotencyKey, ownerId).orElse(null);
         if (sameRequest != null) return new Capture(null, null, sameRequest.sourceVersion(),
                 matchingEntity(assessmentId, sameRequest));
+        Interview assessment = assessments.findPersonalForUpdate(assessmentId, ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Avaliação não encontrada."));
+        sameRequest = reports.findByIdempotencyKeyAndOwnerUserId(idempotencyKey, ownerId).orElse(null);
+        if (sameRequest != null) return new Capture(null, null, sameRequest.sourceVersion(),
+                matchingEntity(assessmentId, sameRequest));
         AssessmentReport current = reports.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId).orElse(null);
         if (current != null) throw new DraftAlreadyExistsException();
-        Interview assessment = requiredAssessment(ownerId, assessmentId);
         requireVersion(assessment, expectedVersion);
+        Instant now = Instant.now(clock);
+        ReportGenerationClaim activeClaim = claims.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId).orElse(null);
+        if (activeClaim != null && !activeClaim.expiredAt(now)) throw new GenerationInProgressException();
+        if (activeClaim != null) { claims.delete(activeClaim); claims.flush(); }
         AssessmentStudy study = studies.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId).orElse(null);
         if (study != null && !study.finalized()) {
             throw new IllegalStateException("Finalize o parecer manual antes de revelar a minuta deste caso acadêmico.");
@@ -179,6 +195,8 @@ public class PersonalReportService {
         if (study != null && study.sourceVersion() != assessment.version()) {
             throw new AssessmentStudyService.StaleStudySourceException();
         }
+        claims.saveAndFlush(new ReportGenerationClaim(assessmentId, ownerId, idempotencyKey,
+                assessment.version(), now, now.plus(claimTtl)));
         return new Capture(assessment, documents.read(assessment.assessmentData()), assessment.version(), null);
     }
 
@@ -189,11 +207,19 @@ public class PersonalReportService {
         if (reports.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId).isPresent()) {
             throw new DraftAlreadyExistsException();
         }
-        Interview current = requiredAssessment(ownerId, assessmentId);
+        Interview current = assessments.findPersonalForUpdate(assessmentId, ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Avaliação não encontrada."));
         requireVersion(current, sourceVersion);
-        return reports.saveAndFlush(AssessmentReport.draft(assessmentId, ownerId, sourceVersion,
+        ReportGenerationClaim claim = claims.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId)
+                .orElseThrow(GenerationReservationLostException::new);
+        if (!claim.idempotencyKey().equals(idempotencyKey) || claim.sourceVersion() != sourceVersion) {
+            throw new GenerationReservationLostException();
+        }
+        AssessmentReport saved = reports.saveAndFlush(AssessmentReport.draft(assessmentId, ownerId, sourceVersion,
                 idempotencyKey, result.promptVersion(), result.model(), write(result.context()),
                 write(result.draft()), Instant.now(clock)));
+        claims.delete(claim);
+        return saved;
     }
 
     private ReportView replay(Long ownerId, UUID assessmentId, UUID idempotencyKey) {
@@ -296,5 +322,11 @@ public class PersonalReportService {
         public StaleReportSourceException() {
             super("A avaliação mudou depois da geração. Gere e revise uma nova minuta antes de aprovar.");
         }
+    }
+    public static final class GenerationInProgressException extends IllegalStateException {
+        public GenerationInProgressException() { super("A geração da minuta já está em andamento."); }
+    }
+    public static final class GenerationReservationLostException extends IllegalStateException {
+        public GenerationReservationLostException() { super("A reserva da geração expirou. Tente gerar a minuta novamente."); }
     }
 }

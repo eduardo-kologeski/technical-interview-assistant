@@ -116,6 +116,8 @@ A resposta contém `id`, `assessmentId`, `status: "DRAFT"`, `sourceVersion`, `pr
 
 V22 cria `assessment_reports` com vínculo composto entre avaliação e proprietário, uma minuta por avaliação e unicidade da chave idempotente por usuário. O snapshot minimizado e a saída original validada são imutáveis nesta etapa. A chamada ao Ollama ocorre fora da transação; antes de persistir, o serviço revalida proprietário, existência e versão da avaliação.
 
+V27 cria uma reserva transitória de geração vinculada à avaliação, proprietário, versão e chave idempotente. A captura e o início do caso acadêmico bloqueiam a mesma linha da avaliação, eliminando a janela em que ambos poderiam começar juntos. A reserva expira após os timeouts configurados do Ollama mais uma margem operacional, é removida após sucesso ou falha e não contém o contexto nem a resposta do modelo.
+
 Falhas controladas:
 
 | Situação | HTTP | Persistência |

@@ -117,6 +117,7 @@ class PersonalReportIntegrationTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.detail").value("Ollama sintético indisponível."));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM report_generation_claims", Integer.class)).isZero();
         mvc.perform(get("/api/assessments/{id}/collection", assessment.id()).header("Authorization", tokenA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
@@ -127,6 +128,31 @@ class PersonalReportIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("DRAFT"));
         assertThat(llm.calls.get()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM report_generation_claims", Integer.class)).isZero();
+    }
+
+    @Test void blocksStartingAcademicStudyWhileDraftGenerationIsInProgress() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        llm.delayMillis = 700;
+        UUID requestKey = UUID.randomUUID();
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var generated = executor.submit(() -> mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                            .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                    .andReturn());
+            assertThat(llm.entered.await(5, TimeUnit.SECONDS)).isTrue();
+            String emptyManual = """
+                    {"assessmentVersion":4,"version":0,"manualReport":{"context":"","observedKnowledge":"",
+                    "strengths":"","concerns":"","synthesis":"","conclusion":""}}
+                    """;
+            mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                            .contentType(MediaType.APPLICATION_JSON).content(emptyManual))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("geração da minuta já está em andamento")));
+            assertThat(generated.get(10, TimeUnit.SECONDS).getResponse().getStatus()).isEqualTo(201);
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_studies", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM report_generation_claims", Integer.class)).isZero();
     }
 
     @Test void keepsOriginalDraftWhileOwnerReviewsConcludesAndApprovesAnImmutableReport() throws Exception {
@@ -343,12 +369,14 @@ class PersonalReportIntegrationTest {
     static class CountingLlmClient implements LlmClient {
         final AtomicInteger calls = new AtomicInteger();
         final AtomicBoolean failNext = new AtomicBoolean();
+        volatile CountDownLatch entered = new CountDownLatch(1);
         volatile long delayMillis;
 
-        void reset() { calls.set(0); failNext.set(false); delayMillis = 0; }
+        void reset() { calls.set(0); failNext.set(false); delayMillis = 0; entered = new CountDownLatch(1); }
 
         @Override public LlmDraftResponse generateDraft(ReportPrompt prompt) {
             calls.incrementAndGet();
+            entered.countDown();
             if (failNext.compareAndSet(true, false)) {
                 throw new LlmGenerationException(LlmGenerationException.Kind.UNAVAILABLE,
                         "Ollama sintético indisponível.");

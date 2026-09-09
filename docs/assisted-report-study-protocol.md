@@ -18,6 +18,8 @@ O estudo mede apoio à redação, presença das informações esperadas, corresp
 
 O parecer manual nunca integra o prompt, o contexto do modelo ou exemplos de geração do mesmo caso.
 
+O backend serializa o início do modo acadêmico com a captura da geração. Uma reserva persistida e limitada pelo tempo configurado do Ollama impede que a chamada ao modelo comece ao mesmo tempo em que o parecer manual é criado; a reserva é removida no sucesso ou na falha controlada e uma reserva expirada pode ser recuperada.
+
 ## Artefatos obrigatórios
 
 | Artefato | Regra de integridade |
