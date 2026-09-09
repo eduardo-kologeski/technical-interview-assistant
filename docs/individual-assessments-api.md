@@ -116,6 +116,8 @@ A resposta contém `id`, `assessmentId`, `status: "DRAFT"`, `sourceVersion`, `pr
 
 V22 cria `assessment_reports` com vínculo composto entre avaliação e proprietário, uma minuta por avaliação e unicidade da chave idempotente por usuário. O snapshot minimizado e a saída original validada são imutáveis nesta etapa. A chamada ao Ollama ocorre fora da transação; antes de persistir, o serviço revalida proprietário, existência e versão da avaliação.
 
+V27 cria uma reserva transitória de geração vinculada à avaliação, proprietário, versão e chave idempotente. A captura e o início do caso acadêmico bloqueiam a mesma linha da avaliação, eliminando a janela em que ambos poderiam começar juntos. A reserva expira após os timeouts configurados do Ollama mais uma margem operacional, é removida após sucesso ou falha e não contém o contexto nem a resposta do modelo.
+
 Falhas controladas:
 
 | Situação | HTTP | Persistência |
@@ -127,3 +129,13 @@ Falhas controladas:
 | versão desatualizada ou minuta existente | 409 | original existente permanece intacto |
 
 O endpoint foi validado localmente sem Ollama configurado: retornou 503, manteve a coleta `COMPLETED` e sua evidência, não criou linha em `assessment_reports` e não registrou título/evidência nos logs. O smoke real com um modelo local permanece pendente.
+
+## Caso acadêmico e ficha de avaliação
+
+`PUT /api/assessments/{id}/study/manual` cria ou salva o parecer manual de controle para uma avaliação encerrada. `POST /api/assessments/{id}/study/manual/finalize` valida todas as seções, persiste a versão e o hash SHA-256 do contexto estruturado e torna o artefato imutável. Enquanto esse caso acadêmico existir sem finalização, a geração da minuta retorna 409. O parecer manual e sua conclusão humana não integram o snapshot nem o prompt.
+
+Depois da geração da minuta original, `PUT /api/assessments/{id}/study/evaluation` salva a ficha humana usando a versão otimista do caso. A ficha contém exatamente as dimensões `PRESENCE`, `CORRESPONDENCE`, `SUPPORT`, `INSUFFICIENCY_HANDLING` e `DECISION_SEPARATION`; cada dimensão aceita nota de 0 a 2, justificativa, referências à entrada e referências ao trecho da minuta. Ela também registra contagens de informações esperadas ausentes, afirmações factuais analisadas, afirmações sem sustentação e seções alteradas.
+
+`POST /api/assessments/{id}/study/evaluation/finalize` exige todas as dimensões completas, ao menos uma referência de cada tipo por dimensão e contagens coerentes. A finalização registra autor e horário e torna a ficha imutável. Todos os endpoints aplicam o proprietário da avaliação; a ficha não é enviada ao Ollama nem incluída em logs ou métricas de conteúdo.
+
+`GET /api/assessment-studies/summary` consolida apenas fichas finalizadas do usuário autenticado. O resultado informa totais e distribuições 0–2 por dimensão, agrupados por versão de protocolo, prompt e modelo. `GET /api/assessment-studies/summary.csv` entrega os mesmos dados para download. Nenhum dos formatos inclui ID, título, pessoa avaliada, texto, justificativa ou referência; valores textuais exportados também são protegidos contra interpretação como fórmula de planilha.

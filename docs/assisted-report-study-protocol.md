@@ -18,6 +18,8 @@ O estudo mede apoio à redação, presença das informações esperadas, corresp
 
 O parecer manual nunca integra o prompt, o contexto do modelo ou exemplos de geração do mesmo caso.
 
+O backend serializa o início do modo acadêmico com a captura da geração. Uma reserva persistida e limitada pelo tempo configurado do Ollama impede que a chamada ao modelo comece ao mesmo tempo em que o parecer manual é criado; a reserva é removida no sucesso ou na falha controlada e uma reserva expirada pode ser recuperada.
+
 ## Artefatos obrigatórios
 
 | Artefato | Regra de integridade |
@@ -66,6 +68,8 @@ Aplicam-se a minimização e o ciclo de exclusão descritos em `data-governance.
 - avaliação humana contém julgamento e exige calibração da rubrica;
 - tempo e volume de edição não demonstram, isoladamente, melhora de qualidade.
 
-## Lacunas de implementação
+## Estado da implementação
 
-O TIA já preserva snapshot, minuta original, revisão, conclusão e metadados do modelo. Ainda precisam ser implementados: armazenamento do parecer manual anterior à revelação, hash explícito do snapshot, ficha de avaliação por dimensão, temporização ativa e exportação agregada anonimizada. Esses itens são acompanhados pelas issues acadêmicas #138, #139 e #140.
+O TIA preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão e metadados do modelo. A ficha humana registra as cinco dimensões da rubrica com escore 0–2, justificativa e referências separadas para a entrada e para a minuta, além das contagens definidas neste protocolo. A ficha só pode ser preenchida depois da geração, fica vinculada ao mesmo caso e se torna imutável quando finalizada; seu conteúdo nunca integra o contexto do LLM. O resumo CSV agrega apenas fichas finalizadas do usuário, por versão de prompt e modelo, sem IDs, nomes, textos, justificativas ou referências dos casos.
+
+Ainda precisam ser implementadas a temporização ativa e, quando houver mais de um avaliador, a dupla avaliação e conciliação. Esses itens são acompanhados pelas issues acadêmicas #139 e #140.

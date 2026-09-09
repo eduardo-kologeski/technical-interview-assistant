@@ -65,6 +65,11 @@ export interface PersonalAssessmentReport {
   humanConclusion: string | null; reviewConfirmed: boolean; createdAt: string; updatedAt: string;
   approvedAt: string | null; replayed: boolean;
 }
+export interface ManualReport { context: string; observedKnowledge: string; strengths: string; concerns: string; synthesis: string; conclusion: string; }
+export type AcademicDimension = 'PRESENCE' | 'CORRESPONDENCE' | 'SUPPORT' | 'INSUFFICIENCY_HANDLING' | 'DECISION_SEPARATION';
+export interface AcademicDimensionRating { dimension: AcademicDimension; score: number | null; justification: string; sourceReferences: string[]; draftReferences: string[]; }
+export interface AcademicReportEvaluation { dimensions: AcademicDimensionRating[]; expectedInformationMissing: number; factualClaimsAnalyzed: number; unsupportedClaims: number; revisedSections: number; }
+export interface AssessmentStudy { id: string; assessmentId: string; sourceVersion: number; version: number; manualReport: ManualReport; finalized: boolean; contextHash: string | null; createdAt: string; updatedAt: string; finalizedAt: string | null; finalizedBy: string | null; evaluation: AcademicReportEvaluation | null; evaluationFinalized: boolean; evaluationFinalizedAt: string | null; evaluationFinalizedBy: string | null; }
 
 @Injectable({ providedIn: 'root' })
 export class PersonalAssessmentService {
@@ -93,5 +98,21 @@ export class PersonalAssessmentService {
   }
   approveReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID()) {
     return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/approve`, { version }, { headers: { 'Idempotency-Key': idempotencyKey } });
+  }
+  study(id: string) { return this.http.get<AssessmentStudy>(`/api/assessments/${id}/study`); }
+  saveManualReport(id: string, assessmentVersion: number, version: number, manualReport: ManualReport) {
+    return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/manual`, { assessmentVersion, version, manualReport });
+  }
+  finalizeManualReport(id: string, version: number) {
+    return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/manual/finalize`, { version });
+  }
+  saveStudyEvaluation(id: string, version: number, evaluation: AcademicReportEvaluation) {
+    return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/evaluation`, { version, evaluation });
+  }
+  finalizeStudyEvaluation(id: string, version: number) {
+    return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/evaluation/finalize`, { version });
+  }
+  academicSummaryCsv() {
+    return this.http.get('/api/assessment-studies/summary.csv', { responseType: 'text' });
   }
 }
