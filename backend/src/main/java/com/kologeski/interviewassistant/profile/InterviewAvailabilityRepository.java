@@ -10,4 +10,5 @@ interface InterviewAvailabilityRepository extends JpaRepository<InterviewAvailab
     List<InterviewAvailability> findByUserIdInAndAvailabilityDateGreaterThanEqualOrderByUserIdAscAvailabilityDateAscStartTimeAsc(
             Collection<Long> userIds, java.time.LocalDate from);
     Optional<InterviewAvailability> findByIdAndUserId(Long id, Long userId);
+    long deleteByUserId(Long userId);
 }

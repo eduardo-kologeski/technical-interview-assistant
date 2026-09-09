@@ -37,11 +37,12 @@ O prazo é uma decisão externa pendente. Antes do go-live, a organização deve
 ## Desativação e exclusão
 
 - Vagas utilizadas por entrevistas devem ser desativadas, não removidas fisicamente.
-- Usuários devem ser desativados preservando autoria histórica; exclusão física não pode quebrar auditoria.
+- A exclusão de conta remove avaliações pessoais, snapshots, minutas, sessões e perfil; desativa memberships e anonimiza a identidade mantida apenas para preservar autoria e registros empresariais de outras pessoas.
+- A exclusão individual de avaliação é física e restrita ao proprietário; a cascata inclui a minuta original, revisões e o contexto persistido.
 - Exclusão de candidato exige fluxo administrativo autenticado ainda não implementado, com seleção exata da entrevista, registro da solicitação e tratamento do PDF já baixado fora do sistema.
 - Quando a política exigir anonimização em vez de exclusão, campos identificadores e texto livre precisam ser tratados em conjunto; alterar apenas o nome não é suficiente.
 
-Até esse fluxo existir e ser testado, pedidos de exclusão devem ser executados por procedimento operacional aprovado e revisão de banco, nunca por SQL improvisado em produção.
+Pedidos fora dos fluxos pessoais implementados, como exclusão de candidatos organizacionais, devem seguir procedimento operacional aprovado e revisão de banco, nunca SQL improvisado em produção.
 
 ## Backups
 

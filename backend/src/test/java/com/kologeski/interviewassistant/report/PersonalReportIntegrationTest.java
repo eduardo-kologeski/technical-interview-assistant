@@ -174,6 +174,24 @@ class PersonalReportIntegrationTest {
                 .contains(originalText).doesNotContain("Contexto revisado pelo entrevistador.");
     }
 
+    @Test void deletingAnOwnedAssessmentAlsoDeletesItsDraftAndAnotherUserCannotDeleteIt() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/assessments/{id}", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isEqualTo(1);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/assessments/{id}", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isZero();
+        mvc.perform(get("/api/assessments/{id}", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isNotFound());
+    }
+
     private MvcResult generate(UUID assessmentId, UUID requestKey, CountDownLatch ready,
                                CountDownLatch start) throws Exception {
         ready.countDown();

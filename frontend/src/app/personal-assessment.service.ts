@@ -72,6 +72,7 @@ export class PersonalAssessmentService {
   list() { return this.http.get<PageResponse<PersonalAssessmentSummary>>('/api/assessments', { params: { page: 0, size: 20 } }); }
   create(input: CreatePersonalAssessment) { return this.http.post<PersonalAssessmentSummary>('/api/assessments', input); }
   get(id: string) { return this.http.get<PersonalAssessmentSummary>(`/api/assessments/${id}`); }
+  delete(id: string) { return this.http.delete<void>(`/api/assessments/${id}`); }
   collection(id: string) { return this.http.get<PersonalAssessmentCollection>(`/api/assessments/${id}/collection`); }
   start(id: string, version: number) {
     return this.http.patch<PersonalAssessmentCollection>(`/api/assessments/${id}/collection/start`, { version });

@@ -42,6 +42,10 @@ public class PersonalAssessmentController {
     @GetMapping("/{id}")
     AssessmentResponse get(@PathVariable UUID id) { return AssessmentResponse.from(service.get(id)); }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable UUID id) { service.delete(id); }
+
     @GetMapping("/{id}/collection")
     CollectionResponse collection(@PathVariable UUID id) {
         return CollectionResponse.from(service.collection(id));

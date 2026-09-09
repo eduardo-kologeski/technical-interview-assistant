@@ -41,6 +41,12 @@ public class PersonalAssessmentService {
         return required(id);
     }
 
+    @Transactional
+    public void delete(UUID id) {
+        repository.delete(required(id));
+        repository.flush();
+    }
+
     @Transactional(readOnly = true)
     public CollectionView collection(UUID id) {
         return view(required(id));

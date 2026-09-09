@@ -57,6 +57,8 @@ describe('personal assessment flow', () => {
     service.approveReport('assessment-1', 1, 'approval-key').subscribe();
     const approve = http.expectOne('/api/assessments/assessment-1/report/approve');
     expect(approve.request.headers.get('Idempotency-Key')).toBe('approval-key'); approve.flush({ ...report, status: 'APPROVED' });
+    service.delete('assessment-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1').request.method).toBe('DELETE');
     http.verify();
   });
 

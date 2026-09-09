@@ -273,6 +273,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-08 — P1 — Exclusão de avaliações e conta
 
+**Estado: implementada em `develop`; exclusão por proprietário, cascata do parecer, invalidação de sessões, limpeza do perfil e anonimização organizacional cobertas pela política e por testes. A expiração de cópias históricas continua dependente da política externa de backups.**
+
 - Objetivo/contexto: controlar ciclo de vida dos dados pessoais e do snapshot enviado.
 - Escopo: excluir conteúdo pessoal/parecer/snapshot, invalidar sessões na exclusão de conta, tratar autoria e vínculos empresariais sem apagar dados de outras pessoas, limpar rascunhos locais.
 - Aceite: usuário B não exclui A; parecer excluído não reaparece após chamada pendente; plano explícito para backups e registros corporativos; não confundir esconder com apagar.
@@ -323,7 +325,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-07 estão implementadas em `develop`. A próxima etapa é a IND-08, responsável pela exclusão segura de avaliações, minutas e conta. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo local estarem disponíveis no host. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-08 estão implementadas em `develop`. A próxima etapa é a IND-09, responsável pela exportação neutra do parecer aprovado e pela atualização final da documentação. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo local estarem disponíveis no host. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 

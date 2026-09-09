@@ -34,7 +34,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(23);
+        assertThat(migration.migrationsExecuted).isEqualTo(24);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -77,6 +77,7 @@ class PostgresqlFlywayMigrationTest {
             assertThat(columnExists(metadata, "assessment_reports", "reviewed_draft")).isTrue();
             assertThat(columnExists(metadata, "assessment_reports", "human_conclusion")).isTrue();
             assertThat(columnExists(metadata, "assessment_reports", "approved_at")).isTrue();
+            assertThat(columnExists(metadata, "users", "deleted_at")).isTrue();
         }
 
         flyway.clean();
@@ -117,7 +118,7 @@ class PostgresqlFlywayMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(3);
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(4);
         assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
