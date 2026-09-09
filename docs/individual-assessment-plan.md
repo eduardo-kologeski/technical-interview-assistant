@@ -262,6 +262,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-07 — P0 — Revisão, conclusão humana e aprovação
 
+**Estado: implementada em `develop`; editor, autosave, conclusão humana separada, aprovação imutável e isolamento estão cobertos por testes. O smoke com Ollama real continua como pendência operacional da IND-06.**
+
 - Objetivo/contexto: transformar minuta em parecer final por ação humana rastreável.
 - Escopo: GET/PUT/approve, editor de seis seções, confirmação de revisão, conclusão humana separada e final imutável.
 - Aceite: original não muda com edição; aprovação exige versão salva, fonte atual e conclusão humana; consultar depois de login retorna final; exportar não aprova.
@@ -321,7 +323,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-05 estão implementadas em `develop`. A próxima etapa é a IND-06, responsável pela persistência da minuta e pela primeira integração com Ollama. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-07 estão implementadas em `develop`. A próxima etapa é a IND-08, responsável pela exclusão segura de avaliações, minutas e conta. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo local estarem disponíveis no host. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 

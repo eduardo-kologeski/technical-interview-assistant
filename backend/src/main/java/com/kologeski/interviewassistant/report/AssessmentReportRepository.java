@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface AssessmentReportRepository extends JpaRepository<AssessmentReport, UUID> {
     Optional<AssessmentReport> findByAssessmentIdAndOwnerUserId(UUID assessmentId, Long ownerUserId);
     Optional<AssessmentReport> findByIdempotencyKeyAndOwnerUserId(UUID idempotencyKey, Long ownerUserId);
+    Optional<AssessmentReport> findByApprovalIdempotencyKeyAndOwnerUserId(UUID idempotencyKey, Long ownerUserId);
 }

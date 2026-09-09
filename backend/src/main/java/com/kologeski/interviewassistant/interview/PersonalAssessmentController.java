@@ -2,6 +2,7 @@ package com.kologeski.interviewassistant.interview;
 
 import com.kologeski.interviewassistant.api.PageResponse;
 import com.kologeski.interviewassistant.report.PersonalReportService;
+import com.kologeski.interviewassistant.report.ReportDraft;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.PageRequest;
@@ -71,6 +72,22 @@ public class PersonalAssessmentController {
                 .body(ReportResponse.from(report));
     }
 
+    @GetMapping("/{id}/report")
+    ReportResponse report(@PathVariable UUID id) { return ReportResponse.from(reports.get(id)); }
+
+    @PutMapping("/{id}/report")
+    ReportResponse saveReport(@PathVariable UUID id, @Valid @RequestBody SaveReportCommand command) {
+        return ReportResponse.from(reports.saveReview(id, command.version(), command.draft(),
+                command.humanConclusion(), command.reviewConfirmed()));
+    }
+
+    @PostMapping("/{id}/report/approve")
+    ReportResponse approveReport(@PathVariable UUID id,
+                                 @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+                                 @Valid @RequestBody VersionCommand command) {
+        return ReportResponse.from(reports.approve(id, command.version(), idempotencyKey));
+    }
+
     public record CreateAssessmentCommand(@NotBlank @Size(max = 160) String title,
                                            @NotBlank @Size(max = 160) String personName,
                                            @Size(max = 5000) String context) { }
@@ -79,6 +96,10 @@ public class PersonalAssessmentController {
 
     public record SaveCollectionCommand(@NotNull @PositiveOrZero Long version,
                                         @NotNull @Valid PersonalAssessmentDocument document) { }
+
+    public record SaveReportCommand(@NotNull @PositiveOrZero Long version, @NotNull ReportDraft draft,
+                                    @Size(max = 8000) String humanConclusion,
+                                    boolean reviewConfirmed) { }
 
     public record AssessmentResponse(UUID id, String title, String personName, String context,
                                      InterviewStatus status, long version, Instant createdAt, Instant updatedAt) {
@@ -98,14 +119,15 @@ public class PersonalAssessmentController {
         }
     }
 
-    public record ReportResponse(UUID id, UUID assessmentId, String status, long sourceVersion,
-                                 String promptVersion, String model,
-                                 com.kologeski.interviewassistant.report.ReportDraft draft,
-                                 Instant createdAt, boolean replayed) {
+    public record ReportResponse(UUID id, UUID assessmentId, String status, long sourceVersion, long version,
+                                 String promptVersion, String model, ReportDraft originalDraft, ReportDraft draft,
+                                 String humanConclusion, boolean reviewConfirmed, Instant createdAt,
+                                 Instant updatedAt, Instant approvedAt, boolean replayed) {
         static ReportResponse from(PersonalReportService.ReportView value) {
             return new ReportResponse(value.id(), value.assessmentId(), value.status().name(),
-                    value.sourceVersion(), value.promptVersion(), value.model(), value.draft(),
-                    value.createdAt(), value.replayed());
+                    value.sourceVersion(), value.version(), value.promptVersion(), value.model(),
+                    value.originalDraft(), value.draft(), value.humanConclusion(), value.reviewConfirmed(),
+                    value.createdAt(), value.updatedAt(), value.approvedAt(), value.replayed());
         }
     }
 }

@@ -129,6 +129,51 @@ class PersonalReportIntegrationTest {
         assertThat(llm.calls.get()).isEqualTo(2);
     }
 
+    @Test void keepsOriginalDraftWhileOwnerReviewsConcludesAndApprovesAnImmutableReport() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        MvcResult generated = mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.version").value(0)).andReturn();
+        var report = json.readTree(generated.getResponse().getContentAsString());
+        String originalText = report.get("originalDraft").get("context").get("text").asText();
+        var revisedDraft = report.get("draft").deepCopy();
+        ((tools.jackson.databind.node.ObjectNode) revisedDraft.get("context")).put("text", "Contexto revisado pelo entrevistador.");
+        var review = json.createObjectNode();
+        review.put("version", 0);
+        review.set("draft", revisedDraft);
+        review.put("humanConclusion", "Conclusão escrita exclusivamente pelo entrevistador.");
+        review.put("reviewConfirmed", true);
+
+        mvc.perform(get("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.originalDraft.context.text").value(originalText))
+                .andExpect(jsonPath("$.draft.context.text").value("Contexto revisado pelo entrevistador."))
+                .andExpect(jsonPath("$.humanConclusion").value("Conclusão escrita exclusivamente pelo entrevistador."));
+
+        UUID approvalKey = UUID.randomUUID();
+        mvc.perform(post("/api/assessments/{id}/report/approve", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", approvalKey)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.version").value(2)).andExpect(jsonPath("$.approvedAt").isNotEmpty());
+        mvc.perform(post("/api/assessments/{id}/report/approve", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", approvalKey)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.replayed").value(true));
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT original_draft FROM assessment_reports", String.class))
+                .contains(originalText).doesNotContain("Contexto revisado pelo entrevistador.");
+    }
+
     private MvcResult generate(UUID assessmentId, UUID requestKey, CountDownLatch ready,
                                CountDownLatch start) throws Exception {
         ready.countDown();

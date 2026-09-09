@@ -76,7 +76,7 @@ type SaveRequest = { revision: number; document: PersonalAssessmentDocument };
       }
 
       @if (collection()?.status === 'COMPLETED') {
-        <section class="completed"><p class="step">COLETA ENCERRADA</p><h2>Registros preservados</h2><p>{{ collection()?.generationEligible ? 'Os requisitos e as evidências estão prontos para gerar uma minuta.' : 'A avaliação foi encerrada sem evidência suficiente para gerar uma minuta.' }}</p><div class="summary"><span>{{ document().criteria.length }} requisitos</span><span>{{ document().evidence.length }} evidências</span><span>{{ document().strengths.length }} pontos fortes</span><span>{{ document().concerns.length }} pontos de atenção</span></div></section>
+        <section class="completed"><p class="step">COLETA ENCERRADA</p><h2>Registros preservados</h2><p>{{ collection()?.generationEligible ? 'Os requisitos e as evidências estão prontos para gerar uma minuta.' : 'A avaliação foi encerrada sem evidência suficiente para gerar uma minuta.' }}</p><div class="summary"><span>{{ document().criteria.length }} requisitos</span><span>{{ document().evidence.length }} evidências</span><span>{{ document().strengths.length }} pontos fortes</span><span>{{ document().concerns.length }} pontos de atenção</span></div>@if(collection()?.generationEligible){<a class="report-link" [routerLink]="['/assessments',id,'report']">Gerar ou revisar minuta</a>}</section>
       }
     }
   </section>`,
@@ -85,7 +85,7 @@ type SaveRequest = { revision: number; document: PersonalAssessmentDocument };
 export class PersonalAssessmentCollectionComponent implements OnDestroy {
   private readonly service = inject(PersonalAssessmentService);
   private readonly route = inject(ActivatedRoute);
-  private readonly id = this.route.snapshot.paramMap.get('id') || '';
+  readonly id = this.route.snapshot.paramMap.get('id') || '';
   private readonly saves = new Subject<SaveRequest>();
   private readonly subscription: Subscription;
   private revision = 0;
