@@ -40,3 +40,16 @@ O endpoint `POST /api/assessments/{id}/report/generate` exige uma coleta encerra
 Indisponibilidade, timeout, modelo ausente, configuração externa e resposta inválida retornam erros controlados. Nenhuma dessas falhas altera a coleta ou cria uma minuta parcial. Logs operacionais contêm somente IDs técnicos, duração, versão do prompt e tipo do erro; o contexto, o prompt e a resposta completa não são registrados.
 
 O request usa `stream: false` e o `format` JSON Schema aceito pela API `/api/generate`. Limites de entrada e saída são configuráveis; conteúdo acima do limite é recusado sem truncamento silencioso.
+
+## Smoke sintético reprodutível
+
+Depois de escolher e instalar explicitamente o modelo, recrie somente o backend com as variáveis acima. Obtenha um token de uma conta local, sem registrá-lo em arquivo, e execute:
+
+```powershell
+$env:TIA_SMOKE_ACCESS_TOKEN = '<token-local>'
+$env:OLLAMA_MODEL = '<nome-exato-do-modelo-local-instalado>'
+.\scripts\smoke-ollama.ps1
+Remove-Item Env:TIA_SMOKE_ACCESS_TOKEN
+```
+
+O script não instala o Ollama nem baixa modelos. Ele confirma que host e backend containerizado alcançam o serviço, cria um caso exclusivamente sintético, gera e valida uma minuta `DRAFT` com cinco seções, verifica o modelo persistido, procura o marcador da entrada e as seções completas da resposta nos logs e remove a avaliação ao final. Uma falha encerra com mensagem sem imprimir token, avaliação, prompt ou resposta do modelo.
