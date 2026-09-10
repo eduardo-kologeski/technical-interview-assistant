@@ -128,7 +128,7 @@ Falhas controladas:
 | resposta HTTP/schema inválida | 502 | avaliação preservada; nenhum conteúdo inválido salvo |
 | versão desatualizada ou minuta existente | 409 | original existente permanece intacto |
 
-O endpoint foi validado localmente sem Ollama configurado: retornou 503, manteve a coleta `COMPLETED` e sua evidência, não criou linha em `assessment_reports` e não registrou título/evidência nos logs. O smoke real com um modelo local permanece pendente.
+O endpoint foi validado localmente em dois cenários. Sem Ollama configurado, retornou 503, manteve a coleta `COMPLETED` e sua evidência, não criou linha em `assessment_reports` e não registrou título/evidência nos logs. Com Ollama 0.34.0 e `gemma3:1b`, o smoke sintético persistiu uma minuta `DRAFT` com cinco seções válidas e confirmou que entrada e resposta completa não aparecem nos logs; a avaliação e a conta sintéticas foram removidas ao final.
 
 ## Caso acadêmico e ficha de avaliação
 

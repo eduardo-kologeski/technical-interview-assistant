@@ -251,7 +251,7 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-06 — P0 — Minuta persistida e integração local com Ollama
 
-**Estado: backend implementado em `develop`; smoke com LLM real pendente porque Ollama e modelo ainda não estão instalados no host avaliado.**
+**Estado: implementada e validada em `develop`; smoke real aprovado com Ollama 0.34.0 e `gemma3:1b` no host, usando somente dados sintéticos.**
 
 - Objetivo/contexto: provar geração generativa real sem acoplar provedor.
 - Escopo: AssessmentReport/migration, OllamaLlmClient, URL e modelo configuráveis por ambiente (sem modelo hardcoded), geração idempotente, limites/timeouts, snapshot e metadados.
@@ -262,7 +262,7 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-07 — P0 — Revisão, conclusão humana e aprovação
 
-**Estado: implementada em `develop`; editor, autosave, conclusão humana separada, aprovação imutável e isolamento estão cobertos por testes. O smoke com Ollama real continua como pendência operacional da IND-06.**
+**Estado: implementada em `develop`; editor, autosave, conclusão humana separada, aprovação imutável e isolamento estão cobertos por testes. A integração real da IND-06 também foi validada.**
 
 - Objetivo/contexto: transformar minuta em parecer final por ação humana rastreável.
 - Escopo: GET/PUT/approve, editor de seis seções, confirmação de revisão, conclusão humana separada e final imutável.
@@ -329,7 +329,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-10 estão implementadas em `develop`. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo escolhido explicitamente estarem disponíveis no host; `scripts/smoke-ollama.ps1` automatiza a validação sem instalar ou baixar modelos. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-10 estão implementadas em `develop`. Em 10/09/2026, `scripts/smoke-ollama.ps1` validou a IND-06 com Ollama 0.34.0 e `gemma3:1b`: minuta `DRAFT`, cinco seções válidas, modelo persistido, conteúdo sensível ausente dos logs e limpeza dos dados sintéticos. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 
@@ -339,6 +339,6 @@ ReportContextBuilder seleciona/estrutura os dados; ReportPromptBuilder constrói
 
 Na IND-06, prever OLLAMA_BASE_URL e OLLAMA_MODEL (modelo obrigatório, sem default hardcoded). Inicialmente Ollama roda no host e os serviços existentes continuam em Docker. No Docker Desktop, avaliar http://host.docker.internal:11434 como URL do backend: localhost dentro do container aponta ao próprio container. O binding padrão do Ollama é loopback; verificar conectividade e, se necessário, configurar OLLAMA_HOST no host com interface alcançável, restringindo firewall ao acesso local necessário. Não abrir a API à internet. Linux sem Docker Desktop pode exigir host-gateway; avaliar no ambiente antes de alterar Compose. Sem CORS adicional para Angular.
 
-Não adicionar Ollama ao Compose automaticamente nem baixar modelos nesta issue. Na IND-06 avaliar RAM/VRAM, GPU, espaço em disco, tamanho/download/licença dos pesos e distribuição antes de escolher modelo e eventual empacotamento. Falhas de conexão, timeout, modelo ausente e resposta inválida devem ser controladas, preservando coleta e edições; logs não incluem avaliação ou resposta completa. Desabilitar recursos cloud no runtime local conforme a versão instalada e verificar ausência de chamadas externas no smoke.
+O Ollama permanece fora do Compose. Antes do primeiro download foram avaliados RAM/VRAM, GPU, espaço em disco, tamanho, licença e distribuição; `gemma3:1b` foi escolhido somente no `.env` local e não é empacotado pelo TIA. Falhas de conexão, timeout, modelo ausente e resposta inválida são controladas, preservando coleta e edições; logs não incluem avaliação ou resposta completa. O runtime local usa `OLLAMA_NO_CLOUD=1`.
 
 Referências técnicas oficiais para a IND-06: [Ollama FAQ](https://docs.ollama.com/faq) e [Docker Desktop networking](https://docs.docker.com/desktop/features/networking/). Configuração concreta e teste de conectividade permanecem na IND-06.
