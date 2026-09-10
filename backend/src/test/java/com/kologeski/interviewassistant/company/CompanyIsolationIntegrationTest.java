@@ -49,6 +49,33 @@ class CompanyIsolationIntegrationTest {
     }
 
     @Test
+    void enterpriseIdentityReadinessIsFailClosedAndTenantAdminScoped() throws Exception {
+        String adminA = register("identity-admin-a@empresa.com");
+        String adminB = register("identity-admin-b@empresa.com");
+        UUID companyA = createCompany(adminA, "Identity A");
+        createCompany(adminB, "Identity B");
+
+        mvc.perform(get("/api/enterprise-identity/readiness"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/enterprise-identity/readiness")
+                        .header("Authorization", bearer(adminB)).header("X-Company-Id", companyA))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/enterprise-identity/readiness")
+                        .header("Authorization", bearer(adminA)).header("X-Company-Id", companyA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ready").value(false))
+                .andExpect(jsonPath("$.protocol").doesNotExist())
+                .andExpect(jsonPath("$.blockers[?(@.code == 'FEATURE_DISABLED')]").exists())
+                .andExpect(jsonPath("$.blockers[?(@.code == 'PROVIDER_DECISION_PENDING')]").exists())
+                .andExpect(jsonPath("$.blockers[?(@.code == 'DOMAIN_NOT_VERIFIED')]").exists())
+                .andExpect(jsonPath("$.blockers[?(@.code == 'RECOVERY_POLICY_PENDING')]").exists())
+                .andExpect(jsonPath("$.providerKey").doesNotExist())
+                .andExpect(jsonPath("$.issuer").doesNotExist())
+                .andExpect(jsonPath("$.audience").doesNotExist())
+                .andExpect(jsonPath("$.verifiedDomains").doesNotExist());
+    }
+
+    @Test
     void vacanciesAndInterviewersAreIsolatedAndInviteLinkAddsTheExpectedUser() throws Exception {
         String adminA = register("admin-a@empresa-a.com");
         String adminB = register("admin-b@empresa-b.com");
