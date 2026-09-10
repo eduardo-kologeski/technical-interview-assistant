@@ -59,6 +59,21 @@ public record PersonalAssessmentDocument(
         return !criteria.isEmpty() && evidence.stream().anyMatch(item -> !item.text().isBlank());
     }
 
+    public void requirePreparationOnly() {
+        if (criteria.stream().anyMatch(item -> item.score() != null)
+                || !evidence.isEmpty() || !notes.isEmpty() || !strengths.isEmpty() || !concerns.isEmpty()) {
+            throw new IllegalStateException("Antes de iniciar, configure somente os requisitos da avaliação.");
+        }
+    }
+
+    public boolean hasSameRequirementDefinitions(PersonalAssessmentDocument prepared) {
+        if (prepared == null || criteria.size() != prepared.criteria.size()) return false;
+        for (int index = 0; index < criteria.size(); index++) {
+            if (!criteria.get(index).sameDefinition(prepared.criteria.get(index))) return false;
+        }
+        return true;
+    }
+
     private static <T> List<T> immutable(List<T> values) {
         return values == null ? List.of() : List.copyOf(values);
     }
@@ -82,7 +97,16 @@ public record PersonalAssessmentDocument(
             @Size(max = 2_000) String description,
             @Size(max = 2_000) String question,
             @Size(max = 3_000) String rubric,
-            @Min(0) @Max(5) Integer score) { }
+            @Min(0) @Max(5) Integer score) {
+        boolean sameDefinition(Criterion other) {
+            return other != null && java.util.Objects.equals(id, other.id)
+                    && java.util.Objects.equals(name, other.name)
+                    && java.util.Objects.equals(technology, other.technology)
+                    && java.util.Objects.equals(description, other.description)
+                    && java.util.Objects.equals(question, other.question)
+                    && java.util.Objects.equals(rubric, other.rubric);
+        }
+    }
 
     public record Evidence(
             @NotNull UUID id,

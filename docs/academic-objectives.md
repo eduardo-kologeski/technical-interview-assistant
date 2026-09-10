@@ -25,7 +25,9 @@ O TIA não atribui à IA a responsabilidade de:
 ## Fluxo funcional de referência
 
 ```text
-registrar contexto, critérios, observações e evidências
+definir os requisitos que serão avaliados
+  -> iniciar a avaliação
+  -> registrar observações e evidências com atalhos de apoio
   -> encerrar a coleta
   -> montar um contexto estruturado somente com os registros da avaliação
   -> gerar uma minuta
@@ -35,6 +37,8 @@ registrar contexto, critérios, observações e evidências
 ```
 
 O contexto enviado ao mecanismo de geração deve ser minimizado e estruturado. Prompt, contexto e saída precisam permitir rastrear se cada afirmação da minuta corresponde às informações fornecidas. Conteúdo integral de avaliações e respostas do modelo não devem aparecer em logs.
+
+O procedimento de comparação, a rubrica e as limitações de validade estão definidos no [protocolo de comparação de pareceres](assisted-report-study-protocol.md).
 
 ## Estratégia de comparação e avaliação
 

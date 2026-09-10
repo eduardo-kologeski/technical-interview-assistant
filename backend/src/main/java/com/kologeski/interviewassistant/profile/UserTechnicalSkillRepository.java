@@ -9,4 +9,5 @@ interface UserTechnicalSkillRepository extends JpaRepository<UserTechnicalSkill,
     List<UserTechnicalSkill> findByUserIdInOrderByUserIdAscNameAsc(Collection<Long> userIds);
     boolean existsByUserIdAndNormalizedName(Long userId, String normalizedName);
     Optional<UserTechnicalSkill> findByIdAndUserId(Long id, Long userId);
+    long deleteByUserId(Long userId);
 }

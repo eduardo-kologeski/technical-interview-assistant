@@ -34,6 +34,9 @@ export class AuthService {
   verifyEmail(token: string) { return this.http.post<void>(`${this.apiUrl}/auth/email-verification/confirm`, { token }); }
   forgotPassword(email: string) { return this.http.post<IdentityDelivery>(`${this.apiUrl}/auth/password/forgot`, { email }); }
   resetPassword(token: string, password: string) { return this.http.post<void>(`${this.apiUrl}/auth/password/reset`, { token, password }); }
+  deleteAccount(password: string) {
+    return this.http.delete<void>(`${this.apiUrl}/users/me`, { body: { password } }).pipe(tap(() => this.clear()));
+  }
 
   loadUser() {
     return this.http.get<AuthUser>(`${this.apiUrl}/users/me`).pipe(tap(user => this.userState.set(user)));

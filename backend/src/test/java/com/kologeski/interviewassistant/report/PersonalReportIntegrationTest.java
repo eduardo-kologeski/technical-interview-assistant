@@ -89,7 +89,7 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.replayed").value(true))
                 .andExpect(jsonPath("$.draft.conclusion").doesNotExist());
@@ -97,11 +97,11 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isConflict());
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenB).header("Idempotency-Key", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isNotFound());
         assertThat(llm.calls.get()).isEqualTo(1);
     }
@@ -113,10 +113,11 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.detail").value("Ollama sintético indisponível."));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM report_generation_claims", Integer.class)).isZero();
         mvc.perform(get("/api/assessments/{id}/collection", assessment.id()).header("Authorization", tokenA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
@@ -124,9 +125,323 @@ class PersonalReportIntegrationTest {
 
         mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("DRAFT"));
         assertThat(llm.calls.get()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM report_generation_claims", Integer.class)).isZero();
+    }
+
+    @Test void blocksStartingAcademicStudyWhileDraftGenerationIsInProgress() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        llm.delayMillis = 700;
+        UUID requestKey = UUID.randomUUID();
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var generated = executor.submit(() -> mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                            .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                    .andReturn());
+            assertThat(llm.entered.await(5, TimeUnit.SECONDS)).isTrue();
+            String emptyManual = """
+                    {"assessmentVersion":4,"version":0,"manualReport":{"context":"","observedKnowledge":"",
+                    "strengths":"","concerns":"","synthesis":"","conclusion":""}}
+                    """;
+            mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                            .contentType(MediaType.APPLICATION_JSON).content(emptyManual))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("geração da minuta já está em andamento")));
+            assertThat(generated.get(10, TimeUnit.SECONDS).getResponse().getStatus()).isEqualTo(201);
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_studies", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM report_generation_claims", Integer.class)).isZero();
+    }
+
+    @Test void keepsOriginalDraftWhileOwnerReviewsConcludesAndApprovesAnImmutableReport() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        MvcResult generated = mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.version").value(0)).andReturn();
+        var report = json.readTree(generated.getResponse().getContentAsString());
+        String originalText = report.get("originalDraft").get("context").get("text").asText();
+        var revisedDraft = report.get("draft").deepCopy();
+        ((tools.jackson.databind.node.ObjectNode) revisedDraft.get("context")).put("text", "Contexto revisado pelo entrevistador.");
+        var review = json.createObjectNode();
+        review.put("version", 0);
+        review.set("draft", revisedDraft);
+        review.put("humanConclusion", "Conclusão escrita exclusivamente pelo entrevistador.");
+        review.put("reviewConfirmed", true);
+        review.put("reviewActiveMillis", 20_000);
+
+        mvc.perform(get("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1))
+                .andExpect(jsonPath("$.originalDraft.context.text").value(originalText))
+                .andExpect(jsonPath("$.draft.context.text").value("Contexto revisado pelo entrevistador."))
+                .andExpect(jsonPath("$.humanConclusion").value("Conclusão escrita exclusivamente pelo entrevistador."))
+                .andExpect(jsonPath("$.reviewActiveMillis").value(20_000));
+
+        UUID approvalKey = UUID.randomUUID();
+        mvc.perform(post("/api/assessments/{id}/report/approve", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", approvalKey)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1,\"reviewActiveMillis\":25000}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.version").value(2)).andExpect(jsonPath("$.approvedAt").isNotEmpty())
+                .andExpect(jsonPath("$.reviewActiveMillis").value(25_000));
+        mvc.perform(post("/api/assessments/{id}/report/approve", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", approvalKey)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1,\"reviewActiveMillis\":25000}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.replayed").value(true));
+        mvc.perform(put("/api/assessments/{id}/report", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(review)))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT original_draft FROM assessment_reports", String.class))
+                .contains(originalText).doesNotContain("Contexto revisado pelo entrevistador.");
+        assertThat(jdbc.queryForObject("SELECT review_active_millis FROM assessment_reports", Long.class)).isEqualTo(25_000L);
+    }
+
+    @Test void deletingAnOwnedAssessmentAlsoDeletesItsDraftAndAnotherUserCannotDeleteIt() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.generationLatencyMillis").isNumber());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/assessments/{id}", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isEqualTo(1);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/assessments/{id}", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isZero();
+        mvc.perform(get("/api/assessments/{id}", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test void freezesManualReportBeforeRevealingDraftAndNeverSendsItToTheModelContext() throws Exception {
+        CompletedAssessment assessment = createCompletedAssessment("Pessoa sintética");
+        String emptyManual = """
+                {"assessmentVersion":4,"version":0,"manualReport":{"context":"","observedKnowledge":"",
+                "strengths":"","concerns":"","synthesis":"","conclusion":""}}
+                """;
+        mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(emptyManual))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.finalized").value(false));
+        mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isConflict());
+        assertThat(llm.calls.get()).isZero();
+        String phrase = "CONTROLE MANUAL QUE NÃO PODE IR AO MODELO";
+        String completeManual = """
+                {"assessmentVersion":4,"version":0,"manualReport":{"context":"%s","observedKnowledge":"Conhecimento manual",
+                "strengths":"Ponto positivo manual","concerns":"Atenção manual","synthesis":"Síntese manual",
+                "conclusion":"Conclusão exclusivamente humana"},"manualActiveMillis":42000}
+                """.formatted(phrase);
+        mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeManual))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+        mvc.perform(post("/api/assessments/{id}/study/manual/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":1,\"manualActiveMillis\":45000}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.finalized").value(true))
+                .andExpect(jsonPath("$.contextHash").value(org.hamcrest.Matchers.matchesPattern("[0-9a-f]{64}")))
+                .andExpect(jsonPath("$.timingVersion").value("active-timing-v1"))
+                .andExpect(jsonPath("$.manualActiveMillis").value(45_000));
+        mvc.perform(get("/api/assessments/{id}/study", assessment.id()).header("Authorization", tokenB))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/study/manual", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeManual.replace("\"version\":0", "\"version\":2")))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/assessments/{id}/report/generate", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
+                .andExpect(status().isCreated());
+        assertThat(llm.calls.get()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT context_snapshot FROM assessment_reports", String.class))
+                .doesNotContain(phrase, "Conclusão exclusivamente humana");
+
+        String incompleteEvaluation = """
+                {"version":2,"evaluation":{"dimensions":[],"expectedInformationMissing":0,
+                "factualClaimsAnalyzed":0,"unsupportedClaims":0,"revisedSections":0}}
+                """;
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(incompleteEvaluation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(3));
+        mvc.perform(post("/api/assessments/{id}/study/evaluation/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":3}"))
+                .andExpect(status().isConflict());
+
+        String ratings = java.util.Arrays.stream(AcademicReportEvaluation.Dimension.values())
+                .map(dimension -> """
+                        {"dimension":"%s","score":2,"justification":"Verificação humana %s",
+                        "sourceReferences":["evidence-1"],"draftReferences":["synthesis: frase 1"]}
+                        """.formatted(dimension, dimension))
+                .collect(java.util.stream.Collectors.joining(","));
+        String completeEvaluation = """
+                {"version":3,"evaluation":{"dimensions":[%s],"expectedInformationMissing":1,
+                "factualClaimsAnalyzed":4,"unsupportedClaims":1,"revisedSections":2}}
+                """.formatted(ratings);
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.evaluation.dimensions.length()").value(5))
+                .andExpect(jsonPath("$.evaluation.unsupportedClaims").value(1));
+        UUID limitationId = UUID.randomUUID();
+        String regeneration = "{\"limitationId\":\"%s\",\"justification\":\"Verificar o efeito do prompt após a ficha original.\"}"
+                .formatted(limitationId);
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(regeneration))
+                .andExpect(status().isConflict());
+        assertThat(llm.calls.get()).isEqualTo(1);
+        mvc.perform(post("/api/assessments/{id}/study/evaluation/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":4}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.evaluationFinalized").value(true));
+        mvc.perform(post("/api/assessments/{id}/study/peer-evaluations", assessment.id())
+                        .header("Authorization", tokenB).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reviewerCode\":\"AV-B\"}"))
+                .andExpect(status().isNotFound());
+        MvcResult peerCreated = mvc.perform(post("/api/assessments/{id}/study/peer-evaluations", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reviewerCode\":\"AV-B\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.version").value(0))
+                .andExpect(jsonPath("$.evaluation.dimensions.length()").value(5)).andReturn();
+        UUID peerId = UUID.fromString(json.readTree(peerCreated.getResponse().getContentAsString()).get("id").asText());
+        String peerEvaluation = completeEvaluation.replace("\"version\":3", "\"version\":0");
+        mvc.perform(put("/api/assessments/{id}/study/peer-evaluations/{peerId}", assessment.id(), peerId)
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON).content(peerEvaluation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+        mvc.perform(post("/api/assessments/{id}/study/peer-evaluations/{peerId}/finalize", assessment.id(), peerId)
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.finalized").value(true));
+        mvc.perform(put("/api/assessments/{id}/study/peer-evaluations/{peerId}", assessment.id(), peerId)
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content(peerEvaluation.replace("\"version\":0", "\"version\":2")))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/api/assessments/{id}/study/agreement", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.evaluators").value(2))
+                .andExpect(jsonPath("$.ratingComparisons").value(5))
+                .andExpect(jsonPath("$.exactMatches").value(5))
+                .andExpect(jsonPath("$.exactAgreementPercent").value(100));
+        mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation.replace("\"version\":3", "\"version\":5")))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(regeneration))
+                .andExpect(status().isConflict());
+        String limitationAnalysis = """
+                {"version":5,"analysis":{"findings":[{"id":"%s","category":"PROMPT",
+                "description":"A síntese omitiu uma ressalva registrada.","sourceReferences":["evidence-1"],
+                "draftReferences":["synthesis: frase 1"],"proposedAdjustment":"Explicitar ressalvas no prompt.",
+                "expectedImpact":"Reduzir omissões na síntese.","validationPlan":"Repetir a geração com o mesmo snapshot.",
+                "residualRisk":"O modelo ainda pode interpretar a evidência de forma incorreta."}],
+                "overallConclusion":"A principal limitação observada está na cobertura da síntese."}}
+                """.formatted(limitationId);
+        mvc.perform(put("/api/assessments/{id}/study/limitations", assessment.id()).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(limitationAnalysis))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/study/limitations", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(limitationAnalysis))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(6))
+                .andExpect(jsonPath("$.limitationAnalysis.findings[0].category").value("PROMPT"));
+        mvc.perform(post("/api/assessments/{id}/study/limitations/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":6}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(7))
+                .andExpect(jsonPath("$.limitationAnalysisFinalized").value(true));
+        mvc.perform(put("/api/assessments/{id}/study/limitations", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(limitationAnalysis.replace("\"version\":5", "\"version\":7")))
+                .andExpect(status().isConflict());
+        String reconciliation = """
+                {"version":7,"reconciliation":{"dimensions":[
+                {"dimension":"PRESENCE","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"CORRESPONDENCE","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"SUPPORT","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"INSUFFICIENCY_HANDLING","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"DECISION_SEPARATION","agreedScore":2,"rationale":"Consenso após revisar as referências."}],
+                "overallConclusion":"Os avaliadores concordaram após conferir o mesmo conjunto de evidências."}}
+                """;
+        mvc.perform(put("/api/assessments/{id}/study/reconciliation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(reconciliation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(8));
+        mvc.perform(post("/api/assessments/{id}/study/reconciliation/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":8}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(9))
+                .andExpect(jsonPath("$.reconciliationFinalized").value(true));
+        mvc.perform(post("/api/assessments/{id}/study/peer-evaluations", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reviewerCode\":\"AV-C\"}"))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT report_evaluation FROM assessment_studies", String.class))
+                .contains("Verificação humana");
+        assertThat(jdbc.queryForObject("SELECT context_snapshot FROM assessment_reports", String.class))
+                .doesNotContain("Verificação humana", "AV-B", "Consenso após revisar");
+        mvc.perform(get("/api/assessments/{id}/report/generations", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].kind").value("ORIGINAL"))
+                .andExpect(jsonPath("$[0].justification").isEmpty());
+        UUID regenerationKey = UUID.randomUUID();
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenB).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(regeneration))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", regenerationKey)
+                        .contentType(MediaType.APPLICATION_JSON).content(regeneration))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.sequence").value(2))
+                .andExpect(jsonPath("$.kind").value("EXPERIMENTAL"))
+                .andExpect(jsonPath("$.limitationReference").value(limitationId.toString()))
+                .andExpect(jsonPath("$.replayed").value(false));
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", regenerationKey)
+                        .contentType(MediaType.APPLICATION_JSON).content(regeneration))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.replayed").value(true));
+        String conflictingRegeneration = regeneration.replace(limitationId.toString(), UUID.randomUUID().toString());
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", regenerationKey)
+                        .contentType(MediaType.APPLICATION_JSON).content(conflictingRegeneration))
+                .andExpect(status().isConflict());
+        assertThat(llm.calls.get()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_report_generations", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isEqualTo(1);
+        mvc.perform(get("/api/assessments/{id}/report/generations", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[1].justification").value("Verificar o efeito do prompt após a ficha original."));
+        MvcResult summary = mvc.perform(get("/api/assessment-studies/summary").header("Authorization", tokenA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.protocolVersion").value("comparison-v1"))
+                .andExpect(jsonPath("$.totalCases").value(1))
+                .andExpect(jsonPath("$.totals.unsupportedClaims").value(1))
+                .andExpect(jsonPath("$.timings.cases").value(1))
+                .andExpect(jsonPath("$.timings.averageManualActiveMillis").value(45_000))
+                .andExpect(jsonPath("$.limitations.finalizedAnalyses").value(1))
+                .andExpect(jsonPath("$.limitations.findings").value(1))
+                .andExpect(jsonPath("$.limitations.findingsByCategory.PROMPT").value(1))
+                .andExpect(jsonPath("$.agreement.cases").value(1))
+                .andExpect(jsonPath("$.agreement.peerEvaluations").value(1))
+                .andExpect(jsonPath("$.agreement.exactAgreementPercent").value(100))
+                .andExpect(jsonPath("$.groups[0].dimensions.length()").value(5)).andReturn();
+        assertThat(summary.getResponse().getContentAsString()).doesNotContain(
+                "Pessoa sintética", phrase, "Verificação humana", "evidence-1", "AV-B", "Consenso após revisar");
+        MvcResult csv = mvc.perform(get("/api/assessment-studies/summary.csv").header("Authorization", tokenA))
+                .andExpect(status().isOk()).andReturn();
+        assertThat(csv.getResponse().getContentAsString()).contains("comparison-v1", "active-timing-v1", "totalCases,1",
+                        "finalizedLimitationAnalyses,1", "limitationFindings,1", "\"PROMPT\",1")
+                .contains("agreementCases,1", "peerEvaluations,1", "exactAgreementPercent,100.00")
+                .doesNotContain("Pessoa sintética", phrase, "Verificação humana", "evidence-1", "AV-B", "Consenso após revisar");
+        mvc.perform(get("/api/assessment-studies/summary").header("Authorization", tokenB))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCases").value(0));
     }
 
     private MvcResult generate(UUID assessmentId, UUID requestKey, CountDownLatch ready,
@@ -135,7 +450,7 @@ class PersonalReportIntegrationTest {
         assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
         return mvc.perform(post("/api/assessments/{id}/report/generate", assessmentId)
                         .header("Authorization", tokenA).header("Idempotency-Key", requestKey)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":4}"))
                 .andReturn();
     }
 
@@ -148,21 +463,29 @@ class PersonalReportIntegrationTest {
         UUID id = UUID.fromString(json.readTree(created.getResponse().getContentAsString()).get("id").asText());
         UUID criterionId = UUID.randomUUID();
         UUID evidenceId = UUID.randomUUID();
+        String preparation = """
+                {"version":0,"document":{"schemaVersion":1,
+                  "criteria":[{"id":"%s","name":"Java","score":null}],
+                  "evidence":[],"notes":[],"strengths":[],"concerns":[]}}
+                """.formatted(criterionId);
+        mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(preparation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
         mvc.perform(patch("/api/assessments/{id}/collection/start", id).header("Authorization", tokenA)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
-                .andExpect(status().isOk());
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2));
         String document = """
-                {"version":1,"document":{"schemaVersion":1,
+                {"version":2,"document":{"schemaVersion":1,
                   "criteria":[{"id":"%s","name":"Java","score":5}],
                   "evidence":[{"id":"%s","criterionId":"%s","text":"Explicou encapsulamento."}],
                   "notes":[],"strengths":[],"concerns":[]}}
                 """.formatted(criterionId, evidenceId, criterionId);
         mvc.perform(put("/api/assessments/{id}/collection", id).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content(document))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(2));
-        mvc.perform(patch("/api/assessments/{id}/collection/complete", id).header("Authorization", tokenA)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":2}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(3));
+        mvc.perform(patch("/api/assessments/{id}/collection/complete", id).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"version\":3}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(4));
         return new CompletedAssessment(id, criterionId);
     }
 
@@ -176,12 +499,14 @@ class PersonalReportIntegrationTest {
     static class CountingLlmClient implements LlmClient {
         final AtomicInteger calls = new AtomicInteger();
         final AtomicBoolean failNext = new AtomicBoolean();
+        volatile CountDownLatch entered = new CountDownLatch(1);
         volatile long delayMillis;
 
-        void reset() { calls.set(0); failNext.set(false); delayMillis = 0; }
+        void reset() { calls.set(0); failNext.set(false); delayMillis = 0; entered = new CountDownLatch(1); }
 
         @Override public LlmDraftResponse generateDraft(ReportPrompt prompt) {
             calls.incrementAndGet();
+            entered.countDown();
             if (failNext.compareAndSet(true, false)) {
                 throw new LlmGenerationException(LlmGenerationException.Kind.UNAVAILABLE,
                         "Ollama sintético indisponível.");

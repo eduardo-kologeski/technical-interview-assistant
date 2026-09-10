@@ -45,6 +45,11 @@ public class CompanyInvitation {
     public Long invitedByUserId() { return invitedByUserId; }
     public Instant createdAt() { return createdAt; }
 
+    public void redactRecipient(Instant now) {
+        email = "deleted-invite+" + id + "@invalid.local";
+        updatedAt = now;
+    }
+
     public void accept(Instant now) {
         requirePending(now);
         status = InvitationStatus.ACCEPTED;

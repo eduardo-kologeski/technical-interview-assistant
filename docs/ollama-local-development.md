@@ -29,9 +29,26 @@ docker exec technicalinterviewassistant-backend-1 curl --fail http://host.docker
 
 ## Impacto observado no host de desenvolvimento
 
-Em 07/09/2026, o host usado para o desenvolvimento tinha aproximadamente 8 GB de RAM, GPU integrada com 1 GB reportado e 30 GB livres. O Ollama não estava instalado e a porta 11434 não estava acessível pelo host ou pelo backend. Por isso nenhum modelo foi baixado automaticamente e nenhum serviço Ollama foi acrescentado ao Compose.
+Em 10/09/2026, o host usado para o desenvolvimento tinha aproximadamente 8 GB de RAM, GPU integrada Intel HD Graphics 620 com 1 GB reportado e 22,7 GB livres. O runtime Ollama 0.34.0 foi instalado no Windows e iniciado com `OLLAMA_NO_CLOUD=1`. A API em `localhost:11434` responde no host e também é alcançada pelo backend existente por `host.docker.internal`; o `.env` local configura essa URL.
 
-Antes do smoke real, escolha um modelo local quantizado que caiba na memória disponível, registre nome, licença, tamanho do download, uso de RAM, tempo de primeira carga e latência. Use apenas dados sintéticos. Modelos maiores ou múltiplas gerações paralelas podem exceder esse hardware; a escolha precisa de medição, não de um nome hardcoded no repositório.
+Após comparar opções compatíveis com o host, `gemma3:1b` foi selecionado como baseline local do smoke. O [catálogo oficial](https://ollama.com/library/gemma3) informa download de 815 MB, janela máxima de 32K e suporte a mais de 140 idiomas. O modelo usa os termos de licença Gemma e não é empacotado nem redistribuído pelo TIA. O nome permanece somente no `.env` local; o código e o Compose não definem um modelo padrão.
+
+Medição sintética em 10/09/2026:
+
+| Item | Resultado |
+|---|---|
+| Download reportado | 815 MB |
+| Memória reportada por `ollama ps` durante a carga | 880 MB |
+| Processamento | 100% CPU |
+| Tempo da geração registrado pelo backend | 37,8 s |
+| Tempo total do smoke | 44,9 s |
+| Contrato da resposta | minuta `DRAFT` com cinco seções válidas |
+| Privacidade dos logs | marcador da entrada e seções completas da saída ausentes |
+| Limpeza | avaliação e conta sintéticas removidas; contagens finais iguais a zero |
+
+O backend permaneceu saudável no Compose existente. O teste usou somente dados sintéticos e o Ollama continuou fora do Compose, com cloud desabilitada. Structured outputs com JSON Schema fazem parte do [contrato documentado do Ollama](https://docs.ollama.com/capabilities/structured-outputs).
+
+Antes de trocar o baseline, escolha um modelo local quantizado que caiba na memória disponível e registre nome, licença, tamanho do download, uso de RAM, tempo de primeira carga e latência. Use apenas dados sintéticos. Modelos maiores ou múltiplas gerações paralelas podem exceder esse hardware; cada troca precisa de medição, sem hardcode no repositório.
 
 ## Contrato e falhas
 
@@ -40,3 +57,16 @@ O endpoint `POST /api/assessments/{id}/report/generate` exige uma coleta encerra
 Indisponibilidade, timeout, modelo ausente, configuração externa e resposta inválida retornam erros controlados. Nenhuma dessas falhas altera a coleta ou cria uma minuta parcial. Logs operacionais contêm somente IDs técnicos, duração, versão do prompt e tipo do erro; o contexto, o prompt e a resposta completa não são registrados.
 
 O request usa `stream: false` e o `format` JSON Schema aceito pela API `/api/generate`. Limites de entrada e saída são configuráveis; conteúdo acima do limite é recusado sem truncamento silencioso.
+
+## Smoke sintético reprodutível
+
+Depois de escolher e instalar explicitamente o modelo, recrie somente o backend com as variáveis acima. Obtenha um token de uma conta local, sem registrá-lo em arquivo, e execute:
+
+```powershell
+$env:TIA_SMOKE_ACCESS_TOKEN = '<token-local>'
+$env:OLLAMA_MODEL = '<nome-exato-do-modelo-local-instalado>'
+.\scripts\smoke-ollama.ps1
+Remove-Item Env:TIA_SMOKE_ACCESS_TOKEN
+```
+
+O script não instala o Ollama nem baixa modelos. Ele confirma que host e backend containerizado alcançam o serviço, cria um caso exclusivamente sintético, gera e valida uma minuta `DRAFT` com cinco seções, verifica o modelo persistido, procura o marcador da entrada e as seções completas da resposta nos logs e remove a avaliação ao final. Uma falha encerra com mensagem sem imprimir token, avaliação, prompt ou resposta do modelo.

@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN deleted_at TIMESTAMPTZ;
+CREATE INDEX ix_users_deleted_at ON users(deleted_at) WHERE deleted_at IS NOT NULL;

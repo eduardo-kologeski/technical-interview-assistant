@@ -51,12 +51,43 @@ export interface CreatePersonalAssessment {
   context: string;
 }
 
+export interface ReportSection { text: string; evidenceReferences: string[]; insufficientData: boolean; }
+export interface ReportDraft {
+  context: ReportSection;
+  observedKnowledge: ReportSection;
+  strengths: ReportSection;
+  concerns: ReportSection;
+  synthesis: ReportSection;
+}
+export interface PersonalAssessmentReport {
+  id: string; assessmentId: string; status: 'DRAFT' | 'APPROVED'; sourceVersion: number; version: number;
+  promptVersion: string; model: string; originalDraft: ReportDraft; draft: ReportDraft;
+  humanConclusion: string | null; reviewConfirmed: boolean; createdAt: string; updatedAt: string;
+  approvedAt: string | null; generationLatencyMillis: number | null; reviewActiveMillis: number; replayed: boolean;
+}
+export interface ReportGenerationExecution { id: string; assessmentId: string; sequence: number; kind: 'ORIGINAL'|'EXPERIMENTAL'; justification: string|null; limitationReference: string|null; promptVersion: string; model: string; draft: ReportDraft; generationLatencyMillis: number|null; createdAt: string; replayed: boolean; }
+export interface ManualReport { context: string; observedKnowledge: string; strengths: string; concerns: string; synthesis: string; conclusion: string; }
+export type AcademicDimension = 'PRESENCE' | 'CORRESPONDENCE' | 'SUPPORT' | 'INSUFFICIENCY_HANDLING' | 'DECISION_SEPARATION';
+export interface AcademicDimensionRating { dimension: AcademicDimension; score: number | null; justification: string; sourceReferences: string[]; draftReferences: string[]; }
+export interface AcademicReportEvaluation { dimensions: AcademicDimensionRating[]; expectedInformationMissing: number; factualClaimsAnalyzed: number; unsupportedClaims: number; revisedSections: number; }
+export type AcademicLimitationCategory = 'INPUT'|'CONTEXT'|'PROMPT'|'MODEL'|'INTERFACE'|'HUMAN_REVIEW';
+export interface AcademicLimitation { id: string; category: AcademicLimitationCategory; description: string; sourceReferences: string[]; draftReferences: string[]; proposedAdjustment: string; expectedImpact: string; validationPlan: string; residualRisk: string; }
+export interface AcademicLimitationAnalysis { findings: AcademicLimitation[]; overallConclusion: string; }
+export interface AcademicDimensionResolution { dimension: AcademicDimension; agreedScore: number|null; rationale: string; }
+export interface AcademicEvaluationReconciliation { dimensions: AcademicDimensionResolution[]; overallConclusion: string; }
+export interface AcademicPeerEvaluation { id:string; reviewerCode:string; version:number; evaluation:AcademicReportEvaluation; finalized:boolean; createdAt:string; updatedAt:string; finalizedAt:string|null; }
+export interface AcademicDimensionAgreement { dimension:AcademicDimension; comparisons:number; exactMatches:number; exactAgreementPercent:number; }
+export interface AcademicAgreement { evaluators:number; ratingComparisons:number; exactMatches:number; exactAgreementPercent:number; dimensions:AcademicDimensionAgreement[]; }
+export interface AssessmentStudy { id: string; assessmentId: string; sourceVersion: number; version: number; manualReport: ManualReport; finalized: boolean; contextHash: string | null; createdAt: string; updatedAt: string; finalizedAt: string | null; finalizedBy: string | null; evaluation: AcademicReportEvaluation | null; evaluationFinalized: boolean; evaluationFinalizedAt: string | null; evaluationFinalizedBy: string | null; limitationAnalysis: AcademicLimitationAnalysis|null; limitationAnalysisFinalized: boolean; limitationAnalysisFinalizedAt: string|null; limitationAnalysisFinalizedBy: string|null; reconciliation:AcademicEvaluationReconciliation|null; reconciliationFinalized:boolean; reconciliationFinalizedAt:string|null; reconciliationFinalizedBy:string|null; timingVersion: string | null; manualActiveMillis: number; }
+
 @Injectable({ providedIn: 'root' })
 export class PersonalAssessmentService {
   private readonly http = inject(HttpClient);
   list() { return this.http.get<PageResponse<PersonalAssessmentSummary>>('/api/assessments', { params: { page: 0, size: 20 } }); }
   create(input: CreatePersonalAssessment) { return this.http.post<PersonalAssessmentSummary>('/api/assessments', input); }
+  copyRequirements(id: string, input: CreatePersonalAssessment) { return this.http.post<PersonalAssessmentSummary>(`/api/assessments/${id}/copy-requirements`, input); }
   get(id: string) { return this.http.get<PersonalAssessmentSummary>(`/api/assessments/${id}`); }
+  delete(id: string) { return this.http.delete<void>(`/api/assessments/${id}`); }
   collection(id: string) { return this.http.get<PersonalAssessmentCollection>(`/api/assessments/${id}/collection`); }
   start(id: string, version: number) {
     return this.http.patch<PersonalAssessmentCollection>(`/api/assessments/${id}/collection/start`, { version });
@@ -66,5 +97,49 @@ export class PersonalAssessmentService {
   }
   complete(id: string, version: number) {
     return this.http.patch<PersonalAssessmentCollection>(`/api/assessments/${id}/collection/complete`, { version });
+  }
+  report(id: string) { return this.http.get<PersonalAssessmentReport>(`/api/assessments/${id}/report`); }
+  reportGenerations(id: string) { return this.http.get<ReportGenerationExecution[]>(`/api/assessments/${id}/report/generations`); }
+  generateReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID()) {
+    return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/generate`, { version }, { headers: { 'Idempotency-Key': idempotencyKey } });
+  }
+  saveReport(id: string, version: number, draft: ReportDraft, humanConclusion: string, reviewConfirmed: boolean, reviewActiveMillis?: number) {
+    return this.http.put<PersonalAssessmentReport>(`/api/assessments/${id}/report`, { version, draft, humanConclusion, reviewConfirmed, reviewActiveMillis });
+  }
+  approveReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID(), reviewActiveMillis?: number) {
+    return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/approve`, { version, reviewActiveMillis }, { headers: { 'Idempotency-Key': idempotencyKey } });
+  }
+  regenerateReport(id: string, limitationId: string, justification: string, idempotencyKey: string = crypto.randomUUID()) {
+    return this.http.post<ReportGenerationExecution>(`/api/assessments/${id}/report/regenerations`, { limitationId, justification }, { headers: { 'Idempotency-Key': idempotencyKey } });
+  }
+  study(id: string) { return this.http.get<AssessmentStudy>(`/api/assessments/${id}/study`); }
+  saveManualReport(id: string, assessmentVersion: number, version: number, manualReport: ManualReport, manualActiveMillis?: number) {
+    return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/manual`, { assessmentVersion, version, manualReport, manualActiveMillis });
+  }
+  finalizeManualReport(id: string, version: number, manualActiveMillis?: number) {
+    return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/manual/finalize`, { version, manualActiveMillis });
+  }
+  saveStudyEvaluation(id: string, version: number, evaluation: AcademicReportEvaluation) {
+    return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/evaluation`, { version, evaluation });
+  }
+  finalizeStudyEvaluation(id: string, version: number) {
+    return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/evaluation/finalize`, { version });
+  }
+  saveLimitationAnalysis(id: string, version: number, analysis: AcademicLimitationAnalysis) {
+    return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/limitations`, { version, analysis });
+  }
+  finalizeLimitationAnalysis(id: string, version: number) {
+    return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/limitations/finalize`, { version });
+  }
+  peerEvaluations(id:string){return this.http.get<AcademicPeerEvaluation[]>(`/api/assessments/${id}/study/peer-evaluations`)}
+  createPeerEvaluation(id:string,reviewerCode:string){return this.http.post<AcademicPeerEvaluation>(`/api/assessments/${id}/study/peer-evaluations`,{reviewerCode})}
+  savePeerEvaluation(id:string,peerId:string,version:number,evaluation:AcademicReportEvaluation){return this.http.put<AcademicPeerEvaluation>(`/api/assessments/${id}/study/peer-evaluations/${peerId}`,{version,evaluation})}
+  finalizePeerEvaluation(id:string,peerId:string,version:number){return this.http.post<AcademicPeerEvaluation>(`/api/assessments/${id}/study/peer-evaluations/${peerId}/finalize`,{version})}
+  deletePeerEvaluation(id:string,peerId:string){return this.http.delete<void>(`/api/assessments/${id}/study/peer-evaluations/${peerId}`)}
+  academicAgreement(id:string){return this.http.get<AcademicAgreement>(`/api/assessments/${id}/study/agreement`)}
+  saveReconciliation(id:string,version:number,reconciliation:AcademicEvaluationReconciliation){return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/reconciliation`,{version,reconciliation})}
+  finalizeReconciliation(id:string,version:number){return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/reconciliation/finalize`,{version})}
+  academicSummaryCsv() {
+    return this.http.get('/api/assessment-studies/summary.csv', { responseType: 'text' });
   }
 }

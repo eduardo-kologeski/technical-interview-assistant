@@ -229,11 +229,11 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-04 — P0 — Jornada visual de criação e coleta
 
-**Estado: implementada em `develop`; dashboard, criação, retomada, autosave e conclusão cobertos por testes de componente e E2E.**
+**Estado: implementada em `develop`; preparação anterior ao início, dashboard, retomada, atalhos, autosave e conclusão cobertos por testes.**
 
 - Objetivo/contexto: reaproveitar rapidez da sessão sem exigir vaga.
-- Escopo: dashboard mínimo, formulário título/pessoa/contexto, edição direta de critérios, cartões/evidências e autosave.
-- Aceite: criar → retomar → registrar sem configurar empresa/template; aguardar save antes de completar; falha e conflito visíveis, notas preservadas.
+- Escopo: dashboard mínimo, formulário título/pessoa/contexto, preparação dos requisitos antes do início, cartões/evidências, frases rápidas e autosave.
+- Aceite: criar → definir e salvar requisitos → iniciar → registrar com atalhos sem configurar empresa/template; requisitos bloqueados após o início; aguardar save antes de completar; falha e conflito visíveis, notas preservadas.
 - Dependências: IND-02, IND-03.
 - Arquivos: dashboard, app/session, cartões, rotas, serviço pessoal; extrair somente trechos necessários do componente grande.
 - Testes: componentes e E2E com reload, falha de autosave e conclusão; não exigir pontuação.
@@ -251,7 +251,7 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-06 — P0 — Minuta persistida e integração local com Ollama
 
-**Estado: backend implementado em `develop`; smoke com LLM real pendente porque Ollama e modelo ainda não estão instalados no host avaliado.**
+**Estado: implementada e validada em `develop`; smoke real aprovado com Ollama 0.34.0 e `gemma3:1b` no host, usando somente dados sintéticos.**
 
 - Objetivo/contexto: provar geração generativa real sem acoplar provedor.
 - Escopo: AssessmentReport/migration, OllamaLlmClient, URL e modelo configuráveis por ambiente (sem modelo hardcoded), geração idempotente, limites/timeouts, snapshot e metadados.
@@ -262,6 +262,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-07 — P0 — Revisão, conclusão humana e aprovação
 
+**Estado: implementada em `develop`; editor, autosave, conclusão humana separada, aprovação imutável e isolamento estão cobertos por testes. A integração real da IND-06 também foi validada.**
+
 - Objetivo/contexto: transformar minuta em parecer final por ação humana rastreável.
 - Escopo: GET/PUT/approve, editor de seis seções, confirmação de revisão, conclusão humana separada e final imutável.
 - Aceite: original não muda com edição; aprovação exige versão salva, fonte atual e conclusão humana; consultar depois de login retorna final; exportar não aprova.
@@ -270,6 +272,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 - Testes: A/B em todas as operações, final imutável, stale source, autosave pendente, duplo clique e E2E completo com fake; verificação manual do smoke real.
 
 ### IND-08 — P1 — Exclusão de avaliações e conta
+
+**Estado: implementada em `develop`; exclusão por proprietário, cascata do parecer, invalidação de sessões, limpeza do perfil e anonimização organizacional cobertas pela política e por testes. A expiração de cópias históricas continua dependente da política externa de backups.**
 
 - Objetivo/contexto: controlar ciclo de vida dos dados pessoais e do snapshot enviado.
 - Escopo: excluir conteúdo pessoal/parecer/snapshot, invalidar sessões na exclusão de conta, tratar autoria e vínculos empresariais sem apagar dados de outras pessoas, limpar rascunhos locais.
@@ -280,6 +284,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-09 — P1 — Exportação neutra e documentação coerente
 
+**Estado: implementada em `develop`; o PDF é gerado somente a partir do parecer aprovado, usa linguagem neutra de avaliação e não altera o status persistido.**
+
 - Objetivo/contexto: reaproveitar jsPDF e corrigir documentação obsoleta.
 - Escopo: PDF de parecer aprovado com linguagem de avaliação; atualizar README/arquitetura/governança/backlog; acesso a perfil básico.
 - Aceite: exportação não conclui coleta nem aprova; PDF corresponde ao final persistido; revisão visual com texto longo e acentos; documentação separa implementado/proposto.
@@ -288,6 +294,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 - Testes: PDF multipágina, escape de conteúdo, download e conteúdo aprovado; links da documentação.
 
 ### IND-10 — P2 — Templates pessoais e acompanhamento acadêmico
+
+**Estado: implementado em `develop`; requisitos podem ser copiados sem histórico, e o modo acadêmico congela parecer manual, versão e hash do contexto antes de revelar a minuta. A ficha persistida avalia as cinco dimensões do protocolo, preserva justificativas e referências e fica imutável após a finalização. Fichas pseudônimas independentes permitem medir concordância exata e registrar conciliação humana por dimensão. O resumo acadêmico agrega somente fichas finalizadas por prompt/modelo, concordância e contagens de limitações por categoria, sem conteúdo dos casos. A temporização `active-timing-v1` separa redação manual, geração local e revisão, e casos sintéticos fornecem notas âncora para calibrar a rubrica. A análise humana relaciona limitações às evidências e registra ajuste, impacto, validação e risco residual. Regenerações experimentais apontam para limitações finalizadas e preservam histórico sem substituir a original.**
 
 - Objetivo/contexto: reduzir repetição e medir apoio da IA após provar o núcleo.
 - Escopo: cópia de critérios pessoais, regenerações versionadas quando justificadas, tempos e comparação original/final com protocolo definido.
@@ -321,7 +329,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-05 estão implementadas em `develop`. A próxima etapa é a IND-06, responsável pela persistência da minuta e pela primeira integração com Ollama. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-10 estão implementadas em `develop`. Em 10/09/2026, `scripts/smoke-ollama.ps1` validou a IND-06 com Ollama 0.34.0 e `gemma3:1b`: minuta `DRAFT`, cinco seções válidas, modelo persistido, conteúdo sensível ausente dos logs e limpeza dos dados sintéticos. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 
@@ -331,6 +339,6 @@ ReportContextBuilder seleciona/estrutura os dados; ReportPromptBuilder constrói
 
 Na IND-06, prever OLLAMA_BASE_URL e OLLAMA_MODEL (modelo obrigatório, sem default hardcoded). Inicialmente Ollama roda no host e os serviços existentes continuam em Docker. No Docker Desktop, avaliar http://host.docker.internal:11434 como URL do backend: localhost dentro do container aponta ao próprio container. O binding padrão do Ollama é loopback; verificar conectividade e, se necessário, configurar OLLAMA_HOST no host com interface alcançável, restringindo firewall ao acesso local necessário. Não abrir a API à internet. Linux sem Docker Desktop pode exigir host-gateway; avaliar no ambiente antes de alterar Compose. Sem CORS adicional para Angular.
 
-Não adicionar Ollama ao Compose automaticamente nem baixar modelos nesta issue. Na IND-06 avaliar RAM/VRAM, GPU, espaço em disco, tamanho/download/licença dos pesos e distribuição antes de escolher modelo e eventual empacotamento. Falhas de conexão, timeout, modelo ausente e resposta inválida devem ser controladas, preservando coleta e edições; logs não incluem avaliação ou resposta completa. Desabilitar recursos cloud no runtime local conforme a versão instalada e verificar ausência de chamadas externas no smoke.
+O Ollama permanece fora do Compose. Antes do primeiro download foram avaliados RAM/VRAM, GPU, espaço em disco, tamanho, licença e distribuição; `gemma3:1b` foi escolhido somente no `.env` local e não é empacotado pelo TIA. Falhas de conexão, timeout, modelo ausente e resposta inválida são controladas, preservando coleta e edições; logs não incluem avaliação ou resposta completa. O runtime local usa `OLLAMA_NO_CLOUD=1`.
 
 Referências técnicas oficiais para a IND-06: [Ollama FAQ](https://docs.ollama.com/faq) e [Docker Desktop networking](https://docs.docker.com/desktop/features/networking/). Configuração concreta e teste de conectividade permanecem na IND-06.

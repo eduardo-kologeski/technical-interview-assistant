@@ -2,6 +2,13 @@ package com.kologeski.interviewassistant.interview;
 
 import com.kologeski.interviewassistant.api.PageResponse;
 import com.kologeski.interviewassistant.report.PersonalReportService;
+import com.kologeski.interviewassistant.report.ReportDraft;
+import com.kologeski.interviewassistant.report.AssessmentStudyService;
+import com.kologeski.interviewassistant.report.ManualReport;
+import com.kologeski.interviewassistant.report.AcademicReportEvaluation;
+import com.kologeski.interviewassistant.report.AcademicLimitationAnalysis;
+import com.kologeski.interviewassistant.report.AcademicEvaluationReconciliation;
+import com.kologeski.interviewassistant.report.AcademicPeerEvaluationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.PageRequest;
@@ -19,16 +26,27 @@ import java.util.UUID;
 public class PersonalAssessmentController {
     private final PersonalAssessmentService service;
     private final PersonalReportService reports;
+    private final AssessmentStudyService studies;
+    private final AcademicPeerEvaluationService peerEvaluations;
 
-    public PersonalAssessmentController(PersonalAssessmentService service, PersonalReportService reports) {
+    public PersonalAssessmentController(PersonalAssessmentService service, PersonalReportService reports, AssessmentStudyService studies,
+                                        AcademicPeerEvaluationService peerEvaluations) {
         this.service = service;
         this.reports = reports;
+        this.studies = studies;
+        this.peerEvaluations = peerEvaluations;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     AssessmentResponse create(@Valid @RequestBody CreateAssessmentCommand command) {
         return AssessmentResponse.from(service.create(command.title(), command.personName(), command.context()));
+    }
+
+    @PostMapping("/{id}/copy-requirements")
+    @ResponseStatus(HttpStatus.CREATED)
+    AssessmentResponse copyRequirements(@PathVariable UUID id, @Valid @RequestBody CreateAssessmentCommand command) {
+        return AssessmentResponse.from(service.copyRequirements(id, command.title(), command.personName(), command.context()));
     }
 
     @GetMapping
@@ -40,6 +58,10 @@ public class PersonalAssessmentController {
 
     @GetMapping("/{id}")
     AssessmentResponse get(@PathVariable UUID id) { return AssessmentResponse.from(service.get(id)); }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void delete(@PathVariable UUID id) { service.delete(id); }
 
     @GetMapping("/{id}/collection")
     CollectionResponse collection(@PathVariable UUID id) {
@@ -71,6 +93,114 @@ public class PersonalAssessmentController {
                 .body(ReportResponse.from(report));
     }
 
+    @GetMapping("/{id}/report")
+    ReportResponse report(@PathVariable UUID id) { return ReportResponse.from(reports.get(id)); }
+
+    @GetMapping("/{id}/report/generations")
+    java.util.List<PersonalReportService.GenerationView> reportGenerations(@PathVariable UUID id) {
+        return reports.generations(id);
+    }
+
+    @PostMapping("/{id}/report/regenerations")
+    ResponseEntity<PersonalReportService.GenerationView> regenerateReport(
+            @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @Valid @RequestBody RegenerateReportCommand command) {
+        PersonalReportService.GenerationView generation = reports.regenerate(id, idempotencyKey, command.limitationId(), command.justification());
+        return ResponseEntity.status(generation.replayed() ? HttpStatus.OK : HttpStatus.CREATED).body(generation);
+    }
+
+    @PutMapping("/{id}/report")
+    ReportResponse saveReport(@PathVariable UUID id, @Valid @RequestBody SaveReportCommand command) {
+        return ReportResponse.from(reports.saveReview(id, command.version(), command.draft(),
+                command.humanConclusion(), command.reviewConfirmed(), command.reviewActiveMillis()));
+    }
+
+    @PostMapping("/{id}/report/approve")
+    ReportResponse approveReport(@PathVariable UUID id,
+                                 @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+                                 @Valid @RequestBody ApproveReportCommand command) {
+        return ReportResponse.from(reports.approve(id, command.version(), idempotencyKey, command.reviewActiveMillis()));
+    }
+
+    @GetMapping("/{id}/study")
+    StudyResponse study(@PathVariable UUID id) { return StudyResponse.from(studies.get(id)); }
+
+    @PutMapping("/{id}/study/manual")
+    StudyResponse saveManual(@PathVariable UUID id, @Valid @RequestBody SaveManualCommand command) {
+        return StudyResponse.from(studies.save(id, command.assessmentVersion(), command.version(), command.manualReport(), command.manualActiveMillis()));
+    }
+
+    @PostMapping("/{id}/study/manual/finalize")
+    StudyResponse finalizeManual(@PathVariable UUID id, @Valid @RequestBody FinalizeManualCommand command) {
+        return StudyResponse.from(studies.finalizeManual(id, command.version(), command.manualActiveMillis()));
+    }
+
+    @PutMapping("/{id}/study/evaluation")
+    StudyResponse saveEvaluation(@PathVariable UUID id, @Valid @RequestBody SaveEvaluationCommand command) {
+        return StudyResponse.from(studies.saveEvaluation(id, command.version(), command.evaluation()));
+    }
+
+    @PostMapping("/{id}/study/evaluation/finalize")
+    StudyResponse finalizeEvaluation(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return StudyResponse.from(studies.finalizeEvaluation(id, command.version()));
+    }
+
+    @PutMapping("/{id}/study/limitations")
+    StudyResponse saveLimitationAnalysis(@PathVariable UUID id, @Valid @RequestBody SaveLimitationAnalysisCommand command) {
+        return StudyResponse.from(studies.saveLimitationAnalysis(id, command.version(), command.analysis()));
+    }
+
+    @PostMapping("/{id}/study/limitations/finalize")
+    StudyResponse finalizeLimitationAnalysis(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return StudyResponse.from(studies.finalizeLimitationAnalysis(id, command.version()));
+    }
+
+    @GetMapping("/{id}/study/peer-evaluations")
+    java.util.List<AcademicPeerEvaluationService.View> peerEvaluations(@PathVariable UUID id) {
+        return peerEvaluations.list(id);
+    }
+
+    @PostMapping("/{id}/study/peer-evaluations")
+    @ResponseStatus(HttpStatus.CREATED)
+    AcademicPeerEvaluationService.View createPeerEvaluation(@PathVariable UUID id,
+                                                             @Valid @RequestBody CreatePeerEvaluationCommand command) {
+        return peerEvaluations.create(id, command.reviewerCode());
+    }
+
+    @PutMapping("/{id}/study/peer-evaluations/{peerId}")
+    AcademicPeerEvaluationService.View savePeerEvaluation(@PathVariable UUID id, @PathVariable UUID peerId,
+                                                           @Valid @RequestBody SavePeerEvaluationCommand command) {
+        return peerEvaluations.save(id, peerId, command.version(), command.evaluation());
+    }
+
+    @PostMapping("/{id}/study/peer-evaluations/{peerId}/finalize")
+    AcademicPeerEvaluationService.View finalizePeerEvaluation(@PathVariable UUID id, @PathVariable UUID peerId,
+                                                               @Valid @RequestBody VersionCommand command) {
+        return peerEvaluations.finalizeEvaluation(id, peerId, command.version());
+    }
+
+    @DeleteMapping("/{id}/study/peer-evaluations/{peerId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deletePeerEvaluation(@PathVariable UUID id, @PathVariable UUID peerId) {
+        peerEvaluations.delete(id, peerId);
+    }
+
+    @GetMapping("/{id}/study/agreement")
+    AcademicPeerEvaluationService.AgreementView agreement(@PathVariable UUID id) {
+        return peerEvaluations.agreement(id);
+    }
+
+    @PutMapping("/{id}/study/reconciliation")
+    StudyResponse saveReconciliation(@PathVariable UUID id, @Valid @RequestBody SaveReconciliationCommand command) {
+        return StudyResponse.from(studies.saveReconciliation(id, command.version(), command.reconciliation()));
+    }
+
+    @PostMapping("/{id}/study/reconciliation/finalize")
+    StudyResponse finalizeReconciliation(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return StudyResponse.from(studies.finalizeReconciliation(id, command.version()));
+    }
+
     public record CreateAssessmentCommand(@NotBlank @Size(max = 160) String title,
                                            @NotBlank @Size(max = 160) String personName,
                                            @Size(max = 5000) String context) { }
@@ -79,6 +209,28 @@ public class PersonalAssessmentController {
 
     public record SaveCollectionCommand(@NotNull @PositiveOrZero Long version,
                                         @NotNull @Valid PersonalAssessmentDocument document) { }
+
+    public record SaveReportCommand(@NotNull @PositiveOrZero Long version, @NotNull ReportDraft draft,
+                                    @Size(max = 8000) String humanConclusion,
+                                    boolean reviewConfirmed, @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
+    public record ApproveReportCommand(@NotNull @PositiveOrZero Long version,
+                                       @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
+    public record RegenerateReportCommand(@NotNull UUID limitationId,
+                                          @NotBlank @Size(min = 10, max = 2000) String justification) { }
+    public record SaveManualCommand(@NotNull @PositiveOrZero Long assessmentVersion,
+                                    @NotNull @PositiveOrZero Long version, @NotNull ManualReport manualReport,
+                                    @PositiveOrZero @Max(604800000) Long manualActiveMillis) { }
+    public record FinalizeManualCommand(@NotNull @PositiveOrZero Long version,
+                                        @PositiveOrZero @Max(604800000) Long manualActiveMillis) { }
+    public record SaveEvaluationCommand(@NotNull @PositiveOrZero Long version,
+                                        @NotNull AcademicReportEvaluation evaluation) { }
+    public record SaveLimitationAnalysisCommand(@NotNull @PositiveOrZero Long version,
+                                                @NotNull AcademicLimitationAnalysis analysis) { }
+    public record CreatePeerEvaluationCommand(@NotBlank @Size(min = 2, max = 80) String reviewerCode) { }
+    public record SavePeerEvaluationCommand(@NotNull @PositiveOrZero Long version,
+                                            @NotNull AcademicReportEvaluation evaluation) { }
+    public record SaveReconciliationCommand(@NotNull @PositiveOrZero Long version,
+                                            @NotNull AcademicEvaluationReconciliation reconciliation) { }
 
     public record AssessmentResponse(UUID id, String title, String personName, String context,
                                      InterviewStatus status, long version, Instant createdAt, Instant updatedAt) {
@@ -98,14 +250,25 @@ public class PersonalAssessmentController {
         }
     }
 
-    public record ReportResponse(UUID id, UUID assessmentId, String status, long sourceVersion,
-                                 String promptVersion, String model,
-                                 com.kologeski.interviewassistant.report.ReportDraft draft,
-                                 Instant createdAt, boolean replayed) {
+    public record ReportResponse(UUID id, UUID assessmentId, String status, long sourceVersion, long version,
+                                 String promptVersion, String model, ReportDraft originalDraft, ReportDraft draft,
+                                 String humanConclusion, boolean reviewConfirmed, Instant createdAt,
+                                 Instant updatedAt, Instant approvedAt, Long generationLatencyMillis,
+                                 long reviewActiveMillis, boolean replayed) {
         static ReportResponse from(PersonalReportService.ReportView value) {
             return new ReportResponse(value.id(), value.assessmentId(), value.status().name(),
-                    value.sourceVersion(), value.promptVersion(), value.model(), value.draft(),
-                    value.createdAt(), value.replayed());
+                    value.sourceVersion(), value.version(), value.promptVersion(), value.model(),
+                    value.originalDraft(), value.draft(), value.humanConclusion(), value.reviewConfirmed(),
+                    value.createdAt(), value.updatedAt(), value.approvedAt(), value.generationLatencyMillis(),
+                    value.reviewActiveMillis(), value.replayed());
         }
+    }
+    public record StudyResponse(UUID id,UUID assessmentId,long sourceVersion,long version,ManualReport manualReport,
+                                boolean finalized,String contextHash,Instant createdAt,Instant updatedAt,Instant finalizedAt,String finalizedBy,
+                                AcademicReportEvaluation evaluation,boolean evaluationFinalized,Instant evaluationFinalizedAt,String evaluationFinalizedBy,
+                                AcademicLimitationAnalysis limitationAnalysis,boolean limitationAnalysisFinalized,Instant limitationAnalysisFinalizedAt,String limitationAnalysisFinalizedBy,
+                                AcademicEvaluationReconciliation reconciliation,boolean reconciliationFinalized,Instant reconciliationFinalizedAt,String reconciliationFinalizedBy,
+                                String timingVersion,long manualActiveMillis){
+        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy(),value.limitationAnalysis(),value.limitationAnalysisFinalized(),value.limitationAnalysisFinalizedAt(),value.limitationAnalysisFinalizedBy(),value.reconciliation(),value.reconciliationFinalized(),value.reconciliationFinalizedAt(),value.reconciliationFinalizedBy(),value.timingVersion(),value.manualActiveMillis());}
     }
 }

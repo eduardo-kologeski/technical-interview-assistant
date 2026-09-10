@@ -13,13 +13,13 @@ Resposta: `id`, `title`, `personName`, `context`, `status`, `version`, `createdA
 ## Coleta estruturada
 
 - `GET /api/assessments/{id}/collection` consulta o documento próprio;
-- `PATCH /api/assessments/{id}/collection/start` inicia a coleta a partir da versão informada;
-- `PUT /api/assessments/{id}/collection` salva o documento completo com controle otimista;
+- `PUT /api/assessments/{id}/collection` salva primeiro a preparação e depois os registros, sempre com controle otimista;
+- `PATCH /api/assessments/{id}/collection/start` inicia a coleta somente depois de existir ao menos um requisito salvo;
 - `PATCH /api/assessments/{id}/collection/complete` encerra a coleta.
 
 Os comandos de início e conclusão recebem `{"version":0}`. O salvamento recebe `version` e `document`. O documento `schemaVersion: 1` contém listas de `criteria`, `evidence`, `notes`, `strengths` e `concerns`. Cada item possui UUID estável; toda evidência deve referenciar um critério existente. Pontuação é opcional e, quando informada, fica entre 0 e 5. Notas gerais não exigem critério; pontos positivos e de atenção podem referenciá-lo opcionalmente.
 
-IDs duplicados, referências inexistentes, schema desconhecido e limites inválidos retornam 400. Versão desatualizada retorna 409 sem sobrescrever o documento atual. Somente uma coleta `IN_PROGRESS` pode ser salva; depois de `COMPLETED`, o documento fica protegido. `generationEligible` só é verdadeiro quando a coleta foi encerrada e existe ao menos um critério com evidência textual. Esse indicador não inicia geração nem avalia a pessoa.
+IDs duplicados, referências inexistentes, schema desconhecido e limites inválidos retornam 400. Versão desatualizada retorna 409 sem sobrescrever o documento atual. Em `CREATED`, o documento aceita somente requisitos sem pontuação ou registros; o início exige ao menos um requisito. Em `IN_PROGRESS`, as definições dos requisitos ficam bloqueadas, enquanto pontuação, evidências, notas e apontamentos podem ser salvos. Depois de `COMPLETED`, todo o documento fica protegido. `generationEligible` só é verdadeiro quando a coleta foi encerrada e existe ao menos um critério com evidência textual. Esse indicador não inicia geração nem avalia a pessoa.
 
 ## Persistência e compatibilidade
 
@@ -51,11 +51,13 @@ Neste Docker Desktop, o Testcontainers 1.21.3 precisou de `DOCKER_HOST=npipe:///
 ### Evidência de execução — IND-04
 
 - dashboard individual permite criar e retomar avaliações sem empresa, vaga ou template;
-- a tela de coleta edita critérios, evidências, notas, pontos positivos e pontos de atenção, com pontuação opcional;
+- a tela separa a preparação dos requisitos da avaliação e bloqueia suas definições depois do início;
+- durante a avaliação, 17 frases rápidas preenchem a experiência observada; opções positivas também registram ponto forte e opções negativas registram ponto de atenção;
 - o autosave serializa alterações, envia a versão esperada e mantém o documento na tela quando ocorre falha ou conflito;
 - o encerramento aguarda a confirmação do salvamento e torna a coleta somente leitura;
-- 68 testes do frontend e o build de produção foram aprovados;
+- 70 testes do frontend e o build de produção foram aprovados;
 - o E2E executado no Docker Compose existente confirmou criação, persistência após recarga, falha simulada, retry e conclusão.
+- `npm run e2e:local-compose -- --grep "personal assessment"` reutiliza os três serviços locais, sem iniciar outro backend, frontend ou banco.
 
 ## Contrato interno de geração — IND-05
 
@@ -114,6 +116,8 @@ A resposta contém `id`, `assessmentId`, `status: "DRAFT"`, `sourceVersion`, `pr
 
 V22 cria `assessment_reports` com vínculo composto entre avaliação e proprietário, uma minuta por avaliação e unicidade da chave idempotente por usuário. O snapshot minimizado e a saída original validada são imutáveis nesta etapa. A chamada ao Ollama ocorre fora da transação; antes de persistir, o serviço revalida proprietário, existência e versão da avaliação.
 
+V27 cria uma reserva transitória de geração vinculada à avaliação, proprietário, versão e chave idempotente. A captura e o início do caso acadêmico bloqueiam a mesma linha da avaliação, eliminando a janela em que ambos poderiam começar juntos. A reserva expira após os timeouts configurados do Ollama mais uma margem operacional, é removida após sucesso ou falha e não contém o contexto nem a resposta do modelo.
+
 Falhas controladas:
 
 | Situação | HTTP | Persistência |
@@ -124,4 +128,26 @@ Falhas controladas:
 | resposta HTTP/schema inválida | 502 | avaliação preservada; nenhum conteúdo inválido salvo |
 | versão desatualizada ou minuta existente | 409 | original existente permanece intacto |
 
-O endpoint foi validado localmente sem Ollama configurado: retornou 503, manteve a coleta `COMPLETED` e sua evidência, não criou linha em `assessment_reports` e não registrou título/evidência nos logs. O smoke real com um modelo local permanece pendente.
+O endpoint foi validado localmente em dois cenários. Sem Ollama configurado, retornou 503, manteve a coleta `COMPLETED` e sua evidência, não criou linha em `assessment_reports` e não registrou título/evidência nos logs. Com Ollama 0.34.0 e `gemma3:1b`, o smoke sintético persistiu uma minuta `DRAFT` com cinco seções válidas e confirmou que entrada e resposta completa não aparecem nos logs; a avaliação e a conta sintéticas foram removidas ao final.
+
+## Caso acadêmico e ficha de avaliação
+
+`PUT /api/assessments/{id}/study/manual` cria ou salva o parecer manual de controle para uma avaliação encerrada. `POST /api/assessments/{id}/study/manual/finalize` valida todas as seções, persiste a versão e o hash SHA-256 do contexto estruturado e torna o artefato imutável. Enquanto esse caso acadêmico existir sem finalização, a geração da minuta retorna 409. O parecer manual e sua conclusão humana não integram o snapshot nem o prompt.
+
+Depois da geração da minuta original, `PUT /api/assessments/{id}/study/evaluation` salva a ficha humana usando a versão otimista do caso. A ficha contém exatamente as dimensões `PRESENCE`, `CORRESPONDENCE`, `SUPPORT`, `INSUFFICIENCY_HANDLING` e `DECISION_SEPARATION`; cada dimensão aceita nota de 0 a 2, justificativa, referências à entrada e referências ao trecho da minuta. Ela também registra contagens de informações esperadas ausentes, afirmações factuais analisadas, afirmações sem sustentação e seções alteradas.
+
+`POST /api/assessments/{id}/study/evaluation/finalize` exige todas as dimensões completas, ao menos uma referência de cada tipo por dimensão e contagens coerentes. A finalização registra autor e horário e torna a ficha imutável. Todos os endpoints aplicam o proprietário da avaliação; a ficha não é enviada ao Ollama nem incluída em logs ou métricas de conteúdo.
+
+`GET /api/assessment-studies/summary` consolida apenas fichas finalizadas do usuário autenticado. O resultado informa totais e distribuições 0–2 por dimensão, agrupados por versão de protocolo, prompt e modelo, além da quantidade de análises de limitações finalizadas e de achados por categoria. `GET /api/assessment-studies/summary.csv` entrega os mesmos dados para download. Nenhum dos formatos inclui ID, título, pessoa avaliada, texto, justificativa ou referência; valores textuais exportados também são protegidos contra interpretação como fórmula de planilha.
+
+V28 adiciona a temporização `active-timing-v1`. Os comandos de salvar/finalizar o parecer manual aceitam `manualActiveMillis`; salvar/aprovar a revisão aceita `reviewActiveMillis`. O servidor rejeita regressão ou valor acima de sete dias. `generationLatencyMillis` é calculado pelo backend entre o início da geração local e a validação de sua resposta, com limite de 24 horas. Casos anteriores, sem `timingVersion`, não entram nas médias de tempo. O resumo acadêmico expõe médias dos três valores somente para casos finalizados e compatíveis com a mesma versão de temporização.
+
+V29 preserva cada execução em `assessment_report_generations`. `GET /api/assessments/{id}/report/generations` lista a original e as experimentais sem expor o snapshot. O backend reconstrói cada prompt experimental a partir do contexto persistido da execução original, registra sequência, prompt, modelo, latência e nova minuta, e nunca altera a original, a versão revisada ou a conclusão humana.
+
+V30 adiciona a análise humana de limitações. `PUT /api/assessments/{id}/study/limitations` recebe `version` e `analysis`, cujos itens possuem ID, categoria (`INPUT`, `CONTEXT`, `PROMPT`, `MODEL`, `INTERFACE` ou `HUMAN_REVIEW`), descrição, referências à entrada e à minuta, ajuste proposto, impacto esperado, plano de validação e risco residual. `POST /api/assessments/{id}/study/limitations/finalize` valida os campos, registra autor e horário e torna a análise imutável. Os endpoints só operam depois da ficha acadêmica original finalizada, e o conteúdo nunca é enviado ao Ollama.
+
+V31 adiciona revisão entre avaliadores. `GET/POST /api/assessments/{id}/study/peer-evaluations` lista ou cria fichas independentes identificadas por código pseudônimo. `PUT /api/assessments/{id}/study/peer-evaluations/{peerId}` salva a mesma rubrica com versão otimista; `POST .../{peerId}/finalize` congela a ficha, e `DELETE .../{peerId}` remove somente fichas ainda abertas. `GET /api/assessments/{id}/study/agreement` calcula comparações pareadas e concordância exata geral e por dimensão, considerando a ficha original e todas as fichas independentes finalizadas.
+
+`PUT /api/assessments/{id}/study/reconciliation` registra a nota consensual e a justificativa humana para cada dimensão, além da conclusão da conciliação. `POST /api/assessments/{id}/study/reconciliation/finalize` exige ao menos uma ficha independente, todas as fichas congeladas e todas as dimensões conciliadas; depois disso, a conciliação e o conjunto de avaliações ficam imutáveis. O resumo acadêmico expõe apenas contagens e percentuais de concordância, sem códigos, notas por caso, justificativas ou referências.
+
+`POST /api/assessments/{id}/report/regenerations`, com `Idempotency-Key`, `limitationId` e justificativa de 10 a 2.000 caracteres, só é aceito depois da análise de limitações ser finalizada. A execução fica ligada ao item selecionado e usa o mesmo snapshot da minuta original. Falha, timeout ou resposta inválida do Ollama não cria histórico parcial nem altera os artefatos existentes.

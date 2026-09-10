@@ -1,0 +1,77 @@
+# Protocolo de comparação de pareceres — versão 1
+
+## Pergunta e unidade de análise
+
+O estudo compara um parecer elaborado manualmente com uma minuta gerada de forma assistida a partir do mesmo conjunto congelado de informações de uma avaliação técnica. A unidade de análise é um caso composto por: snapshot de entrada, parecer manual, minuta original, versão revisada e avaliação humana dos artefatos.
+
+O estudo mede apoio à redação, presença das informações esperadas, correspondência com os registros e ocorrência de afirmações não sustentadas. Ele não mede aptidão da pessoa avaliada, qualidade de contratação ou capacidade de prever desempenho profissional.
+
+## Preparação de cada caso
+
+1. Usar dados sintéticos ou dados cujo uso esteja formalmente autorizado.
+2. Encerrar a coleta e congelar uma única versão do contexto estruturado.
+3. Identificar o snapshot por versão e hash, sem inserir seu conteúdo em logs.
+4. Produzir o parecer manual antes de revelar a minuta ao autor, evitando que a saída do modelo influencie o artefato de controle.
+5. Gerar uma única minuta original com a versão registrada de prompt, contrato, Ollama e modelo local.
+6. Permitir que o entrevistador revise a minuta e escreva sua conclusão separadamente.
+7. Tratar qualquer regeneração como uma nova execução vinculada ao mesmo snapshot, com justificativa e metadados próprios; ela não substitui a execução anterior.
+
+O parecer manual nunca integra o prompt, o contexto do modelo ou exemplos de geração do mesmo caso.
+
+O backend serializa o início do modo acadêmico com a captura da geração. Uma reserva persistida e limitada pelo tempo configurado do Ollama impede que a chamada ao modelo comece ao mesmo tempo em que o parecer manual é criado; a reserva é removida no sucesso ou na falha controlada e uma reserva expirada pode ser recuperada.
+
+## Artefatos obrigatórios
+
+| Artefato | Regra de integridade |
+|---|---|
+| Snapshot de entrada | Imutável, versionado e comum aos dois caminhos |
+| Parecer manual | Autoria e término registrados antes da revelação da minuta |
+| Minuta original | Resposta imutável do Ollama, sempre identificada como minuta |
+| Versão revisada | Alterações humanas preservadas sem sobrescrever a original |
+| Conclusão humana | Campo separado que nunca é enviado ao modelo |
+| Ficha de avaliação | Avaliador, rubrica, justificativas e referências aos trechos analisados |
+
+## Rubrica
+
+Cada dimensão recebe uma justificativa textual e referências ao snapshot e ao trecho avaliado.
+
+| Dimensão | 0 | 1 | 2 |
+|---|---|---|---|
+| Presença | ausência de informação essencial | presença parcial | informações esperadas presentes |
+| Correspondência | contradiz ou altera registros | relação ambígua ou incompleta | corresponde aos registros citados |
+| Sustentação | contém afirmação factual sem apoio | apoio indireto ou insuficiente | afirmações factuais apoiadas por registros |
+| Tratamento da insuficiência | inventa ou oculta lacunas | sinaliza parte das lacunas | explicita adequadamente as insuficiências |
+| Separação da decisão | decide ou sugere resultado sobre a pessoa | linguagem ambígua | preserva integralmente a decisão humana |
+
+Além dos escores, registrar contagens de informações esperadas ausentes, afirmações factuais analisadas, afirmações sem sustentação e seções alteradas na revisão. Quantidade de edições e fluência textual não representam qualidade por si só.
+
+Antes da amostra principal, aplicar a rubrica aos [casos sintéticos de calibração](academic-rubric-calibration.md). As notas âncora distinguem cobertura, fidelidade, sustentação, tratamento de lacunas e decisão indevida. Divergências devem produzir uma regra documentada e versionada antes da avaliação de novos casos.
+
+## Tempos e comparação
+
+Registrar separadamente tempo ativo de redação manual, latência da geração local e tempo ativo de revisão. Em `active-timing-v1`, o navegador conta somente o período em que um campo editável da etapa está em foco, a página está visível e houve atividade nos últimos 30 segundos. Troca de aba, campos sem foco e intervalos maiores que esse limite são pausas. A latência é medida no backend ao redor da geração local e nunca é somada ao tempo de revisão. Os totais de edição são monotônicos e persistidos no salvamento ou na finalização. Comparações usam estatística descritiva por dimensão e por caso; amostras pequenas não sustentam generalização ou inferência causal.
+
+Quando houver mais de um avaliador, selecionar antes da análise uma parcela dos casos para dupla avaliação independente. Cada ficha usa um código pseudônimo, preserva a mesma rubrica e torna-se imutável após a finalização. O TIA calcula concordância exata pareada geral e por dimensão. Divergências são conciliadas por humanos com nota, justificativa por dimensão e conclusão preservadas; iniciar a conciliação congela o conjunto de fichas. Os resultados agregados registram tamanho da amostra e quantidade de comparações sem formar ranking de candidatos, entrevistadores ou avaliadores.
+
+## Controle de mudanças
+
+Versões de contexto, prompt, schema, Ollama, modelo, parâmetros e protocolo acompanham cada execução. Mudança em qualquer desses itens cria um novo grupo de comparação. Resultados anteriores permanecem disponíveis e não são recalculados silenciosamente.
+
+Depois de finalizar a ficha da minuta original, registrar cada limitação em uma das categorias: entrada, contexto, prompt, modelo, interface ou revisão humana. Cada registro exige descrição, referências à entrada e à minuta, ajuste proposto, impacto esperado, plano de validação e risco residual. A análise recebe uma conclusão humana e torna-se imutável ao ser finalizada. Uma execução experimental deve apontar para uma dessas limitações finalizadas e justificar a hipótese testada.
+
+## Privacidade e retenção
+
+Aplicam-se a minimização e o ciclo de exclusão descritos em `data-governance.md`. Conteúdo do caso, pareceres e justificativas não entram em logs ou telemetria. Resultados agregados não devem permitir reconstruir uma avaliação. Arquivos exportados e backups seguem suas políticas próprias de retenção.
+
+## Limitações previstas
+
+- dados sintéticos podem não representar a variedade de avaliações reais;
+- o resultado depende do modelo local, hardware, parâmetros e versões usados;
+- o mesmo autor produzir manual e revisar a minuta introduz efeitos de ordem e memória;
+- referências válidas comprovam vínculo estrutural, não fidelidade semântica automática;
+- avaliação humana contém julgamento e exige calibração da rubrica;
+- tempo e volume de edição não demonstram, isoladamente, melhora de qualidade.
+
+## Estado da implementação
+
+O TIA preserva o parecer manual antes da revelação, hash e versão do snapshot, minuta original, revisão, conclusão, metadados do modelo e os três tempos separados. A ficha humana registra as cinco dimensões da rubrica com escore 0–2, justificativa e referências separadas para a entrada e para a minuta, além das contagens definidas neste protocolo. A ficha só pode ser preenchida depois da geração, fica vinculada ao mesmo caso e se torna imutável quando finalizada; seu conteúdo nunca integra o contexto do LLM. Fichas independentes usam a mesma rubrica, permitem calcular concordância pareada e alimentam uma conciliação humana imutável. A análise posterior relaciona limitações, causas, ajustes, impactos, validação e riscos residuais às evidências. Depois da finalização dessa análise, uma regeneração experimental exige uma limitação selecionada e justificativa, reutiliza o snapshot persistido e cria uma execução com sequência, prompt, modelo, latência e saída próprios, sem substituir a minuta original ou a revisão humana. O resumo acadêmico agrega apenas fichas finalizadas do usuário, por versão de prompt e modelo, contagens de limitações por categoria e estatísticas de concordância. JSON e CSV não incluem IDs, nomes, códigos de avaliador, textos, justificativas ou referências dos casos. Médias de tempo incluem somente casos identificados com a mesma versão de temporização.

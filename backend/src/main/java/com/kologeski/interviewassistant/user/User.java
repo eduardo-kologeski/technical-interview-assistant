@@ -22,6 +22,8 @@ public class User {
     private Instant emailVerifiedAt;
     @Column(name = "session_version", nullable = false)
     private long sessionVersion;
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     protected User() { }
 
@@ -42,6 +44,8 @@ public class User {
     public Instant getEmailVerifiedAt() { return emailVerifiedAt; }
     public boolean isEmailVerified() { return emailVerifiedAt != null; }
     public long getSessionVersion() { return sessionVersion; }
+    public Instant getDeletedAt() { return deletedAt; }
+    public boolean isDeleted() { return deletedAt != null; }
 
     public void verifyEmail(Instant now) {
         if (emailVerifiedAt == null) emailVerifiedAt = now;
@@ -57,6 +61,17 @@ public class User {
     public void updateProfile(String name, String email, Instant now) {
         this.name = name;
         this.email = email;
+        this.updatedAt = now;
+    }
+
+    public void anonymize(Instant now) {
+        if (deletedAt != null) return;
+        this.name = "Usuário excluído";
+        this.email = "deleted+" + id + "+" + java.util.UUID.randomUUID() + "@invalid.local";
+        this.passwordHash = java.util.UUID.randomUUID().toString();
+        this.emailVerifiedAt = null;
+        this.deletedAt = now;
+        this.sessionVersion++;
         this.updatedAt = now;
     }
 }

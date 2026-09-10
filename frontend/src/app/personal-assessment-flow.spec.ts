@@ -5,7 +5,8 @@ import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { PersonalAssessmentCollectionComponent } from './personal-assessment-collection.component';
 import { PersonalAssessmentCreateComponent } from './personal-assessment-create.component';
-import { PersonalAssessmentCollection, PersonalAssessmentService, PersonalAssessmentSummary } from './personal-assessment.service';
+import { ActiveTimeTracker, PersonalAssessmentReportComponent } from './personal-assessment-report.component';
+import { PersonalAssessmentCollection, PersonalAssessmentReport, PersonalAssessmentService, PersonalAssessmentSummary, ReportDraft } from './personal-assessment.service';
 
 const summary: PersonalAssessmentSummary = {
   id: 'assessment-1', title: 'Java', personName: 'Pessoa', context: 'Desenvolvimento', status: 'CREATED',
@@ -14,8 +15,19 @@ const summary: PersonalAssessmentSummary = {
 const collection: PersonalAssessmentCollection = {
   id: summary.id, status: 'IN_PROGRESS', version: 1, generationEligible: false,
   updatedAt: summary.updatedAt,
-  document: { schemaVersion: 1, criteria: [], evidence: [], notes: [], strengths: [], concerns: [] },
+  document: { schemaVersion: 1, criteria: [{ id: 'criterion-1', name: 'APIs REST', technology: 'Spring', description: 'Integrações', question: 'Como desenha uma API?', rubric: 'Explique contratos', score: null }], evidence: [], notes: [], strengths: [], concerns: [] },
 };
+const reportDraft: ReportDraft = {
+  context: { text: 'Contexto', evidenceReferences: [], insufficientData: false },
+  observedKnowledge: { text: 'Conhecimento', evidenceReferences: ['evidence-1'], insufficientData: false },
+  strengths: { text: 'Dados insuficientes', evidenceReferences: [], insufficientData: true },
+  concerns: { text: 'Dados insuficientes', evidenceReferences: [], insufficientData: true },
+  synthesis: { text: 'Síntese', evidenceReferences: ['evidence-1'], insufficientData: false },
+};
+const report: PersonalAssessmentReport = { id: 'report-1', assessmentId: summary.id, status: 'DRAFT', sourceVersion: 4,
+  version: 0, promptVersion: 'v1', model: 'local-model', originalDraft: reportDraft, draft: reportDraft,
+  humanConclusion: null, reviewConfirmed: false, createdAt: summary.createdAt, updatedAt: summary.updatedAt,
+  approvedAt: null, generationLatencyMillis: 120, reviewActiveMillis: 0, replayed: false };
 
 describe('personal assessment flow', () => {
   afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); });
@@ -34,6 +46,65 @@ describe('personal assessment flow', () => {
     expect(save.request.method).toBe('PUT'); expect(save.request.body.document.schemaVersion).toBe(1); save.flush(collection);
     service.complete('assessment-1', 1).subscribe();
     http.expectOne('/api/assessments/assessment-1/collection/complete').flush({ ...collection, status: 'COMPLETED' });
+    service.report('assessment-1').subscribe();
+    http.expectOne('/api/assessments/assessment-1/report').flush(report);
+    service.reportGenerations('assessment-1').subscribe();
+    http.expectOne('/api/assessments/assessment-1/report/generations').flush([]);
+    service.generateReport('assessment-1', 4, 'generation-key').subscribe();
+    const generate = http.expectOne('/api/assessments/assessment-1/report/generate');
+    expect(generate.request.headers.get('Idempotency-Key')).toBe('generation-key'); generate.flush(report);
+    service.saveReport('assessment-1', 0, reportDraft, 'Conclusão', true).subscribe();
+    const saveReport = http.expectOne('/api/assessments/assessment-1/report');
+    expect(saveReport.request.method).toBe('PUT'); expect(saveReport.request.body.humanConclusion).toBe('Conclusão'); saveReport.flush(report);
+    service.approveReport('assessment-1', 1, 'approval-key').subscribe();
+    const approve = http.expectOne('/api/assessments/assessment-1/report/approve');
+    expect(approve.request.headers.get('Idempotency-Key')).toBe('approval-key'); approve.flush({ ...report, status: 'APPROVED' });
+    service.regenerateReport('assessment-1', 'limitation-1', 'Testar nova versão', 'regeneration-key').subscribe();
+    const regeneration = http.expectOne('/api/assessments/assessment-1/report/regenerations');
+    expect(regeneration.request.headers.get('Idempotency-Key')).toBe('regeneration-key');
+    expect(regeneration.request.body.limitationId).toBe('limitation-1'); regeneration.flush({});
+    service.delete('assessment-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1').request.method).toBe('DELETE');
+    service.copyRequirements('assessment-1', { title: 'Nova', personName: 'Outra pessoa', context: '' }).subscribe();
+    const copy = http.expectOne('/api/assessments/assessment-1/copy-requirements');
+    expect(copy.request.method).toBe('POST'); expect(copy.request.body.personName).toBe('Outra pessoa'); copy.flush(summary);
+    const manualReport = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
+    service.saveManualReport('assessment-1', 4, 0, manualReport).subscribe();
+    const saveManual = http.expectOne('/api/assessments/assessment-1/study/manual');
+    expect(saveManual.request.body.assessmentVersion).toBe(4); saveManual.flush({});
+    service.finalizeManualReport('assessment-1', 1).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/manual/finalize').request.body).toEqual({ version: 1, manualActiveMillis: undefined });
+    const evaluation = { dimensions: [], expectedInformationMissing: 0, factualClaimsAnalyzed: 0, unsupportedClaims: 0, revisedSections: 0 };
+    service.saveStudyEvaluation('assessment-1', 2, evaluation).subscribe();
+    const saveEvaluation = http.expectOne('/api/assessments/assessment-1/study/evaluation');
+    expect(saveEvaluation.request.body).toEqual({ version: 2, evaluation }); saveEvaluation.flush({});
+    service.finalizeStudyEvaluation('assessment-1', 3).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/evaluation/finalize').request.body).toEqual({ version: 3 });
+    const analysis = { findings: [], overallConclusion: '' };
+    service.saveLimitationAnalysis('assessment-1', 4, analysis).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/limitations').request.body).toEqual({ version: 4, analysis });
+    service.finalizeLimitationAnalysis('assessment-1', 5).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/limitations/finalize').request.body).toEqual({ version: 5 });
+    service.peerEvaluations('assessment-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations').request.method).toBe('GET');
+    service.createPeerEvaluation('assessment-1','AV-B').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations').request.body).toEqual({reviewerCode:'AV-B'});
+    service.savePeerEvaluation('assessment-1','peer-1',0,evaluation).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations/peer-1').request.body).toEqual({version:0,evaluation});
+    service.finalizePeerEvaluation('assessment-1','peer-1',1).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations/peer-1/finalize').request.body).toEqual({version:1});
+    service.deletePeerEvaluation('assessment-1','peer-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations/peer-1').request.method).toBe('DELETE');
+    service.academicAgreement('assessment-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/agreement').request.method).toBe('GET');
+    const reconciliation={dimensions:[],overallConclusion:''};
+    service.saveReconciliation('assessment-1',6,reconciliation).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/reconciliation').request.body).toEqual({version:6,reconciliation});
+    service.finalizeReconciliation('assessment-1',7).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/reconciliation/finalize').request.body).toEqual({version:7});
+    service.academicSummaryCsv().subscribe();
+    const summaryCsv = http.expectOne('/api/assessment-studies/summary.csv');
+    expect(summaryCsv.request.responseType).toBe('text'); summaryCsv.flush('metric,value');
     http.verify();
   });
 
@@ -62,13 +133,176 @@ describe('personal assessment flow', () => {
       { provide: PersonalAssessmentService, useValue: service },
     ] }).compileComponents();
     const fixture = TestBed.createComponent(PersonalAssessmentCollectionComponent); fixture.detectChanges();
-    fixture.componentInstance.newCriterion = 'APIs REST'; fixture.componentInstance.addCriterion();
+    fixture.componentInstance.updateScore('criterion-1', 4);
     fixture.componentInstance.complete();
     expect(service.complete).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(500); fixture.detectChanges();
     expect(service.save).toHaveBeenCalled();
-    expect(fixture.componentInstance.document().criteria[0].name).toBe('APIs REST');
+    expect(fixture.componentInstance.document().criteria[0].score).toBe(4);
     expect(fixture.componentInstance.saveError()).toContain('outra sessão');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('outra sessão');
+  });
+
+  it('requires saved requirements before starting the assessment', async () => {
+    vi.useFakeTimers();
+    const createdCollection: PersonalAssessmentCollection = { ...collection, status: 'CREATED', version: 0,
+      document: { schemaVersion: 1, criteria: [], evidence: [], notes: [], strengths: [], concerns: [] } };
+    const service = {
+      get: vi.fn(() => of(summary)), collection: vi.fn(() => of(createdCollection)),
+      save: vi.fn((_id: string, _version: number, document: PersonalAssessmentCollection['document']) => of({ ...createdCollection, version: 1, document })),
+      start: vi.fn(() => of({ ...collection, version: 2 })), complete: vi.fn(),
+    };
+    await TestBed.configureTestingModule({ imports: [PersonalAssessmentCollectionComponent], providers: [
+      provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
+      { provide: PersonalAssessmentService, useValue: service },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PersonalAssessmentCollectionComponent); fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Defina os requisitos antes da entrevista');
+    fixture.componentInstance.start(); expect(service.start).not.toHaveBeenCalled();
+    fixture.componentInstance.newCriterion = 'Mensageria'; fixture.componentInstance.addCriterion();
+    await vi.advanceTimersByTimeAsync(500);
+    fixture.componentInstance.start();
+    expect(service.save).toHaveBeenCalled();
+    expect(service.start).toHaveBeenCalledWith('assessment-1', 1);
+  });
+
+  it('restores quick phrases and records positive observations as evidence and strengths', async () => {
+    const service = { get: vi.fn(() => of(summary)), collection: vi.fn(() => of(collection)),
+      save: vi.fn(() => of(collection)), start: vi.fn(), complete: vi.fn() };
+    await TestBed.configureTestingModule({ imports: [PersonalAssessmentCollectionComponent], providers: [
+      provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
+      { provide: PersonalAssessmentService, useValue: service },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PersonalAssessmentCollectionComponent); fixture.detectChanges();
+    const option = fixture.componentInstance.quickOptions.find(item => item.label === 'Forte experiência prática')!;
+    fixture.componentInstance.appendQuickObservation('criterion-1', option); fixture.detectChanges();
+    expect(fixture.componentInstance.document().evidence[0].text).toBe('Forte experiência prática.');
+    expect(fixture.componentInstance.document().strengths[0].criterionId).toBe('criterion-1');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Resposta completa');
+  });
+
+  it('autosaves the human review before enabling immutable approval', async () => {
+    vi.useFakeTimers();
+    const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
+    const service = {
+      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)), report: vi.fn(() => of(report)), reportGenerations: vi.fn(() => of([])), study: vi.fn(() => throwError(() => ({ status: 404 }))),
+      saveReport: vi.fn((_id: string, _version: number, draft: ReportDraft, humanConclusion: string, reviewConfirmed: boolean) => of({ ...report, version: 1, draft, humanConclusion, reviewConfirmed })),
+      approveReport: vi.fn(() => of({ ...report, status: 'APPROVED' as const, version: 2, humanConclusion: 'Conclusão humana', reviewConfirmed: true, approvedAt: '2026-09-07T01:00:00Z' })),
+      generateReport: vi.fn(),
+    };
+    await TestBed.configureTestingModule({ imports: [PersonalAssessmentReportComponent], providers: [
+      provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
+      { provide: PersonalAssessmentService, useValue: service },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PersonalAssessmentReportComponent); fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('MINUTA DE PARECER');
+    fixture.componentInstance.updateSection('context', 'Contexto revisado');
+    fixture.componentInstance.updateConclusion('Conclusão humana');
+    fixture.componentInstance.updateConfirmation(true);
+    expect(fixture.componentInstance.canApprove()).toBe(false);
+    await vi.advanceTimersByTimeAsync(550); fixture.detectChanges();
+    expect(service.saveReport).toHaveBeenCalled();
+    expect(fixture.componentInstance.canApprove()).toBe(true);
+    fixture.componentInstance.approve(); fixture.detectChanges();
+    expect(service.approveReport).toHaveBeenCalledWith('assessment-1', 1, expect.any(String), 0);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('PARECER APROVADO');
+    const pdf = await fixture.componentInstance.exportPdf(false);
+    expect(pdf?.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+    fixture.componentInstance.draft.set({ ...reportDraft, synthesis: { ...reportDraft.synthesis, text: 'Registro sustentado. '.repeat(300) } });
+    const longPdf = await fixture.componentInstance.exportPdf(false);
+    expect(longPdf?.getNumberOfPages()).toBeGreaterThan(1);
+    expect(service.approveReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a frozen manual report before revealing the draft in study mode', async () => {
+    const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
+    const emptyManual = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
+    const peerEvaluation = { dimensions: (['PRESENCE','CORRESPONDENCE','SUPPORT','INSUFFICIENCY_HANDLING','DECISION_SEPARATION'] as const).map(dimension=>({dimension,score:null,justification:'',sourceReferences:[],draftReferences:[]})), expectedInformationMissing:0, factualClaimsAnalyzed:0, unsupportedClaims:0, revisedSections:0 };
+    const study = { id: 'study-1', assessmentId: summary.id, sourceVersion: 4, version: 0, manualReport: emptyManual,
+      finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null,
+      finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null,
+      limitationAnalysis: null, limitationAnalysisFinalized: false, limitationAnalysisFinalizedAt: null, limitationAnalysisFinalizedBy: null,
+      reconciliation: null, reconciliationFinalized: false, reconciliationFinalizedAt: null, reconciliationFinalizedBy: null,
+      timingVersion: 'active-timing-v1', manualActiveMillis: 0 };
+    let manualSaves = 0;
+    let savedAnalysis: unknown = null;
+    const service = {
+      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)),
+      report: vi.fn(() => throwError(() => ({ status: 404 }))), study: vi.fn(() => throwError(() => ({ status: 404 }))),
+      saveManualReport: vi.fn((_id: string, _assessmentVersion: number, _version: number, manualReport: typeof emptyManual) => of({ ...study, version: manualSaves++, manualReport })),
+      finalizeManualReport: vi.fn(() => of({ ...study, version: 2, manualReport: { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' }, finalized: true, contextHash: 'a'.repeat(64), finalizedAt: summary.updatedAt })),
+      generateReport: vi.fn(() => of(report)), saveReport: vi.fn(), approveReport: vi.fn(),
+      reportGenerations: vi.fn(() => of([])), regenerateReport: vi.fn(() => of({ id:'generation-2', assessmentId:'assessment-1', sequence:2, kind:'EXPERIMENTAL', justification:'Testar alteração controlada', limitationReference:'limitation-1', promptVersion:'v1', model:'local-model', draft:reportDraft, generationLatencyMillis:100, createdAt:summary.updatedAt, replayed:false })),
+      saveStudyEvaluation: vi.fn((_id: string, _version: number, evaluation: unknown) => of({ ...study, version: 3, finalized: true, evaluation })),
+      finalizeStudyEvaluation: vi.fn(() => of({ ...study, version: 4, finalized: true, evaluation: null, evaluationFinalized: true })),
+      peerEvaluations: vi.fn(() => of([])), createPeerEvaluation: vi.fn(() => of({id:'peer-1',reviewerCode:'AV-B',version:0,evaluation:peerEvaluation,finalized:false,createdAt:summary.updatedAt,updatedAt:summary.updatedAt,finalizedAt:null})),
+      academicAgreement: vi.fn(() => of({evaluators:1,ratingComparisons:0,exactMatches:0,exactAgreementPercent:0,dimensions:[]})),
+      savePeerEvaluation: vi.fn(), finalizePeerEvaluation: vi.fn(), deletePeerEvaluation: vi.fn(), saveReconciliation: vi.fn(), finalizeReconciliation: vi.fn(),
+      saveLimitationAnalysis: vi.fn((_id: string, _version: number, analysis: unknown) => { savedAnalysis=analysis; return of({ ...study, version: 5, finalized: true, evaluationFinalized: true, limitationAnalysis: analysis }); }),
+      finalizeLimitationAnalysis: vi.fn(() => of({ ...study, version: 6, finalized: true, evaluationFinalized: true, limitationAnalysis: savedAnalysis, limitationAnalysisFinalized: true })),
+    };
+    await TestBed.configureTestingModule({ imports: [PersonalAssessmentReportComponent], providers: [
+      provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
+      { provide: PersonalAssessmentService, useValue: service },
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(PersonalAssessmentReportComponent); fixture.detectChanges();
+    fixture.componentInstance.startStudy();
+    fixture.componentInstance.generate(); expect(service.generateReport).not.toHaveBeenCalled();
+    const fields = { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' };
+    for (const [key, value] of Object.entries(fields)) fixture.componentInstance.updateManual(key as keyof typeof fields, value);
+    fixture.componentInstance.saveManual();
+    fixture.componentInstance.finalizeManual();
+    expect(service.finalizeManualReport).toHaveBeenCalledWith('assessment-1', 1, 0);
+    fixture.componentInstance.generate();
+    expect(service.generateReport).toHaveBeenCalledWith('assessment-1', 4);
+    for(let index=0;index<5;index++){
+      fixture.componentInstance.updateRating(index,'score',2);
+      fixture.componentInstance.updateRating(index,'justification','Verificação humana');
+      fixture.componentInstance.updateReferences(index,'sourceReferences','evidence-1');
+      fixture.componentInstance.updateReferences(index,'draftReferences','synthesis: frase 1');
+    }
+    expect(fixture.componentInstance.evaluationComplete()).toBe(true);
+    fixture.componentInstance.saveEvaluation();
+    expect(service.saveStudyEvaluation).toHaveBeenCalledWith('assessment-1',2,expect.objectContaining({dimensions:expect.any(Array)}));
+    fixture.componentInstance.finalizeEvaluation();
+    expect(service.finalizeStudyEvaluation).toHaveBeenCalledWith('assessment-1',3);
+    fixture.componentInstance.peerReviewerCode.set('AV-B');
+    fixture.componentInstance.createPeerEvaluation();
+    expect(service.createPeerEvaluation).toHaveBeenCalledWith('assessment-1','AV-B');
+    fixture.componentInstance.addLimitation();
+    const limitationId=fixture.componentInstance.limitationAnalysis().findings[0].id;
+    fixture.componentInstance.updateLimitation(0,'description','A síntese omitiu uma ressalva.');
+    fixture.componentInstance.updateLimitationReferences(0,'sourceReferences','evidence-1');
+    fixture.componentInstance.updateLimitationReferences(0,'draftReferences','synthesis: frase 1');
+    fixture.componentInstance.updateLimitation(0,'proposedAdjustment','Explicitar ressalvas no prompt.');
+    fixture.componentInstance.updateLimitation(0,'expectedImpact','Reduzir omissões.');
+    fixture.componentInstance.updateLimitation(0,'validationPlan','Repetir com o mesmo snapshot.');
+    fixture.componentInstance.updateLimitation(0,'residualRisk','Interpretação incorreta ainda é possível.');
+    fixture.componentInstance.updateLimitationConclusion('A cobertura da síntese precisa de ajuste.');
+    expect(fixture.componentInstance.limitationAnalysisComplete()).toBe(true);
+    fixture.componentInstance.saveLimitationAnalysis();
+    fixture.componentInstance.finalizeLimitationAnalysis();
+    expect(service.finalizeLimitationAnalysis).toHaveBeenCalledWith('assessment-1',5);
+    fixture.componentInstance.regenerationLimitationId.set(limitationId);
+    fixture.componentInstance.regenerationReason.set('Testar alteração controlada');
+    fixture.componentInstance.regenerateExperimental();
+    expect(service.regenerateReport).toHaveBeenCalledWith('assessment-1',limitationId,'Testar alteração controlada',expect.any(String));
+  });
+
+  it('counts focused active time and excludes idle or hidden intervals', () => {
+    let now=0,visible=true;
+    const tracker=new ActiveTimeTracker(()=>now,()=>visible);
+    tracker.begin('MANUAL');
+    now=1000;tracker.tick();
+    now=2000;tracker.activity('MANUAL');
+    expect(tracker.total('MANUAL')).toBe(2000);
+    visible=false;now=3000;tracker.visibilityChanged();
+    now=10_000;tracker.tick();
+    visible=true;tracker.visibilityChanged();
+    now=11_000;tracker.tick();
+    tracker.end('MANUAL');
+    expect(tracker.total('MANUAL')).toBe(3000);
+    tracker.hydrate('REVIEW',4500);
+    expect(tracker.total('REVIEW')).toBe(4500);
   });
 });

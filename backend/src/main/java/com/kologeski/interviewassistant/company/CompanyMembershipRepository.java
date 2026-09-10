@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface CompanyMembershipRepository extends JpaRepository<CompanyMembership, Long> {
     List<CompanyMembership> findByUserIdAndActiveTrueOrderByCreatedAtAsc(Long userId);
+    List<CompanyMembership> findByUserIdOrderByCreatedAtAsc(Long userId);
     Optional<CompanyMembership> findByCompanyIdAndUserIdAndActiveTrue(UUID companyId, Long userId);
     boolean existsByCompanyIdAndUserIdAndActiveTrue(UUID companyId, Long userId);
     List<CompanyMembership> findByCompanyIdAndActiveTrueOrderByCreatedAtAsc(UUID companyId);

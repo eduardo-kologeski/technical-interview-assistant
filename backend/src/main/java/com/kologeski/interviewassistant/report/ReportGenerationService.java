@@ -22,6 +22,10 @@ public class ReportGenerationService {
 
     public GenerationResult generate(Interview assessment, PersonalAssessmentDocument document) {
         ReportContext context = contexts.build(assessment, document);
+        return generate(context);
+    }
+
+    public GenerationResult generate(ReportContext context) {
         ReportPrompt prompt = prompts.build(context);
         LlmClient.LlmDraftResponse response = llm.generateDraft(prompt);
         if (response == null || response.model() == null || response.model().isBlank()) {

@@ -28,13 +28,21 @@ public class AssessmentReport extends AuditableEntity {
     private String contextSnapshot;
     @Column(name = "original_draft", nullable = false, updatable = false, columnDefinition = "text")
     private String originalDraft;
+    @Column(name = "reviewed_draft", columnDefinition = "text") private String reviewedDraft;
+    @Column(name = "human_conclusion", columnDefinition = "text") private String humanConclusion;
+    @Column(name = "review_confirmed", nullable = false) private boolean reviewConfirmed;
+    @Column(name = "approval_idempotency_key") private UUID approvalIdempotencyKey;
+    @Column(name = "approved_at") private Instant approvedAt;
+    @Column(name = "approved_by") private String approvedBy;
+    @Column(name = "generation_latency_millis") private Long generationLatencyMillis;
+    @Column(name = "review_active_millis", nullable = false) private long reviewActiveMillis;
     @Version @Column(nullable = false) private long version;
 
     protected AssessmentReport() { }
 
     public static AssessmentReport draft(UUID assessmentId, Long ownerUserId, long sourceVersion,
                                          UUID idempotencyKey, String promptVersion, String modelName,
-                                         String contextSnapshot, String originalDraft, Instant now) {
+                                         String contextSnapshot, String originalDraft, long generationLatencyMillis, Instant now) {
         AssessmentReport report = new AssessmentReport();
         report.id = UUID.randomUUID();
         report.assessmentId = Objects.requireNonNull(assessmentId);
@@ -46,9 +54,43 @@ public class AssessmentReport extends AuditableEntity {
         report.modelName = requiredText(modelName, "modelName");
         report.contextSnapshot = requiredText(contextSnapshot, "contextSnapshot");
         report.originalDraft = requiredText(originalDraft, "originalDraft");
+        if (generationLatencyMillis < 0 || generationLatencyMillis > 86_400_000L) throw new IllegalArgumentException("generationLatencyMillis is invalid");
+        report.generationLatencyMillis = generationLatencyMillis;
         report.registerCreation(ownerUserId.toString(), now);
         return report;
     }
+
+    public void revise(String reviewedDraft, String humanConclusion, boolean reviewConfirmed, long activeMillis,
+                       String actorId, Instant now) {
+        requireDraft();
+        this.reviewedDraft = requiredText(reviewedDraft, "reviewedDraft");
+        this.humanConclusion = optionalText(humanConclusion);
+        this.reviewConfirmed = reviewConfirmed;
+        recordReviewActiveMillis(activeMillis);
+        registerUpdate(actorId, now);
+    }
+
+    public void approve(UUID idempotencyKey, long activeMillis, String actorId, Instant now) {
+        requireDraft();
+        if (reviewedDraft == null || !reviewConfirmed || humanConclusion == null) {
+            throw new ReviewRequiredException();
+        }
+        approvalIdempotencyKey = Objects.requireNonNull(idempotencyKey);
+        recordReviewActiveMillis(activeMillis);
+        approvedAt = Objects.requireNonNull(now);
+        approvedBy = requiredText(actorId, "actorId");
+        status = ReportStatus.APPROVED;
+        registerUpdate(actorId, now);
+    }
+
+    private void requireDraft() {
+        if (status != ReportStatus.DRAFT) throw new ReportAlreadyApprovedException();
+    }
+
+    private static String optionalText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+    private void recordReviewActiveMillis(long value) { if (value < reviewActiveMillis || value > 604_800_000L) throw new IllegalArgumentException("O tempo ativo de revisão é inválido."); reviewActiveMillis = value; }
 
     public UUID id() { return id; }
     public UUID assessmentId() { return assessmentId; }
@@ -60,5 +102,23 @@ public class AssessmentReport extends AuditableEntity {
     public String modelName() { return modelName; }
     public String contextSnapshot() { return contextSnapshot; }
     public String originalDraft() { return originalDraft; }
+    public String reviewedDraft() { return reviewedDraft; }
+    public String humanConclusion() { return humanConclusion; }
+    public boolean reviewConfirmed() { return reviewConfirmed; }
+    public UUID approvalIdempotencyKey() { return approvalIdempotencyKey; }
+    public Instant approvedAt() { return approvedAt; }
+    public String approvedBy() { return approvedBy; }
+    public Long generationLatencyMillis() { return generationLatencyMillis; }
+    public long reviewActiveMillis() { return reviewActiveMillis; }
     public long version() { return version; }
+
+    public static final class ReviewRequiredException extends IllegalStateException {
+        public ReviewRequiredException() {
+            super("Revise a minuta, confirme a revisão e escreva sua conclusão antes de aprovar.");
+        }
+    }
+
+    public static final class ReportAlreadyApprovedException extends IllegalStateException {
+        public ReportAlreadyApprovedException() { super("O parecer aprovado é imutável."); }
+    }
 }

@@ -34,7 +34,7 @@ class PostgresqlFlywayMigrationTest {
         var migration = flyway.migrate();
 
         assertThat(migration.success).isTrue();
-        assertThat(migration.migrationsExecuted).isEqualTo(22);
+        assertThat(migration.migrationsExecuted).isEqualTo(31);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(
@@ -74,6 +74,21 @@ class PostgresqlFlywayMigrationTest {
             assertThat(tableExists(metadata, "assessment_reports")).isTrue();
             assertThat(columnExists(metadata, "assessment_reports", "context_snapshot")).isTrue();
             assertThat(columnExists(metadata, "assessment_reports", "original_draft")).isTrue();
+            assertThat(columnExists(metadata, "assessment_reports", "reviewed_draft")).isTrue();
+            assertThat(columnExists(metadata, "assessment_reports", "human_conclusion")).isTrue();
+            assertThat(columnExists(metadata, "assessment_reports", "approved_at")).isTrue();
+            assertThat(columnExists(metadata, "users", "deleted_at")).isTrue();
+            assertThat(tableExists(metadata, "assessment_studies")).isTrue();
+            assertThat(columnExists(metadata, "assessment_studies", "report_evaluation")).isTrue();
+            assertThat(tableExists(metadata, "report_generation_claims")).isTrue();
+            assertThat(columnExists(metadata, "assessment_studies", "manual_active_millis")).isTrue();
+            assertThat(columnExists(metadata, "assessment_reports", "generation_latency_millis")).isTrue();
+            assertThat(tableExists(metadata, "assessment_report_generations")).isTrue();
+            assertThat(columnExists(metadata, "assessment_report_generations", "generated_draft")).isTrue();
+            assertThat(columnExists(metadata, "assessment_report_generations", "limitation_reference")).isTrue();
+            assertThat(columnExists(metadata, "assessment_studies", "limitation_analysis")).isTrue();
+            assertThat(columnExists(metadata, "assessment_studies", "evaluation_reconciliation")).isTrue();
+            assertThat(tableExists(metadata, "academic_peer_evaluations")).isTrue();
         }
 
         flyway.clean();
@@ -114,7 +129,7 @@ class PostgresqlFlywayMigrationTest {
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load();
-        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(11);
         assertThat(upgrade.validateWithResult().validationSuccessful).isTrue();
 
         try (Connection connection = DriverManager.getConnection(

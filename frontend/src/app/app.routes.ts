@@ -30,6 +30,7 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', component: HomeComponent },
       { path: 'assessments/new', loadComponent: () => import('./personal-assessment-create.component').then(module => module.PersonalAssessmentCreateComponent) },
+      { path: 'assessments/:id/report', loadComponent: () => import('./personal-assessment-report.component').then(module => module.PersonalAssessmentReportComponent) },
       { path: 'assessments/:id', loadComponent: () => import('./personal-assessment-collection.component').then(module => module.PersonalAssessmentCollectionComponent) },
       { path: 'job-positions', component: JobPositionsComponent },
       { path: 'interviewers', redirectTo: 'interviews' },
