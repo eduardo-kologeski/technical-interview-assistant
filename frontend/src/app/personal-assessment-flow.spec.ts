@@ -85,6 +85,23 @@ describe('personal assessment flow', () => {
     expect(http.expectOne('/api/assessments/assessment-1/study/limitations').request.body).toEqual({ version: 4, analysis });
     service.finalizeLimitationAnalysis('assessment-1', 5).subscribe();
     expect(http.expectOne('/api/assessments/assessment-1/study/limitations/finalize').request.body).toEqual({ version: 5 });
+    service.peerEvaluations('assessment-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations').request.method).toBe('GET');
+    service.createPeerEvaluation('assessment-1','AV-B').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations').request.body).toEqual({reviewerCode:'AV-B'});
+    service.savePeerEvaluation('assessment-1','peer-1',0,evaluation).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations/peer-1').request.body).toEqual({version:0,evaluation});
+    service.finalizePeerEvaluation('assessment-1','peer-1',1).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations/peer-1/finalize').request.body).toEqual({version:1});
+    service.deletePeerEvaluation('assessment-1','peer-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/peer-evaluations/peer-1').request.method).toBe('DELETE');
+    service.academicAgreement('assessment-1').subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/agreement').request.method).toBe('GET');
+    const reconciliation={dimensions:[],overallConclusion:''};
+    service.saveReconciliation('assessment-1',6,reconciliation).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/reconciliation').request.body).toEqual({version:6,reconciliation});
+    service.finalizeReconciliation('assessment-1',7).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/reconciliation/finalize').request.body).toEqual({version:7});
     service.academicSummaryCsv().subscribe();
     const summaryCsv = http.expectOne('/api/assessment-studies/summary.csv');
     expect(summaryCsv.request.responseType).toBe('text'); summaryCsv.flush('metric,value');
@@ -200,10 +217,12 @@ describe('personal assessment flow', () => {
   it('requires a frozen manual report before revealing the draft in study mode', async () => {
     const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
     const emptyManual = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
+    const peerEvaluation = { dimensions: (['PRESENCE','CORRESPONDENCE','SUPPORT','INSUFFICIENCY_HANDLING','DECISION_SEPARATION'] as const).map(dimension=>({dimension,score:null,justification:'',sourceReferences:[],draftReferences:[]})), expectedInformationMissing:0, factualClaimsAnalyzed:0, unsupportedClaims:0, revisedSections:0 };
     const study = { id: 'study-1', assessmentId: summary.id, sourceVersion: 4, version: 0, manualReport: emptyManual,
       finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null,
       finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null,
       limitationAnalysis: null, limitationAnalysisFinalized: false, limitationAnalysisFinalizedAt: null, limitationAnalysisFinalizedBy: null,
+      reconciliation: null, reconciliationFinalized: false, reconciliationFinalizedAt: null, reconciliationFinalizedBy: null,
       timingVersion: 'active-timing-v1', manualActiveMillis: 0 };
     let manualSaves = 0;
     let savedAnalysis: unknown = null;
@@ -216,6 +235,9 @@ describe('personal assessment flow', () => {
       reportGenerations: vi.fn(() => of([])), regenerateReport: vi.fn(() => of({ id:'generation-2', assessmentId:'assessment-1', sequence:2, kind:'EXPERIMENTAL', justification:'Testar alteração controlada', limitationReference:'limitation-1', promptVersion:'v1', model:'local-model', draft:reportDraft, generationLatencyMillis:100, createdAt:summary.updatedAt, replayed:false })),
       saveStudyEvaluation: vi.fn((_id: string, _version: number, evaluation: unknown) => of({ ...study, version: 3, finalized: true, evaluation })),
       finalizeStudyEvaluation: vi.fn(() => of({ ...study, version: 4, finalized: true, evaluation: null, evaluationFinalized: true })),
+      peerEvaluations: vi.fn(() => of([])), createPeerEvaluation: vi.fn(() => of({id:'peer-1',reviewerCode:'AV-B',version:0,evaluation:peerEvaluation,finalized:false,createdAt:summary.updatedAt,updatedAt:summary.updatedAt,finalizedAt:null})),
+      academicAgreement: vi.fn(() => of({evaluators:1,ratingComparisons:0,exactMatches:0,exactAgreementPercent:0,dimensions:[]})),
+      savePeerEvaluation: vi.fn(), finalizePeerEvaluation: vi.fn(), deletePeerEvaluation: vi.fn(), saveReconciliation: vi.fn(), finalizeReconciliation: vi.fn(),
       saveLimitationAnalysis: vi.fn((_id: string, _version: number, analysis: unknown) => { savedAnalysis=analysis; return of({ ...study, version: 5, finalized: true, evaluationFinalized: true, limitationAnalysis: analysis }); }),
       finalizeLimitationAnalysis: vi.fn(() => of({ ...study, version: 6, finalized: true, evaluationFinalized: true, limitationAnalysis: savedAnalysis, limitationAnalysisFinalized: true })),
     };
@@ -244,6 +266,9 @@ describe('personal assessment flow', () => {
     expect(service.saveStudyEvaluation).toHaveBeenCalledWith('assessment-1',2,expect.objectContaining({dimensions:expect.any(Array)}));
     fixture.componentInstance.finalizeEvaluation();
     expect(service.finalizeStudyEvaluation).toHaveBeenCalledWith('assessment-1',3);
+    fixture.componentInstance.peerReviewerCode.set('AV-B');
+    fixture.componentInstance.createPeerEvaluation();
+    expect(service.createPeerEvaluation).toHaveBeenCalledWith('assessment-1','AV-B');
     fixture.componentInstance.addLimitation();
     const limitationId=fixture.componentInstance.limitationAnalysis().findings[0].id;
     fixture.componentInstance.updateLimitation(0,'description','A síntese omitiu uma ressalva.');

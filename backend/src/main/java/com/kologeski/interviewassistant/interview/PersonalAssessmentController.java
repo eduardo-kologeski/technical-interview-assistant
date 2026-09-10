@@ -7,6 +7,8 @@ import com.kologeski.interviewassistant.report.AssessmentStudyService;
 import com.kologeski.interviewassistant.report.ManualReport;
 import com.kologeski.interviewassistant.report.AcademicReportEvaluation;
 import com.kologeski.interviewassistant.report.AcademicLimitationAnalysis;
+import com.kologeski.interviewassistant.report.AcademicEvaluationReconciliation;
+import com.kologeski.interviewassistant.report.AcademicPeerEvaluationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.PageRequest;
@@ -25,11 +27,14 @@ public class PersonalAssessmentController {
     private final PersonalAssessmentService service;
     private final PersonalReportService reports;
     private final AssessmentStudyService studies;
+    private final AcademicPeerEvaluationService peerEvaluations;
 
-    public PersonalAssessmentController(PersonalAssessmentService service, PersonalReportService reports, AssessmentStudyService studies) {
+    public PersonalAssessmentController(PersonalAssessmentService service, PersonalReportService reports, AssessmentStudyService studies,
+                                        AcademicPeerEvaluationService peerEvaluations) {
         this.service = service;
         this.reports = reports;
         this.studies = studies;
+        this.peerEvaluations = peerEvaluations;
     }
 
     @PostMapping
@@ -151,6 +156,51 @@ public class PersonalAssessmentController {
         return StudyResponse.from(studies.finalizeLimitationAnalysis(id, command.version()));
     }
 
+    @GetMapping("/{id}/study/peer-evaluations")
+    java.util.List<AcademicPeerEvaluationService.View> peerEvaluations(@PathVariable UUID id) {
+        return peerEvaluations.list(id);
+    }
+
+    @PostMapping("/{id}/study/peer-evaluations")
+    @ResponseStatus(HttpStatus.CREATED)
+    AcademicPeerEvaluationService.View createPeerEvaluation(@PathVariable UUID id,
+                                                             @Valid @RequestBody CreatePeerEvaluationCommand command) {
+        return peerEvaluations.create(id, command.reviewerCode());
+    }
+
+    @PutMapping("/{id}/study/peer-evaluations/{peerId}")
+    AcademicPeerEvaluationService.View savePeerEvaluation(@PathVariable UUID id, @PathVariable UUID peerId,
+                                                           @Valid @RequestBody SavePeerEvaluationCommand command) {
+        return peerEvaluations.save(id, peerId, command.version(), command.evaluation());
+    }
+
+    @PostMapping("/{id}/study/peer-evaluations/{peerId}/finalize")
+    AcademicPeerEvaluationService.View finalizePeerEvaluation(@PathVariable UUID id, @PathVariable UUID peerId,
+                                                               @Valid @RequestBody VersionCommand command) {
+        return peerEvaluations.finalizeEvaluation(id, peerId, command.version());
+    }
+
+    @DeleteMapping("/{id}/study/peer-evaluations/{peerId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deletePeerEvaluation(@PathVariable UUID id, @PathVariable UUID peerId) {
+        peerEvaluations.delete(id, peerId);
+    }
+
+    @GetMapping("/{id}/study/agreement")
+    AcademicPeerEvaluationService.AgreementView agreement(@PathVariable UUID id) {
+        return peerEvaluations.agreement(id);
+    }
+
+    @PutMapping("/{id}/study/reconciliation")
+    StudyResponse saveReconciliation(@PathVariable UUID id, @Valid @RequestBody SaveReconciliationCommand command) {
+        return StudyResponse.from(studies.saveReconciliation(id, command.version(), command.reconciliation()));
+    }
+
+    @PostMapping("/{id}/study/reconciliation/finalize")
+    StudyResponse finalizeReconciliation(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return StudyResponse.from(studies.finalizeReconciliation(id, command.version()));
+    }
+
     public record CreateAssessmentCommand(@NotBlank @Size(max = 160) String title,
                                            @NotBlank @Size(max = 160) String personName,
                                            @Size(max = 5000) String context) { }
@@ -176,6 +226,11 @@ public class PersonalAssessmentController {
                                         @NotNull AcademicReportEvaluation evaluation) { }
     public record SaveLimitationAnalysisCommand(@NotNull @PositiveOrZero Long version,
                                                 @NotNull AcademicLimitationAnalysis analysis) { }
+    public record CreatePeerEvaluationCommand(@NotBlank @Size(min = 2, max = 80) String reviewerCode) { }
+    public record SavePeerEvaluationCommand(@NotNull @PositiveOrZero Long version,
+                                            @NotNull AcademicReportEvaluation evaluation) { }
+    public record SaveReconciliationCommand(@NotNull @PositiveOrZero Long version,
+                                            @NotNull AcademicEvaluationReconciliation reconciliation) { }
 
     public record AssessmentResponse(UUID id, String title, String personName, String context,
                                      InterviewStatus status, long version, Instant createdAt, Instant updatedAt) {
@@ -212,7 +267,8 @@ public class PersonalAssessmentController {
                                 boolean finalized,String contextHash,Instant createdAt,Instant updatedAt,Instant finalizedAt,String finalizedBy,
                                 AcademicReportEvaluation evaluation,boolean evaluationFinalized,Instant evaluationFinalizedAt,String evaluationFinalizedBy,
                                 AcademicLimitationAnalysis limitationAnalysis,boolean limitationAnalysisFinalized,Instant limitationAnalysisFinalizedAt,String limitationAnalysisFinalizedBy,
+                                AcademicEvaluationReconciliation reconciliation,boolean reconciliationFinalized,Instant reconciliationFinalizedAt,String reconciliationFinalizedBy,
                                 String timingVersion,long manualActiveMillis){
-        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy(),value.limitationAnalysis(),value.limitationAnalysisFinalized(),value.limitationAnalysisFinalizedAt(),value.limitationAnalysisFinalizedBy(),value.timingVersion(),value.manualActiveMillis());}
+        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy(),value.limitationAnalysis(),value.limitationAnalysisFinalized(),value.limitationAnalysisFinalizedAt(),value.limitationAnalysisFinalizedBy(),value.reconciliation(),value.reconciliationFinalized(),value.reconciliationFinalizedAt(),value.reconciliationFinalizedBy(),value.timingVersion(),value.manualActiveMillis());}
     }
 }

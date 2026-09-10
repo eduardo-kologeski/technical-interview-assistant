@@ -73,7 +73,12 @@ export interface AcademicReportEvaluation { dimensions: AcademicDimensionRating[
 export type AcademicLimitationCategory = 'INPUT'|'CONTEXT'|'PROMPT'|'MODEL'|'INTERFACE'|'HUMAN_REVIEW';
 export interface AcademicLimitation { id: string; category: AcademicLimitationCategory; description: string; sourceReferences: string[]; draftReferences: string[]; proposedAdjustment: string; expectedImpact: string; validationPlan: string; residualRisk: string; }
 export interface AcademicLimitationAnalysis { findings: AcademicLimitation[]; overallConclusion: string; }
-export interface AssessmentStudy { id: string; assessmentId: string; sourceVersion: number; version: number; manualReport: ManualReport; finalized: boolean; contextHash: string | null; createdAt: string; updatedAt: string; finalizedAt: string | null; finalizedBy: string | null; evaluation: AcademicReportEvaluation | null; evaluationFinalized: boolean; evaluationFinalizedAt: string | null; evaluationFinalizedBy: string | null; limitationAnalysis: AcademicLimitationAnalysis|null; limitationAnalysisFinalized: boolean; limitationAnalysisFinalizedAt: string|null; limitationAnalysisFinalizedBy: string|null; timingVersion: string | null; manualActiveMillis: number; }
+export interface AcademicDimensionResolution { dimension: AcademicDimension; agreedScore: number|null; rationale: string; }
+export interface AcademicEvaluationReconciliation { dimensions: AcademicDimensionResolution[]; overallConclusion: string; }
+export interface AcademicPeerEvaluation { id:string; reviewerCode:string; version:number; evaluation:AcademicReportEvaluation; finalized:boolean; createdAt:string; updatedAt:string; finalizedAt:string|null; }
+export interface AcademicDimensionAgreement { dimension:AcademicDimension; comparisons:number; exactMatches:number; exactAgreementPercent:number; }
+export interface AcademicAgreement { evaluators:number; ratingComparisons:number; exactMatches:number; exactAgreementPercent:number; dimensions:AcademicDimensionAgreement[]; }
+export interface AssessmentStudy { id: string; assessmentId: string; sourceVersion: number; version: number; manualReport: ManualReport; finalized: boolean; contextHash: string | null; createdAt: string; updatedAt: string; finalizedAt: string | null; finalizedBy: string | null; evaluation: AcademicReportEvaluation | null; evaluationFinalized: boolean; evaluationFinalizedAt: string | null; evaluationFinalizedBy: string | null; limitationAnalysis: AcademicLimitationAnalysis|null; limitationAnalysisFinalized: boolean; limitationAnalysisFinalizedAt: string|null; limitationAnalysisFinalizedBy: string|null; reconciliation:AcademicEvaluationReconciliation|null; reconciliationFinalized:boolean; reconciliationFinalizedAt:string|null; reconciliationFinalizedBy:string|null; timingVersion: string | null; manualActiveMillis: number; }
 
 @Injectable({ providedIn: 'root' })
 export class PersonalAssessmentService {
@@ -126,6 +131,14 @@ export class PersonalAssessmentService {
   finalizeLimitationAnalysis(id: string, version: number) {
     return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/limitations/finalize`, { version });
   }
+  peerEvaluations(id:string){return this.http.get<AcademicPeerEvaluation[]>(`/api/assessments/${id}/study/peer-evaluations`)}
+  createPeerEvaluation(id:string,reviewerCode:string){return this.http.post<AcademicPeerEvaluation>(`/api/assessments/${id}/study/peer-evaluations`,{reviewerCode})}
+  savePeerEvaluation(id:string,peerId:string,version:number,evaluation:AcademicReportEvaluation){return this.http.put<AcademicPeerEvaluation>(`/api/assessments/${id}/study/peer-evaluations/${peerId}`,{version,evaluation})}
+  finalizePeerEvaluation(id:string,peerId:string,version:number){return this.http.post<AcademicPeerEvaluation>(`/api/assessments/${id}/study/peer-evaluations/${peerId}/finalize`,{version})}
+  deletePeerEvaluation(id:string,peerId:string){return this.http.delete<void>(`/api/assessments/${id}/study/peer-evaluations/${peerId}`)}
+  academicAgreement(id:string){return this.http.get<AcademicAgreement>(`/api/assessments/${id}/study/agreement`)}
+  saveReconciliation(id:string,version:number,reconciliation:AcademicEvaluationReconciliation){return this.http.put<AssessmentStudy>(`/api/assessments/${id}/study/reconciliation`,{version,reconciliation})}
+  finalizeReconciliation(id:string,version:number){return this.http.post<AssessmentStudy>(`/api/assessments/${id}/study/reconciliation/finalize`,{version})}
   academicSummaryCsv() {
     return this.http.get('/api/assessment-studies/summary.csv', { responseType: 'text' });
   }
