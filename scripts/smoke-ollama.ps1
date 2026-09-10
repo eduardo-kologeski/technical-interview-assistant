@@ -36,7 +36,7 @@ function Invoke-TiaApi {
     )
 
     $headers = @{} + $apiHeaders
-    if ($IdempotencyKey -ne [Guid]::Empty) {
+    if ($null -ne $IdempotencyKey -and $IdempotencyKey -ne [Guid]::Empty) {
         $headers['Idempotency-Key'] = $IdempotencyKey.ToString()
     }
     $arguments = @{
