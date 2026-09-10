@@ -5,7 +5,7 @@ import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { PersonalAssessmentCollectionComponent } from './personal-assessment-collection.component';
 import { PersonalAssessmentCreateComponent } from './personal-assessment-create.component';
-import { PersonalAssessmentReportComponent } from './personal-assessment-report.component';
+import { ActiveTimeTracker, PersonalAssessmentReportComponent } from './personal-assessment-report.component';
 import { PersonalAssessmentCollection, PersonalAssessmentReport, PersonalAssessmentService, PersonalAssessmentSummary, ReportDraft } from './personal-assessment.service';
 
 const summary: PersonalAssessmentSummary = {
@@ -27,7 +27,7 @@ const reportDraft: ReportDraft = {
 const report: PersonalAssessmentReport = { id: 'report-1', assessmentId: summary.id, status: 'DRAFT', sourceVersion: 4,
   version: 0, promptVersion: 'v1', model: 'local-model', originalDraft: reportDraft, draft: reportDraft,
   humanConclusion: null, reviewConfirmed: false, createdAt: summary.createdAt, updatedAt: summary.updatedAt,
-  approvedAt: null, replayed: false };
+  approvedAt: null, generationLatencyMillis: 120, reviewActiveMillis: 0, replayed: false };
 
 describe('personal assessment flow', () => {
   afterEach(() => { TestBed.resetTestingModule(); vi.useRealTimers(); });
@@ -48,6 +48,8 @@ describe('personal assessment flow', () => {
     http.expectOne('/api/assessments/assessment-1/collection/complete').flush({ ...collection, status: 'COMPLETED' });
     service.report('assessment-1').subscribe();
     http.expectOne('/api/assessments/assessment-1/report').flush(report);
+    service.reportGenerations('assessment-1').subscribe();
+    http.expectOne('/api/assessments/assessment-1/report/generations').flush([]);
     service.generateReport('assessment-1', 4, 'generation-key').subscribe();
     const generate = http.expectOne('/api/assessments/assessment-1/report/generate');
     expect(generate.request.headers.get('Idempotency-Key')).toBe('generation-key'); generate.flush(report);
@@ -57,6 +59,9 @@ describe('personal assessment flow', () => {
     service.approveReport('assessment-1', 1, 'approval-key').subscribe();
     const approve = http.expectOne('/api/assessments/assessment-1/report/approve');
     expect(approve.request.headers.get('Idempotency-Key')).toBe('approval-key'); approve.flush({ ...report, status: 'APPROVED' });
+    service.regenerateReport('assessment-1', 'Testar nova versão', 'regeneration-key').subscribe();
+    const regeneration = http.expectOne('/api/assessments/assessment-1/report/regenerations');
+    expect(regeneration.request.headers.get('Idempotency-Key')).toBe('regeneration-key'); regeneration.flush({});
     service.delete('assessment-1').subscribe();
     expect(http.expectOne('/api/assessments/assessment-1').request.method).toBe('DELETE');
     service.copyRequirements('assessment-1', { title: 'Nova', personName: 'Outra pessoa', context: '' }).subscribe();
@@ -67,7 +72,7 @@ describe('personal assessment flow', () => {
     const saveManual = http.expectOne('/api/assessments/assessment-1/study/manual');
     expect(saveManual.request.body.assessmentVersion).toBe(4); saveManual.flush({});
     service.finalizeManualReport('assessment-1', 1).subscribe();
-    expect(http.expectOne('/api/assessments/assessment-1/study/manual/finalize').request.body).toEqual({ version: 1 });
+    expect(http.expectOne('/api/assessments/assessment-1/study/manual/finalize').request.body).toEqual({ version: 1, manualActiveMillis: undefined });
     const evaluation = { dimensions: [], expectedInformationMissing: 0, factualClaimsAnalyzed: 0, unsupportedClaims: 0, revisedSections: 0 };
     service.saveStudyEvaluation('assessment-1', 2, evaluation).subscribe();
     const saveEvaluation = http.expectOne('/api/assessments/assessment-1/study/evaluation');
@@ -157,7 +162,7 @@ describe('personal assessment flow', () => {
     vi.useFakeTimers();
     const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
     const service = {
-      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)), report: vi.fn(() => of(report)), study: vi.fn(() => throwError(() => ({ status: 404 }))),
+      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)), report: vi.fn(() => of(report)), reportGenerations: vi.fn(() => of([])), study: vi.fn(() => throwError(() => ({ status: 404 }))),
       saveReport: vi.fn((_id: string, _version: number, draft: ReportDraft, humanConclusion: string, reviewConfirmed: boolean) => of({ ...report, version: 1, draft, humanConclusion, reviewConfirmed })),
       approveReport: vi.fn(() => of({ ...report, status: 'APPROVED' as const, version: 2, humanConclusion: 'Conclusão humana', reviewConfirmed: true, approvedAt: '2026-09-07T01:00:00Z' })),
       generateReport: vi.fn(),
@@ -176,7 +181,7 @@ describe('personal assessment flow', () => {
     expect(service.saveReport).toHaveBeenCalled();
     expect(fixture.componentInstance.canApprove()).toBe(true);
     fixture.componentInstance.approve(); fixture.detectChanges();
-    expect(service.approveReport).toHaveBeenCalledWith('assessment-1', 1, expect.any(String));
+    expect(service.approveReport).toHaveBeenCalledWith('assessment-1', 1, expect.any(String), 0);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('PARECER APROVADO');
     const pdf = await fixture.componentInstance.exportPdf(false);
     expect(pdf?.getNumberOfPages()).toBeGreaterThanOrEqual(1);
@@ -191,7 +196,8 @@ describe('personal assessment flow', () => {
     const emptyManual = { context: '', observedKnowledge: '', strengths: '', concerns: '', synthesis: '', conclusion: '' };
     const study = { id: 'study-1', assessmentId: summary.id, sourceVersion: 4, version: 0, manualReport: emptyManual,
       finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null,
-      finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null };
+      finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null,
+      timingVersion: 'active-timing-v1', manualActiveMillis: 0 };
     let manualSaves = 0;
     const service = {
       get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)),
@@ -199,6 +205,7 @@ describe('personal assessment flow', () => {
       saveManualReport: vi.fn((_id: string, _assessmentVersion: number, _version: number, manualReport: typeof emptyManual) => of({ ...study, version: manualSaves++, manualReport })),
       finalizeManualReport: vi.fn(() => of({ ...study, version: 2, manualReport: { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' }, finalized: true, contextHash: 'a'.repeat(64), finalizedAt: summary.updatedAt })),
       generateReport: vi.fn(() => of(report)), saveReport: vi.fn(), approveReport: vi.fn(),
+      reportGenerations: vi.fn(() => of([])), regenerateReport: vi.fn(() => of({ id:'generation-2', assessmentId:'assessment-1', sequence:2, kind:'EXPERIMENTAL', justification:'Testar alteração controlada', promptVersion:'v1', model:'local-model', draft:reportDraft, generationLatencyMillis:100, createdAt:summary.updatedAt, replayed:false })),
       saveStudyEvaluation: vi.fn((_id: string, _version: number, evaluation: unknown) => of({ ...study, version: 3, finalized: true, evaluation })),
       finalizeStudyEvaluation: vi.fn(() => of({ ...study, version: 4, finalized: true, evaluation: null, evaluationFinalized: true })),
     };
@@ -213,7 +220,7 @@ describe('personal assessment flow', () => {
     for (const [key, value] of Object.entries(fields)) fixture.componentInstance.updateManual(key as keyof typeof fields, value);
     fixture.componentInstance.saveManual();
     fixture.componentInstance.finalizeManual();
-    expect(service.finalizeManualReport).toHaveBeenCalledWith('assessment-1', 1);
+    expect(service.finalizeManualReport).toHaveBeenCalledWith('assessment-1', 1, 0);
     fixture.componentInstance.generate();
     expect(service.generateReport).toHaveBeenCalledWith('assessment-1', 4);
     for(let index=0;index<5;index++){
@@ -225,5 +232,27 @@ describe('personal assessment flow', () => {
     expect(fixture.componentInstance.evaluationComplete()).toBe(true);
     fixture.componentInstance.saveEvaluation();
     expect(service.saveStudyEvaluation).toHaveBeenCalledWith('assessment-1',2,expect.objectContaining({dimensions:expect.any(Array)}));
+    fixture.componentInstance.finalizeEvaluation();
+    expect(service.finalizeStudyEvaluation).toHaveBeenCalledWith('assessment-1',3);
+    fixture.componentInstance.regenerationReason.set('Testar alteração controlada');
+    fixture.componentInstance.regenerateExperimental();
+    expect(service.regenerateReport).toHaveBeenCalledWith('assessment-1','Testar alteração controlada',expect.any(String));
+  });
+
+  it('counts focused active time and excludes idle or hidden intervals', () => {
+    let now=0,visible=true;
+    const tracker=new ActiveTimeTracker(()=>now,()=>visible);
+    tracker.begin('MANUAL');
+    now=1000;tracker.tick();
+    now=2000;tracker.activity('MANUAL');
+    expect(tracker.total('MANUAL')).toBe(2000);
+    visible=false;now=3000;tracker.visibilityChanged();
+    now=10_000;tracker.tick();
+    visible=true;tracker.visibilityChanged();
+    now=11_000;tracker.tick();
+    tracker.end('MANUAL');
+    expect(tracker.total('MANUAL')).toBe(3000);
+    tracker.hydrate('REVIEW',4500);
+    expect(tracker.total('REVIEW')).toBe(4500);
   });
 });

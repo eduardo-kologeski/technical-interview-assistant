@@ -9,7 +9,7 @@ Aplicação para conduzir avaliações técnicas, registrar evidências com rapi
 
 O foco acadêmico do TIA é a **geração assistida de minutas de pareceres de avaliações técnicas a partir das informações registradas durante a avaliação**. A minuta deve permanecer vinculada aos dados de entrada, ser revisável e deixar explícita qualquer insuficiência de informação. O parecer final e a decisão sobre a pessoa avaliada continuam sendo responsabilidade do entrevistador.
 
-O projeto não usa IA para aprovar ou reprovar pessoas, classificar candidatos automaticamente, prever desempenho profissional ou produzir conclusões sem suporte nos registros. Os [objetivos acadêmicos e critérios de avaliação](docs/academic-objectives.md) documentam esse recorte, e o [protocolo de comparação](docs/assisted-report-study-protocol.md) define como parecer manual e minuta assistida serão analisados a partir da mesma entrada.
+O projeto não usa IA para aprovar ou reprovar pessoas, classificar candidatos automaticamente, prever desempenho profissional ou produzir conclusões sem suporte nos registros. Os [objetivos acadêmicos e critérios de avaliação](docs/academic-objectives.md) documentam esse recorte, o [protocolo de comparação](docs/assisted-report-study-protocol.md) define como parecer manual e minuta assistida serão analisados a partir da mesma entrada e os [casos sintéticos de calibração](docs/academic-rubric-calibration.md) orientam a aplicação consistente da rubrica.
 
 ## Arquitetura
 

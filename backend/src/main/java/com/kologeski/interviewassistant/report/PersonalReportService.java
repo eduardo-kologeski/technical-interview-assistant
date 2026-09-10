@@ -18,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -28,6 +29,7 @@ public class PersonalReportService {
     private static final Logger log = LoggerFactory.getLogger(PersonalReportService.class);
     private final InterviewRepository assessments;
     private final AssessmentReportRepository reports;
+    private final AssessmentReportGenerationRepository generations;
     private final AssessmentStudyRepository studies;
     private final ReportGenerationClaimRepository claims;
     private final PersonalAssessmentDocumentCodec documents;
@@ -39,14 +41,17 @@ public class PersonalReportService {
     private final TransactionTemplate transactions;
     private final java.time.Duration claimTtl;
     private final ConcurrentHashMap<GenerationKey, CompletableFuture<ReportView>> inFlight = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<GenerationKey, CompletableFuture<GenerationView>> regenerationsInFlight = new ConcurrentHashMap<>();
 
     public PersonalReportService(InterviewRepository assessments, AssessmentReportRepository reports, AssessmentStudyRepository studies,
+                                 AssessmentReportGenerationRepository generations,
                                  ReportGenerationClaimRepository claims,
                                  PersonalAssessmentDocumentCodec documents, ReportGenerationService generation,
                                  ReportDraftValidator validator, CurrentActor actor, Clock clock, ObjectMapper json,
                                  TransactionTemplate transactions, OllamaProperties ollama) {
         this.assessments = assessments;
         this.reports = reports;
+        this.generations = generations;
         this.studies = studies;
         this.claims = claims;
         this.documents = documents;
@@ -92,8 +97,45 @@ public class PersonalReportService {
         return view(requiredReport(ownerId, assessmentId), false);
     }
 
+    public List<GenerationView> generations(UUID assessmentId) {
+        Long ownerId = Long.valueOf(actor.required().id());
+        requiredAssessment(ownerId, assessmentId);
+        AssessmentReport report = requiredReport(ownerId, assessmentId);
+        return generations.findByReportIdAndOwnerUserIdOrderBySequenceAsc(report.id(), ownerId).stream()
+                .map(value -> generationView(value, false)).toList();
+    }
+
+    public GenerationView regenerate(UUID assessmentId, UUID idempotencyKey, String justification) {
+        Long ownerId = Long.valueOf(actor.required().id());
+        String reason = justification == null ? "" : justification.trim();
+        if (reason.length() < 10 || reason.length() > 2_000) {
+            throw new IllegalArgumentException("A justificativa da regeneração deve ter entre 10 e 2000 caracteres.");
+        }
+        GenerationView replay = regenerationReplay(ownerId, assessmentId, idempotencyKey);
+        if (replay != null) return replay;
+        GenerationKey key = new GenerationKey(ownerId, idempotencyKey);
+        CompletableFuture<GenerationView> mine = new CompletableFuture<>();
+        CompletableFuture<GenerationView> running = regenerationsInFlight.putIfAbsent(key, mine);
+        if (running != null) return asReplay(matchingGeneration(assessmentId, awaitGeneration(running)));
+        long started = System.nanoTime();
+        try {
+            GenerationView generated = regenerateOnce(ownerId, assessmentId, idempotencyKey, reason);
+            mine.complete(generated);
+            log.info("event=personal_report_regenerated assessmentId={} generationId={} sequence={} promptVersion={} durationMs={}",
+                    assessmentId, generated.id(), generated.sequence(), generated.promptVersion(), elapsedMillis(started));
+            return generated;
+        } catch (RuntimeException error) {
+            mine.completeExceptionally(error);
+            log.warn("event=personal_report_regeneration_failed assessmentId={} type={} durationMs={}",
+                    assessmentId, error.getClass().getSimpleName(), elapsedMillis(started));
+            throw error;
+        } finally {
+            regenerationsInFlight.remove(key, mine);
+        }
+    }
+
     public ReportView saveReview(UUID assessmentId, long expectedVersion, ReportDraft draft,
-                                 String humanConclusion, boolean reviewConfirmed) {
+                                 String humanConclusion, boolean reviewConfirmed, Long reviewActiveMillis) {
         Long ownerId = Long.valueOf(actor.required().id());
         ReportView saved = transactions.execute(status -> {
             requiredAssessment(ownerId, assessmentId);
@@ -106,6 +148,7 @@ public class PersonalReportService {
                     "O contexto persistido da minuta possui formato inválido.");
             ReportDraft validated = validator.validate(draft, context);
             report.revise(write(validated), humanConclusion, reviewConfirmed,
+                    activeMillis(reviewActiveMillis, report.reviewActiveMillis()),
                     ownerId.toString(), Instant.now(clock));
             return view(reports.saveAndFlush(report), false);
         });
@@ -113,13 +156,13 @@ public class PersonalReportService {
         return saved;
     }
 
-    public ReportView approve(UUID assessmentId, long expectedVersion, UUID idempotencyKey) {
+    public ReportView approve(UUID assessmentId, long expectedVersion, UUID idempotencyKey, Long reviewActiveMillis) {
         Long ownerId = Long.valueOf(actor.required().id());
         ReportView replay = approvalReplay(ownerId, assessmentId, idempotencyKey);
         if (replay != null) return replay;
         try {
             ReportView approved = transactions.execute(status -> approveOnce(
-                    ownerId, assessmentId, expectedVersion, idempotencyKey));
+                    ownerId, assessmentId, expectedVersion, idempotencyKey, reviewActiveMillis));
             if (approved == null) throw new IllegalStateException("Não foi possível aprovar o parecer.");
             log.info("event=personal_report_approved assessmentId={} reportId={}", assessmentId, approved.id());
             return approved;
@@ -130,7 +173,7 @@ public class PersonalReportService {
         }
     }
 
-    private ReportView approveOnce(Long ownerId, UUID assessmentId, long expectedVersion, UUID idempotencyKey) {
+    private ReportView approveOnce(Long ownerId, UUID assessmentId, long expectedVersion, UUID idempotencyKey, Long reviewActiveMillis) {
         Interview assessment = requiredAssessment(ownerId, assessmentId);
         AssessmentReport report = requiredReport(ownerId, assessmentId);
         if (report.status() == ReportStatus.APPROVED) {
@@ -139,7 +182,7 @@ public class PersonalReportService {
         }
         requireReportVersion(report, expectedVersion);
         if (assessment.version() != report.sourceVersion()) throw new StaleReportSourceException();
-        report.approve(idempotencyKey, ownerId.toString(), Instant.now(clock));
+        report.approve(idempotencyKey, activeMillis(reviewActiveMillis, report.reviewActiveMillis()), ownerId.toString(), Instant.now(clock));
         return view(reports.saveAndFlush(report), false);
     }
 
@@ -154,9 +197,11 @@ public class PersonalReportService {
         if (capture.existing() != null) return view(capture.existing(), true);
 
         try {
+            long generationStarted = System.nanoTime();
             ReportGenerationService.GenerationResult result = generation.generate(capture.assessment(), capture.document());
+            long generationLatencyMillis = elapsedMillis(generationStarted);
             AssessmentReport persisted = transactions.execute(status -> persist(
-                    ownerId, assessmentId, capture.sourceVersion(), idempotencyKey, result));
+                    ownerId, assessmentId, capture.sourceVersion(), idempotencyKey, result, generationLatencyMillis));
             if (persisted == null) throw new IllegalStateException("Não foi possível persistir a minuta.");
             return view(persisted, false);
         } catch (DataIntegrityViolationException error) {
@@ -201,7 +246,7 @@ public class PersonalReportService {
     }
 
     private AssessmentReport persist(Long ownerId, UUID assessmentId, long sourceVersion, UUID idempotencyKey,
-                                     ReportGenerationService.GenerationResult result) {
+                                     ReportGenerationService.GenerationResult result, long generationLatencyMillis) {
         AssessmentReport sameRequest = reports.findByIdempotencyKeyAndOwnerUserId(idempotencyKey, ownerId).orElse(null);
         if (sameRequest != null) return matchingEntity(assessmentId, sameRequest);
         if (reports.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId).isPresent()) {
@@ -217,9 +262,80 @@ public class PersonalReportService {
         }
         AssessmentReport saved = reports.saveAndFlush(AssessmentReport.draft(assessmentId, ownerId, sourceVersion,
                 idempotencyKey, result.promptVersion(), result.model(), write(result.context()),
-                write(result.draft()), Instant.now(clock)));
+                write(result.draft()), generationLatencyMillis, Instant.now(clock)));
+        generations.save(AssessmentReportGeneration.original(saved, ownerId.toString()));
         claims.delete(claim);
         return saved;
+    }
+
+    private GenerationView regenerateOnce(Long ownerId, UUID assessmentId, UUID idempotencyKey, String justification) {
+        RegenerationCapture capture = transactions.execute(status -> captureRegeneration(ownerId, assessmentId));
+        if (capture == null) throw new IllegalStateException("Não foi possível capturar a minuta original.");
+        long generationStarted = System.nanoTime();
+        ReportGenerationService.GenerationResult result = generation.generate(capture.context());
+        long latencyMillis = elapsedMillis(generationStarted);
+        try {
+            GenerationView saved = transactions.execute(status -> persistRegeneration(ownerId, assessmentId,
+                    capture.reportId(), idempotencyKey, justification, result, latencyMillis));
+            if (saved == null) throw new IllegalStateException("Não foi possível persistir a regeneração.");
+            return saved;
+        } catch (DataIntegrityViolationException error) {
+            GenerationView replay = regenerationReplay(ownerId, assessmentId, idempotencyKey);
+            if (replay != null) return replay;
+            throw error;
+        }
+    }
+
+    private RegenerationCapture captureRegeneration(Long ownerId, UUID assessmentId) {
+        requiredAssessment(ownerId, assessmentId);
+        AssessmentReport report = requiredReport(ownerId, assessmentId);
+        requireFinalizedEvaluation(ownerId, assessmentId, report);
+        ReportContext context = read(report.contextSnapshot(), ReportContext.class,
+                "O contexto persistido da minuta possui formato inválido.");
+        return new RegenerationCapture(report.id(), context);
+    }
+
+    private GenerationView persistRegeneration(Long ownerId, UUID assessmentId, UUID reportId,
+                                                UUID idempotencyKey, String justification,
+                                                ReportGenerationService.GenerationResult result, long latencyMillis) {
+        GenerationView replay = regenerationReplay(ownerId, assessmentId, idempotencyKey);
+        if (replay != null) return replay;
+        AssessmentReport report = reports.findOwnedForUpdate(reportId, ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Minuta não encontrada."));
+        if (!report.assessmentId().equals(assessmentId)) throw new IdempotencyKeyConflictException();
+        requireFinalizedEvaluation(ownerId, assessmentId, report);
+        int sequence = generations.findFirstByReportIdAndOwnerUserIdOrderBySequenceDesc(reportId, ownerId)
+                .map(value -> value.sequence() + 1).orElse(2);
+        AssessmentReportGeneration saved = generations.saveAndFlush(AssessmentReportGeneration.experimental(
+                report, sequence, idempotencyKey, justification, result.promptVersion(), result.model(),
+                write(result.draft()), latencyMillis, Instant.now(clock), ownerId.toString()));
+        return generationView(saved, false);
+    }
+
+    private void requireFinalizedEvaluation(Long ownerId, UUID assessmentId, AssessmentReport report) {
+        AssessmentStudy study = studies.findByAssessmentIdAndOwnerUserId(assessmentId, ownerId)
+                .orElseThrow(() -> new IllegalStateException("A regeneração experimental exige uma comparação acadêmica."));
+        if (!study.evaluationFinalized() || study.sourceVersion() != report.sourceVersion()) {
+            throw new IllegalStateException("Finalize a avaliação da minuta original antes de gerar uma nova execução experimental.");
+        }
+    }
+
+    private GenerationView regenerationReplay(Long ownerId, UUID assessmentId, UUID idempotencyKey) {
+        return generations.findByIdempotencyKeyAndOwnerUserId(idempotencyKey, ownerId)
+                .map(value -> {
+                    AssessmentReportGeneration matched = matchingGenerationEntity(assessmentId, value);
+                    if (matched.kind() != AssessmentReportGeneration.Kind.EXPERIMENTAL) {
+                        throw new IdempotencyKeyConflictException();
+                    }
+                    return generationView(matched, true);
+                }).orElse(null);
+    }
+
+    private GenerationView generationView(AssessmentReportGeneration value, boolean replayed) {
+        return new GenerationView(value.id(), value.assessmentId(), value.sequence(), value.kind(), value.justification(),
+                value.promptVersion(), value.modelName(), read(value.generatedDraft(), ReportDraft.class,
+                "Uma execução de geração persistida possui formato inválido."), value.generationLatencyMillis(),
+                value.createdAt(), replayed);
     }
 
     private ReportView replay(Long ownerId, UUID assessmentId, UUID idempotencyKey) {
@@ -255,7 +371,7 @@ public class PersonalReportService {
         return new ReportView(report.id(), report.assessmentId(), report.status(), report.sourceVersion(),
                 report.version(), report.promptVersion(), report.modelName(), original, reviewed,
                 report.humanConclusion(), report.reviewConfirmed(), report.createdAt(), report.updatedAt(),
-                report.approvedAt(), replayed);
+                report.approvedAt(), report.generationLatencyMillis(), report.reviewActiveMillis(), replayed);
     }
 
     private <T> T read(String value, Class<T> type, String message) {
@@ -285,7 +401,31 @@ public class PersonalReportService {
         return new ReportView(report.id(), report.assessmentId(), report.status(), report.sourceVersion(),
                 report.version(), report.promptVersion(), report.model(), report.originalDraft(), report.draft(),
                 report.humanConclusion(), report.reviewConfirmed(), report.createdAt(), report.updatedAt(),
-                report.approvedAt(), true);
+                report.approvedAt(), report.generationLatencyMillis(), report.reviewActiveMillis(), true);
+    }
+
+    private static AssessmentReportGeneration matchingGenerationEntity(UUID assessmentId, AssessmentReportGeneration value) {
+        if (!value.assessmentId().equals(assessmentId)) throw new IdempotencyKeyConflictException();
+        return value;
+    }
+
+    private static GenerationView matchingGeneration(UUID assessmentId, GenerationView value) {
+        if (!value.assessmentId().equals(assessmentId)) throw new IdempotencyKeyConflictException();
+        return value;
+    }
+
+    private static GenerationView asReplay(GenerationView value) {
+        return new GenerationView(value.id(), value.assessmentId(), value.sequence(), value.kind(), value.justification(),
+                value.promptVersion(), value.model(), value.draft(), value.generationLatencyMillis(), value.createdAt(), true);
+    }
+
+    private static GenerationView awaitGeneration(CompletableFuture<GenerationView> future) {
+        try {
+            return future.join();
+        } catch (CompletionException error) {
+            if (error.getCause() instanceof RuntimeException runtime) throw runtime;
+            throw error;
+        }
     }
 
     private static ReportView await(CompletableFuture<ReportView> future) {
@@ -298,14 +438,19 @@ public class PersonalReportService {
     }
 
     private static long elapsedMillis(long started) { return (System.nanoTime() - started) / 1_000_000; }
+    private static long activeMillis(Long value,long fallback){long result=value==null?fallback:value;if(result<0||result>604_800_000L)throw new IllegalArgumentException("O tempo ativo informado é inválido.");return result;}
 
     private record GenerationKey(Long ownerId, UUID idempotencyKey) { }
     private record Capture(Interview assessment, PersonalAssessmentDocument document, long sourceVersion,
                            AssessmentReport existing) { }
+    private record RegenerationCapture(UUID reportId, ReportContext context) { }
     public record ReportView(UUID id, UUID assessmentId, ReportStatus status, long sourceVersion, long version,
                              String promptVersion, String model, ReportDraft originalDraft, ReportDraft draft,
                              String humanConclusion, boolean reviewConfirmed, Instant createdAt, Instant updatedAt,
-                             Instant approvedAt, boolean replayed) { }
+                             Instant approvedAt, Long generationLatencyMillis, long reviewActiveMillis, boolean replayed) { }
+    public record GenerationView(UUID id, UUID assessmentId, int sequence, AssessmentReportGeneration.Kind kind, String justification,
+                                 String promptVersion, String model, ReportDraft draft, Long generationLatencyMillis,
+                                 Instant createdAt, boolean replayed) { }
 
     public static final class DraftAlreadyExistsException extends IllegalStateException {
         public DraftAlreadyExistsException() { super("Esta avaliação já possui uma minuta."); }
