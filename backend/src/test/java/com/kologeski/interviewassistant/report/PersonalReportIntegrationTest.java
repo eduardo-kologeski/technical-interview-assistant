@@ -294,10 +294,12 @@ class PersonalReportIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.evaluation.dimensions.length()").value(5))
                 .andExpect(jsonPath("$.evaluation.unsupportedClaims").value(1));
+        UUID limitationId = UUID.randomUUID();
+        String regeneration = "{\"limitationId\":\"%s\",\"justification\":\"Verificar o efeito do prompt após a ficha original.\"}"
+                .formatted(limitationId);
         mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"justification\":\"Testar um ajuste após a avaliação original.\"}"))
+                        .contentType(MediaType.APPLICATION_JSON).content(regeneration))
                 .andExpect(status().isConflict());
         assertThat(llm.calls.get()).isEqualTo(1);
         mvc.perform(post("/api/assessments/{id}/study/evaluation/finalize", assessment.id())
@@ -306,6 +308,34 @@ class PersonalReportIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.evaluationFinalized").value(true));
         mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation.replace("\"version\":3", "\"version\":5")))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(regeneration))
+                .andExpect(status().isConflict());
+        String limitationAnalysis = """
+                {"version":5,"analysis":{"findings":[{"id":"%s","category":"PROMPT",
+                "description":"A síntese omitiu uma ressalva registrada.","sourceReferences":["evidence-1"],
+                "draftReferences":["synthesis: frase 1"],"proposedAdjustment":"Explicitar ressalvas no prompt.",
+                "expectedImpact":"Reduzir omissões na síntese.","validationPlan":"Repetir a geração com o mesmo snapshot.",
+                "residualRisk":"O modelo ainda pode interpretar a evidência de forma incorreta."}],
+                "overallConclusion":"A principal limitação observada está na cobertura da síntese."}}
+                """.formatted(limitationId);
+        mvc.perform(put("/api/assessments/{id}/study/limitations", assessment.id()).header("Authorization", tokenB)
+                        .contentType(MediaType.APPLICATION_JSON).content(limitationAnalysis))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/assessments/{id}/study/limitations", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(limitationAnalysis))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(6))
+                .andExpect(jsonPath("$.limitationAnalysis.findings[0].category").value("PROMPT"));
+        mvc.perform(post("/api/assessments/{id}/study/limitations/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":6}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(7))
+                .andExpect(jsonPath("$.limitationAnalysisFinalized").value(true));
+        mvc.perform(put("/api/assessments/{id}/study/limitations", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(limitationAnalysis.replace("\"version\":5", "\"version\":7")))
                 .andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("SELECT report_evaluation FROM assessment_studies", String.class))
                 .contains("Verificação humana");
@@ -316,7 +346,6 @@ class PersonalReportIntegrationTest {
                 .andExpect(jsonPath("$[0].kind").value("ORIGINAL"))
                 .andExpect(jsonPath("$[0].justification").isEmpty());
         UUID regenerationKey = UUID.randomUUID();
-        String regeneration = "{\"justification\":\"Verificar o efeito do prompt após a ficha original.\"}";
         mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
                         .header("Authorization", tokenB).header("Idempotency-Key", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON).content(regeneration))
@@ -326,11 +355,17 @@ class PersonalReportIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(regeneration))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.sequence").value(2))
                 .andExpect(jsonPath("$.kind").value("EXPERIMENTAL"))
+                .andExpect(jsonPath("$.limitationReference").value(limitationId.toString()))
                 .andExpect(jsonPath("$.replayed").value(false));
         mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
                         .header("Authorization", tokenA).header("Idempotency-Key", regenerationKey)
                         .contentType(MediaType.APPLICATION_JSON).content(regeneration))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.replayed").value(true));
+        String conflictingRegeneration = regeneration.replace(limitationId.toString(), UUID.randomUUID().toString());
+        mvc.perform(post("/api/assessments/{id}/report/regenerations", assessment.id())
+                        .header("Authorization", tokenA).header("Idempotency-Key", regenerationKey)
+                        .contentType(MediaType.APPLICATION_JSON).content(conflictingRegeneration))
+                .andExpect(status().isConflict());
         assertThat(llm.calls.get()).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_report_generations", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_reports", Integer.class)).isEqualTo(1);
@@ -343,12 +378,16 @@ class PersonalReportIntegrationTest {
                 .andExpect(jsonPath("$.totals.unsupportedClaims").value(1))
                 .andExpect(jsonPath("$.timings.cases").value(1))
                 .andExpect(jsonPath("$.timings.averageManualActiveMillis").value(45_000))
+                .andExpect(jsonPath("$.limitations.finalizedAnalyses").value(1))
+                .andExpect(jsonPath("$.limitations.findings").value(1))
+                .andExpect(jsonPath("$.limitations.findingsByCategory.PROMPT").value(1))
                 .andExpect(jsonPath("$.groups[0].dimensions.length()").value(5)).andReturn();
         assertThat(summary.getResponse().getContentAsString()).doesNotContain(
                 "Pessoa sintética", phrase, "Verificação humana", "evidence-1");
         MvcResult csv = mvc.perform(get("/api/assessment-studies/summary.csv").header("Authorization", tokenA))
                 .andExpect(status().isOk()).andReturn();
-        assertThat(csv.getResponse().getContentAsString()).contains("comparison-v1", "active-timing-v1", "totalCases,1")
+        assertThat(csv.getResponse().getContentAsString()).contains("comparison-v1", "active-timing-v1", "totalCases,1",
+                        "finalizedLimitationAnalyses,1", "limitationFindings,1", "\"PROMPT\",1")
                 .doesNotContain("Pessoa sintética", phrase, "Verificação humana", "evidence-1");
         mvc.perform(get("/api/assessment-studies/summary").header("Authorization", tokenB))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalCases").value(0));
