@@ -29,7 +29,9 @@ docker exec technicalinterviewassistant-backend-1 curl --fail http://host.docker
 
 ## Impacto observado no host de desenvolvimento
 
-Em 07/09/2026, o host usado para o desenvolvimento tinha aproximadamente 8 GB de RAM, GPU integrada com 1 GB reportado e 30 GB livres. O Ollama não estava instalado e a porta 11434 não estava acessível pelo host ou pelo backend. Por isso nenhum modelo foi baixado automaticamente e nenhum serviço Ollama foi acrescentado ao Compose.
+Em 10/09/2026, o host usado para o desenvolvimento tinha aproximadamente 8 GB de RAM, GPU integrada Intel HD Graphics 620 com 1 GB reportado e 22,7 GB livres. O runtime Ollama 0.34.0 foi instalado no Windows e iniciado com `OLLAMA_NO_CLOUD=1`. A API em `localhost:11434` responde no host e também é alcançada pelo backend existente por `host.docker.internal`; o `.env` local configura essa URL.
+
+Nenhum modelo está instalado ou configurado. O campo `OLLAMA_MODEL` permanece vazio, nenhum peso foi baixado automaticamente e nenhum serviço Ollama foi acrescentado ao Compose. O backend continua saudável e preserva o erro controlado de configuração enquanto o modelo não for escolhido.
 
 Antes do smoke real, escolha um modelo local quantizado que caiba na memória disponível, registre nome, licença, tamanho do download, uso de RAM, tempo de primeira carga e latência. Use apenas dados sintéticos. Modelos maiores ou múltiplas gerações paralelas podem exceder esse hardware; a escolha precisa de medição, não de um nome hardcoded no repositório.
 
