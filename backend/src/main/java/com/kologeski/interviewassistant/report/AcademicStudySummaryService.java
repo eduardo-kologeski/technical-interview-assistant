@@ -9,6 +9,8 @@ import tools.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Comparator;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ public class AcademicStudySummaryService {
         Map<GroupKey, GroupAccumulator> groups = new LinkedHashMap<>();
         TotalsAccumulator totals = new TotalsAccumulator();
         TimingAccumulator timings = new TimingAccumulator();
+        LimitationAccumulator limitations = new LimitationAccumulator();
         for (AssessmentStudy study : studies.findByOwnerUserIdAndEvaluationFinalizedAtIsNotNull(owner)) {
             AssessmentReport report = reportsByAssessment.get(study.assessmentId());
             if (report == null || report.sourceVersion() != study.sourceVersion()) continue;
@@ -47,12 +50,13 @@ public class AcademicStudySummaryService {
             group.add(evaluation, study, report);
             totals.add(evaluation);
             timings.add(study, report);
+            limitations.add(study);
         }
         List<GroupSummary> summaries = groups.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.comparing(GroupKey::promptVersion)
                         .thenComparing(GroupKey::model)))
                 .map(entry -> entry.getValue().view(entry.getKey())).toList();
-        return new Summary(PROTOCOL_VERSION, totals.cases, totals.view(), timings.view(), summaries);
+        return new Summary(PROTOCOL_VERSION, totals.cases, totals.view(), timings.view(), limitations.view(), summaries);
     }
 
     public String csv() {
@@ -73,8 +77,13 @@ public class AcademicStudySummaryService {
                     .append(group.timings().averageGenerationLatencyMillis()).append(',')
                     .append(group.timings().averageReviewActiveMillis()).append('\n');
         }
+        result.append("\nlimitationCategory,findings\n");
+        summary.limitations().findingsByCategory().forEach((category, count) -> result
+                .append(csv(category.name())).append(',').append(count).append('\n'));
         result.append("\nmetric,value\n")
                 .append("totalCases,").append(summary.totalCases()).append('\n')
+                .append("finalizedLimitationAnalyses,").append(summary.limitations().finalizedAnalyses()).append('\n')
+                .append("limitationFindings,").append(summary.limitations().findings()).append('\n')
                 .append("expectedInformationMissing,").append(summary.totals().expectedInformationMissing()).append('\n')
                 .append("factualClaimsAnalyzed,").append(summary.totals().factualClaimsAnalyzed()).append('\n')
                 .append("unsupportedClaims,").append(summary.totals().unsupportedClaims()).append('\n')
@@ -85,6 +94,11 @@ public class AcademicStudySummaryService {
     private AcademicReportEvaluation read(String value) {
         try { return json.readValue(value, AcademicReportEvaluation.class); }
         catch (JacksonException error) { throw new IllegalStateException("A ficha acadêmica persistida é inválida.", error); }
+    }
+
+    private AcademicLimitationAnalysis readLimitations(String value) {
+        try { return json.readValue(value, AcademicLimitationAnalysis.class); }
+        catch (JacksonException error) { throw new IllegalStateException("A análise de limitações persistida é inválida.", error); }
     }
 
     private static String csv(String value) {
@@ -137,12 +151,37 @@ public class AcademicStudySummaryService {
         private CountTotals view() { return new CountTotals(missing, analyzed, unsupported, revised); }
     }
 
+    private final class LimitationAccumulator {
+        private int finalizedAnalyses;
+        private int findings;
+        private final Map<AcademicLimitationAnalysis.Category, Integer> findingsByCategory =
+                new EnumMap<>(AcademicLimitationAnalysis.Category.class);
+        private LimitationAccumulator() {
+            for (AcademicLimitationAnalysis.Category category : AcademicLimitationAnalysis.Category.values())
+                findingsByCategory.put(category, 0);
+        }
+        private void add(AssessmentStudy study) {
+            if (!study.limitationAnalysisFinalized()) return;
+            AcademicLimitationAnalysis analysis = readLimitations(study.limitationAnalysis());
+            finalizedAnalyses++;
+            for (AcademicLimitationAnalysis.Finding finding : analysis.findings()) {
+                findings++;
+                findingsByCategory.compute(finding.category(), (ignored, count) -> count + 1);
+            }
+        }
+        private LimitationSummary view() { return new LimitationSummary(finalizedAnalyses, findings,
+                Collections.unmodifiableMap(new LinkedHashMap<>(findingsByCategory))); }
+    }
+
     private record GroupKey(String promptVersion, String model) { }
-    public record Summary(String protocolVersion, int totalCases, CountTotals totals, TimingSummary timings, List<GroupSummary> groups) { }
+    public record Summary(String protocolVersion, int totalCases, CountTotals totals, TimingSummary timings,
+                          LimitationSummary limitations, List<GroupSummary> groups) { }
     public record CountTotals(int expectedInformationMissing, int factualClaimsAnalyzed, int unsupportedClaims, int revisedSections) { }
     public record GroupSummary(String promptVersion, String model, int cases, List<DimensionSummary> dimensions, TimingSummary timings) { }
     public record TimingSummary(String timingVersion, int cases, BigDecimal averageManualActiveMillis,
                                 BigDecimal averageGenerationLatencyMillis, BigDecimal averageReviewActiveMillis) { }
+    public record LimitationSummary(int finalizedAnalyses, int findings,
+                                    Map<AcademicLimitationAnalysis.Category, Integer> findingsByCategory) { }
     public record DimensionSummary(AcademicReportEvaluation.Dimension dimension, int cases, BigDecimal averageScore,
                                    int score0, int score1, int score2) { }
 }

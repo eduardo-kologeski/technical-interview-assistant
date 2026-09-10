@@ -59,9 +59,10 @@ describe('personal assessment flow', () => {
     service.approveReport('assessment-1', 1, 'approval-key').subscribe();
     const approve = http.expectOne('/api/assessments/assessment-1/report/approve');
     expect(approve.request.headers.get('Idempotency-Key')).toBe('approval-key'); approve.flush({ ...report, status: 'APPROVED' });
-    service.regenerateReport('assessment-1', 'Testar nova versão', 'regeneration-key').subscribe();
+    service.regenerateReport('assessment-1', 'limitation-1', 'Testar nova versão', 'regeneration-key').subscribe();
     const regeneration = http.expectOne('/api/assessments/assessment-1/report/regenerations');
-    expect(regeneration.request.headers.get('Idempotency-Key')).toBe('regeneration-key'); regeneration.flush({});
+    expect(regeneration.request.headers.get('Idempotency-Key')).toBe('regeneration-key');
+    expect(regeneration.request.body.limitationId).toBe('limitation-1'); regeneration.flush({});
     service.delete('assessment-1').subscribe();
     expect(http.expectOne('/api/assessments/assessment-1').request.method).toBe('DELETE');
     service.copyRequirements('assessment-1', { title: 'Nova', personName: 'Outra pessoa', context: '' }).subscribe();
@@ -79,6 +80,11 @@ describe('personal assessment flow', () => {
     expect(saveEvaluation.request.body).toEqual({ version: 2, evaluation }); saveEvaluation.flush({});
     service.finalizeStudyEvaluation('assessment-1', 3).subscribe();
     expect(http.expectOne('/api/assessments/assessment-1/study/evaluation/finalize').request.body).toEqual({ version: 3 });
+    const analysis = { findings: [], overallConclusion: '' };
+    service.saveLimitationAnalysis('assessment-1', 4, analysis).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/limitations').request.body).toEqual({ version: 4, analysis });
+    service.finalizeLimitationAnalysis('assessment-1', 5).subscribe();
+    expect(http.expectOne('/api/assessments/assessment-1/study/limitations/finalize').request.body).toEqual({ version: 5 });
     service.academicSummaryCsv().subscribe();
     const summaryCsv = http.expectOne('/api/assessment-studies/summary.csv');
     expect(summaryCsv.request.responseType).toBe('text'); summaryCsv.flush('metric,value');
@@ -197,17 +203,21 @@ describe('personal assessment flow', () => {
     const study = { id: 'study-1', assessmentId: summary.id, sourceVersion: 4, version: 0, manualReport: emptyManual,
       finalized: false, contextHash: null, createdAt: summary.createdAt, updatedAt: summary.updatedAt, finalizedAt: null,
       finalizedBy: null, evaluation: null, evaluationFinalized: false, evaluationFinalizedAt: null, evaluationFinalizedBy: null,
+      limitationAnalysis: null, limitationAnalysisFinalized: false, limitationAnalysisFinalizedAt: null, limitationAnalysisFinalizedBy: null,
       timingVersion: 'active-timing-v1', manualActiveMillis: 0 };
     let manualSaves = 0;
+    let savedAnalysis: unknown = null;
     const service = {
       get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)),
       report: vi.fn(() => throwError(() => ({ status: 404 }))), study: vi.fn(() => throwError(() => ({ status: 404 }))),
       saveManualReport: vi.fn((_id: string, _assessmentVersion: number, _version: number, manualReport: typeof emptyManual) => of({ ...study, version: manualSaves++, manualReport })),
       finalizeManualReport: vi.fn(() => of({ ...study, version: 2, manualReport: { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' }, finalized: true, contextHash: 'a'.repeat(64), finalizedAt: summary.updatedAt })),
       generateReport: vi.fn(() => of(report)), saveReport: vi.fn(), approveReport: vi.fn(),
-      reportGenerations: vi.fn(() => of([])), regenerateReport: vi.fn(() => of({ id:'generation-2', assessmentId:'assessment-1', sequence:2, kind:'EXPERIMENTAL', justification:'Testar alteração controlada', promptVersion:'v1', model:'local-model', draft:reportDraft, generationLatencyMillis:100, createdAt:summary.updatedAt, replayed:false })),
+      reportGenerations: vi.fn(() => of([])), regenerateReport: vi.fn(() => of({ id:'generation-2', assessmentId:'assessment-1', sequence:2, kind:'EXPERIMENTAL', justification:'Testar alteração controlada', limitationReference:'limitation-1', promptVersion:'v1', model:'local-model', draft:reportDraft, generationLatencyMillis:100, createdAt:summary.updatedAt, replayed:false })),
       saveStudyEvaluation: vi.fn((_id: string, _version: number, evaluation: unknown) => of({ ...study, version: 3, finalized: true, evaluation })),
       finalizeStudyEvaluation: vi.fn(() => of({ ...study, version: 4, finalized: true, evaluation: null, evaluationFinalized: true })),
+      saveLimitationAnalysis: vi.fn((_id: string, _version: number, analysis: unknown) => { savedAnalysis=analysis; return of({ ...study, version: 5, finalized: true, evaluationFinalized: true, limitationAnalysis: analysis }); }),
+      finalizeLimitationAnalysis: vi.fn(() => of({ ...study, version: 6, finalized: true, evaluationFinalized: true, limitationAnalysis: savedAnalysis, limitationAnalysisFinalized: true })),
     };
     await TestBed.configureTestingModule({ imports: [PersonalAssessmentReportComponent], providers: [
       provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'assessment-1' } } } },
@@ -234,9 +244,24 @@ describe('personal assessment flow', () => {
     expect(service.saveStudyEvaluation).toHaveBeenCalledWith('assessment-1',2,expect.objectContaining({dimensions:expect.any(Array)}));
     fixture.componentInstance.finalizeEvaluation();
     expect(service.finalizeStudyEvaluation).toHaveBeenCalledWith('assessment-1',3);
+    fixture.componentInstance.addLimitation();
+    const limitationId=fixture.componentInstance.limitationAnalysis().findings[0].id;
+    fixture.componentInstance.updateLimitation(0,'description','A síntese omitiu uma ressalva.');
+    fixture.componentInstance.updateLimitationReferences(0,'sourceReferences','evidence-1');
+    fixture.componentInstance.updateLimitationReferences(0,'draftReferences','synthesis: frase 1');
+    fixture.componentInstance.updateLimitation(0,'proposedAdjustment','Explicitar ressalvas no prompt.');
+    fixture.componentInstance.updateLimitation(0,'expectedImpact','Reduzir omissões.');
+    fixture.componentInstance.updateLimitation(0,'validationPlan','Repetir com o mesmo snapshot.');
+    fixture.componentInstance.updateLimitation(0,'residualRisk','Interpretação incorreta ainda é possível.');
+    fixture.componentInstance.updateLimitationConclusion('A cobertura da síntese precisa de ajuste.');
+    expect(fixture.componentInstance.limitationAnalysisComplete()).toBe(true);
+    fixture.componentInstance.saveLimitationAnalysis();
+    fixture.componentInstance.finalizeLimitationAnalysis();
+    expect(service.finalizeLimitationAnalysis).toHaveBeenCalledWith('assessment-1',5);
+    fixture.componentInstance.regenerationLimitationId.set(limitationId);
     fixture.componentInstance.regenerationReason.set('Testar alteração controlada');
     fixture.componentInstance.regenerateExperimental();
-    expect(service.regenerateReport).toHaveBeenCalledWith('assessment-1','Testar alteração controlada',expect.any(String));
+    expect(service.regenerateReport).toHaveBeenCalledWith('assessment-1',limitationId,'Testar alteração controlada',expect.any(String));
   });
 
   it('counts focused active time and excludes idle or hidden intervals', () => {

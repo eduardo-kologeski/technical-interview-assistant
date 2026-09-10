@@ -6,6 +6,7 @@ import com.kologeski.interviewassistant.report.ReportDraft;
 import com.kologeski.interviewassistant.report.AssessmentStudyService;
 import com.kologeski.interviewassistant.report.ManualReport;
 import com.kologeski.interviewassistant.report.AcademicReportEvaluation;
+import com.kologeski.interviewassistant.report.AcademicLimitationAnalysis;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.PageRequest;
@@ -100,7 +101,7 @@ public class PersonalAssessmentController {
             @PathVariable UUID id,
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
             @Valid @RequestBody RegenerateReportCommand command) {
-        PersonalReportService.GenerationView generation = reports.regenerate(id, idempotencyKey, command.justification());
+        PersonalReportService.GenerationView generation = reports.regenerate(id, idempotencyKey, command.limitationId(), command.justification());
         return ResponseEntity.status(generation.replayed() ? HttpStatus.OK : HttpStatus.CREATED).body(generation);
     }
 
@@ -140,6 +141,16 @@ public class PersonalAssessmentController {
         return StudyResponse.from(studies.finalizeEvaluation(id, command.version()));
     }
 
+    @PutMapping("/{id}/study/limitations")
+    StudyResponse saveLimitationAnalysis(@PathVariable UUID id, @Valid @RequestBody SaveLimitationAnalysisCommand command) {
+        return StudyResponse.from(studies.saveLimitationAnalysis(id, command.version(), command.analysis()));
+    }
+
+    @PostMapping("/{id}/study/limitations/finalize")
+    StudyResponse finalizeLimitationAnalysis(@PathVariable UUID id, @Valid @RequestBody VersionCommand command) {
+        return StudyResponse.from(studies.finalizeLimitationAnalysis(id, command.version()));
+    }
+
     public record CreateAssessmentCommand(@NotBlank @Size(max = 160) String title,
                                            @NotBlank @Size(max = 160) String personName,
                                            @Size(max = 5000) String context) { }
@@ -154,7 +165,8 @@ public class PersonalAssessmentController {
                                     boolean reviewConfirmed, @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
     public record ApproveReportCommand(@NotNull @PositiveOrZero Long version,
                                        @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
-    public record RegenerateReportCommand(@NotBlank @Size(min = 10, max = 2000) String justification) { }
+    public record RegenerateReportCommand(@NotNull UUID limitationId,
+                                          @NotBlank @Size(min = 10, max = 2000) String justification) { }
     public record SaveManualCommand(@NotNull @PositiveOrZero Long assessmentVersion,
                                     @NotNull @PositiveOrZero Long version, @NotNull ManualReport manualReport,
                                     @PositiveOrZero @Max(604800000) Long manualActiveMillis) { }
@@ -162,6 +174,8 @@ public class PersonalAssessmentController {
                                         @PositiveOrZero @Max(604800000) Long manualActiveMillis) { }
     public record SaveEvaluationCommand(@NotNull @PositiveOrZero Long version,
                                         @NotNull AcademicReportEvaluation evaluation) { }
+    public record SaveLimitationAnalysisCommand(@NotNull @PositiveOrZero Long version,
+                                                @NotNull AcademicLimitationAnalysis analysis) { }
 
     public record AssessmentResponse(UUID id, String title, String personName, String context,
                                      InterviewStatus status, long version, Instant createdAt, Instant updatedAt) {
@@ -196,7 +210,9 @@ public class PersonalAssessmentController {
     }
     public record StudyResponse(UUID id,UUID assessmentId,long sourceVersion,long version,ManualReport manualReport,
                                 boolean finalized,String contextHash,Instant createdAt,Instant updatedAt,Instant finalizedAt,String finalizedBy,
-                                AcademicReportEvaluation evaluation,boolean evaluationFinalized,Instant evaluationFinalizedAt,String evaluationFinalizedBy,String timingVersion,long manualActiveMillis){
-        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy(),value.timingVersion(),value.manualActiveMillis());}
+                                AcademicReportEvaluation evaluation,boolean evaluationFinalized,Instant evaluationFinalizedAt,String evaluationFinalizedBy,
+                                AcademicLimitationAnalysis limitationAnalysis,boolean limitationAnalysisFinalized,Instant limitationAnalysisFinalizedAt,String limitationAnalysisFinalizedBy,
+                                String timingVersion,long manualActiveMillis){
+        static StudyResponse from(AssessmentStudyService.View value){return new StudyResponse(value.id(),value.assessmentId(),value.sourceVersion(),value.version(),value.manualReport(),value.finalized(),value.contextHash(),value.createdAt(),value.updatedAt(),value.finalizedAt(),value.finalizedBy(),value.evaluation(),value.evaluationFinalized(),value.evaluationFinalizedAt(),value.evaluationFinalizedBy(),value.limitationAnalysis(),value.limitationAnalysisFinalized(),value.limitationAnalysisFinalizedAt(),value.limitationAnalysisFinalizedBy(),value.timingVersion(),value.manualActiveMillis());}
     }
 }

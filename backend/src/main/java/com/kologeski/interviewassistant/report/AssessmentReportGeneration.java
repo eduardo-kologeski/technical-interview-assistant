@@ -22,6 +22,7 @@ public class AssessmentReportGeneration {
     @Column(name = "generation_kind", nullable = false, updatable = false) private String kind;
     @Column(name = "idempotency_key", nullable = false, updatable = false) private UUID idempotencyKey;
     @Column(length = 2000, updatable = false) private String justification;
+    @Column(name = "limitation_reference", updatable = false) private UUID limitationReference;
     @Column(name = "prompt_version", nullable = false, updatable = false) private String promptVersion;
     @Column(name = "model_name", nullable = false, updatable = false) private String modelName;
     @Column(name = "generated_draft", nullable = false, updatable = false, columnDefinition = "text") private String generatedDraft;
@@ -32,12 +33,13 @@ public class AssessmentReportGeneration {
     protected AssessmentReportGeneration() { }
 
     public static AssessmentReportGeneration original(AssessmentReport report, String actor) {
-        return create(report, 1, Kind.ORIGINAL, report.idempotencyKey(), null, report.promptVersion(),
+        return create(report, 1, Kind.ORIGINAL, report.idempotencyKey(), null, null, report.promptVersion(),
                 report.modelName(), report.originalDraft(), report.generationLatencyMillis(), report.createdAt(), actor);
     }
 
     public static AssessmentReportGeneration experimental(AssessmentReport report, int sequence,
                                                            UUID idempotencyKey, String justification,
+                                                           UUID limitationReference,
                                                            String promptVersion, String modelName,
                                                            String generatedDraft, long latencyMillis,
                                                            Instant now, String actor) {
@@ -45,12 +47,13 @@ public class AssessmentReportGeneration {
         if (reason.length() < 10 || reason.length() > 2_000) {
             throw new IllegalArgumentException("A justificativa da regeneração deve ter entre 10 e 2000 caracteres.");
         }
-        return create(report, sequence, Kind.EXPERIMENTAL, idempotencyKey, reason, promptVersion,
+        return create(report, sequence, Kind.EXPERIMENTAL, idempotencyKey, reason, Objects.requireNonNull(limitationReference), promptVersion,
                 modelName, generatedDraft, latencyMillis, now, actor);
     }
 
     private static AssessmentReportGeneration create(AssessmentReport report, int sequence, Kind kind,
                                                        UUID idempotencyKey, String justification,
+                                                       UUID limitationReference,
                                                        String promptVersion, String modelName,
                                                        String generatedDraft, Long latencyMillis,
                                                        Instant now, String actor) {
@@ -60,7 +63,7 @@ public class AssessmentReportGeneration {
         AssessmentReportGeneration value = new AssessmentReportGeneration();
         value.id = UUID.randomUUID(); value.reportId = report.id(); value.assessmentId = report.assessmentId();
         value.ownerUserId = report.ownerUserId(); value.sequence = sequence; value.kind = kind.name();
-        value.idempotencyKey = Objects.requireNonNull(idempotencyKey); value.justification = justification;
+        value.idempotencyKey = Objects.requireNonNull(idempotencyKey); value.justification = justification; value.limitationReference = limitationReference;
         value.promptVersion = required(promptVersion, "promptVersion"); value.modelName = required(modelName, "modelName");
         value.generatedDraft = required(generatedDraft, "generatedDraft"); value.generationLatencyMillis = latencyMillis;
         value.createdAt = Objects.requireNonNull(now); value.createdBy = required(actor, "actor");
@@ -80,6 +83,7 @@ public class AssessmentReportGeneration {
     public Kind kind() { return Kind.valueOf(kind); }
     public UUID idempotencyKey() { return idempotencyKey; }
     public String justification() { return justification; }
+    public UUID limitationReference() { return limitationReference; }
     public String promptVersion() { return promptVersion; }
     public String modelName() { return modelName; }
     public String generatedDraft() { return generatedDraft; }
