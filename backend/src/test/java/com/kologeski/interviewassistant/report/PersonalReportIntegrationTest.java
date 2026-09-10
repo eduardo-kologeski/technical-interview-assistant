@@ -306,6 +306,32 @@ class PersonalReportIntegrationTest {
                         .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"version\":4}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.evaluationFinalized").value(true));
+        mvc.perform(post("/api/assessments/{id}/study/peer-evaluations", assessment.id())
+                        .header("Authorization", tokenB).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reviewerCode\":\"AV-B\"}"))
+                .andExpect(status().isNotFound());
+        MvcResult peerCreated = mvc.perform(post("/api/assessments/{id}/study/peer-evaluations", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reviewerCode\":\"AV-B\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.version").value(0))
+                .andExpect(jsonPath("$.evaluation.dimensions.length()").value(5)).andReturn();
+        UUID peerId = UUID.fromString(json.readTree(peerCreated.getResponse().getContentAsString()).get("id").asText());
+        String peerEvaluation = completeEvaluation.replace("\"version\":3", "\"version\":0");
+        mvc.perform(put("/api/assessments/{id}/study/peer-evaluations/{peerId}", assessment.id(), peerId)
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON).content(peerEvaluation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1));
+        mvc.perform(post("/api/assessments/{id}/study/peer-evaluations/{peerId}/finalize", assessment.id(), peerId)
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.finalized").value(true));
+        mvc.perform(put("/api/assessments/{id}/study/peer-evaluations/{peerId}", assessment.id(), peerId)
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content(peerEvaluation.replace("\"version\":0", "\"version\":2")))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/api/assessments/{id}/study/agreement", assessment.id()).header("Authorization", tokenA))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.evaluators").value(2))
+                .andExpect(jsonPath("$.ratingComparisons").value(5))
+                .andExpect(jsonPath("$.exactMatches").value(5))
+                .andExpect(jsonPath("$.exactAgreementPercent").value(100));
         mvc.perform(put("/api/assessments/{id}/study/evaluation", assessment.id()).header("Authorization", tokenA)
                         .contentType(MediaType.APPLICATION_JSON).content(completeEvaluation.replace("\"version\":3", "\"version\":5")))
                 .andExpect(status().isConflict());
@@ -337,10 +363,31 @@ class PersonalReportIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(limitationAnalysis.replace("\"version\":5", "\"version\":7")))
                 .andExpect(status().isConflict());
+        String reconciliation = """
+                {"version":7,"reconciliation":{"dimensions":[
+                {"dimension":"PRESENCE","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"CORRESPONDENCE","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"SUPPORT","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"INSUFFICIENCY_HANDLING","agreedScore":2,"rationale":"Consenso após revisar as referências."},
+                {"dimension":"DECISION_SEPARATION","agreedScore":2,"rationale":"Consenso após revisar as referências."}],
+                "overallConclusion":"Os avaliadores concordaram após conferir o mesmo conjunto de evidências."}}
+                """;
+        mvc.perform(put("/api/assessments/{id}/study/reconciliation", assessment.id()).header("Authorization", tokenA)
+                        .contentType(MediaType.APPLICATION_JSON).content(reconciliation))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(8));
+        mvc.perform(post("/api/assessments/{id}/study/reconciliation/finalize", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":8}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(9))
+                .andExpect(jsonPath("$.reconciliationFinalized").value(true));
+        mvc.perform(post("/api/assessments/{id}/study/peer-evaluations", assessment.id())
+                        .header("Authorization", tokenA).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reviewerCode\":\"AV-C\"}"))
+                .andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("SELECT report_evaluation FROM assessment_studies", String.class))
                 .contains("Verificação humana");
         assertThat(jdbc.queryForObject("SELECT context_snapshot FROM assessment_reports", String.class))
-                .doesNotContain("Verificação humana");
+                .doesNotContain("Verificação humana", "AV-B", "Consenso após revisar");
         mvc.perform(get("/api/assessments/{id}/report/generations", assessment.id()).header("Authorization", tokenA))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].kind").value("ORIGINAL"))
@@ -381,14 +428,18 @@ class PersonalReportIntegrationTest {
                 .andExpect(jsonPath("$.limitations.finalizedAnalyses").value(1))
                 .andExpect(jsonPath("$.limitations.findings").value(1))
                 .andExpect(jsonPath("$.limitations.findingsByCategory.PROMPT").value(1))
+                .andExpect(jsonPath("$.agreement.cases").value(1))
+                .andExpect(jsonPath("$.agreement.peerEvaluations").value(1))
+                .andExpect(jsonPath("$.agreement.exactAgreementPercent").value(100))
                 .andExpect(jsonPath("$.groups[0].dimensions.length()").value(5)).andReturn();
         assertThat(summary.getResponse().getContentAsString()).doesNotContain(
-                "Pessoa sintética", phrase, "Verificação humana", "evidence-1");
+                "Pessoa sintética", phrase, "Verificação humana", "evidence-1", "AV-B", "Consenso após revisar");
         MvcResult csv = mvc.perform(get("/api/assessment-studies/summary.csv").header("Authorization", tokenA))
                 .andExpect(status().isOk()).andReturn();
         assertThat(csv.getResponse().getContentAsString()).contains("comparison-v1", "active-timing-v1", "totalCases,1",
                         "finalizedLimitationAnalyses,1", "limitationFindings,1", "\"PROMPT\",1")
-                .doesNotContain("Pessoa sintética", phrase, "Verificação humana", "evidence-1");
+                .contains("agreementCases,1", "peerEvaluations,1", "exactAgreementPercent,100.00")
+                .doesNotContain("Pessoa sintética", phrase, "Verificação humana", "evidence-1", "AV-B", "Consenso após revisar");
         mvc.perform(get("/api/assessment-studies/summary").header("Authorization", tokenB))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalCases").value(0));
     }

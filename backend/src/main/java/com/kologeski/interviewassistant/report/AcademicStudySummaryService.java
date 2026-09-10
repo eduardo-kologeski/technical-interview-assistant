@@ -15,19 +15,23 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 @Service
 public class AcademicStudySummaryService {
     public static final String PROTOCOL_VERSION = "comparison-v1";
     private final AssessmentStudyRepository studies;
     private final AssessmentReportRepository reports;
+    private final AcademicPeerEvaluationRepository peerEvaluations;
     private final CurrentActor actor;
     private final ObjectMapper json;
 
     public AcademicStudySummaryService(AssessmentStudyRepository studies, AssessmentReportRepository reports,
-                                       CurrentActor actor, ObjectMapper json) {
+                                       AcademicPeerEvaluationRepository peerEvaluations, CurrentActor actor, ObjectMapper json) {
         this.studies = studies;
         this.reports = reports;
+        this.peerEvaluations = peerEvaluations;
         this.actor = actor;
         this.json = json;
     }
@@ -37,10 +41,14 @@ public class AcademicStudySummaryService {
         Long owner = Long.valueOf(actor.required().id());
         Map<UUID, AssessmentReport> reportsByAssessment = new LinkedHashMap<>();
         reports.findByOwnerUserId(owner).forEach(report -> reportsByAssessment.put(report.assessmentId(), report));
+        Map<UUID, List<AcademicPeerEvaluation>> peersByStudy = peerEvaluations
+                .findByOwnerUserIdAndFinalizedAtIsNotNull(owner).stream()
+                .collect(Collectors.groupingBy(AcademicPeerEvaluation::studyId));
         Map<GroupKey, GroupAccumulator> groups = new LinkedHashMap<>();
         TotalsAccumulator totals = new TotalsAccumulator();
         TimingAccumulator timings = new TimingAccumulator();
         LimitationAccumulator limitations = new LimitationAccumulator();
+        AgreementAccumulator agreement = new AgreementAccumulator();
         for (AssessmentStudy study : studies.findByOwnerUserIdAndEvaluationFinalizedAtIsNotNull(owner)) {
             AssessmentReport report = reportsByAssessment.get(study.assessmentId());
             if (report == null || report.sourceVersion() != study.sourceVersion()) continue;
@@ -51,12 +59,13 @@ public class AcademicStudySummaryService {
             totals.add(evaluation);
             timings.add(study, report);
             limitations.add(study);
+            agreement.add(evaluation, peersByStudy.getOrDefault(study.id(), List.of()));
         }
         List<GroupSummary> summaries = groups.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.comparing(GroupKey::promptVersion)
                         .thenComparing(GroupKey::model)))
                 .map(entry -> entry.getValue().view(entry.getKey())).toList();
-        return new Summary(PROTOCOL_VERSION, totals.cases, totals.view(), timings.view(), limitations.view(), summaries);
+        return new Summary(PROTOCOL_VERSION, totals.cases, totals.view(), timings.view(), limitations.view(), agreement.view(), summaries);
     }
 
     public String csv() {
@@ -80,10 +89,19 @@ public class AcademicStudySummaryService {
         result.append("\nlimitationCategory,findings\n");
         summary.limitations().findingsByCategory().forEach((category, count) -> result
                 .append(csv(category.name())).append(',').append(count).append('\n'));
+        result.append("\nagreementDimension,comparisons,exactMatches,exactAgreementPercent\n");
+        summary.agreement().dimensions().forEach(value -> result.append(csv(value.dimension().name())).append(',')
+                .append(value.comparisons()).append(',').append(value.exactMatches()).append(',')
+                .append(value.exactAgreementPercent()).append('\n'));
         result.append("\nmetric,value\n")
                 .append("totalCases,").append(summary.totalCases()).append('\n')
                 .append("finalizedLimitationAnalyses,").append(summary.limitations().finalizedAnalyses()).append('\n')
                 .append("limitationFindings,").append(summary.limitations().findings()).append('\n')
+                .append("agreementCases,").append(summary.agreement().cases()).append('\n')
+                .append("peerEvaluations,").append(summary.agreement().peerEvaluations()).append('\n')
+                .append("ratingComparisons,").append(summary.agreement().ratingComparisons()).append('\n')
+                .append("exactMatches,").append(summary.agreement().exactMatches()).append('\n')
+                .append("exactAgreementPercent,").append(summary.agreement().exactAgreementPercent()).append('\n')
                 .append("expectedInformationMissing,").append(summary.totals().expectedInformationMissing()).append('\n')
                 .append("factualClaimsAnalyzed,").append(summary.totals().factualClaimsAnalyzed()).append('\n')
                 .append("unsupportedClaims,").append(summary.totals().unsupportedClaims()).append('\n')
@@ -173,15 +191,76 @@ public class AcademicStudySummaryService {
                 Collections.unmodifiableMap(new LinkedHashMap<>(findingsByCategory))); }
     }
 
+    private final class AgreementAccumulator {
+        private int cases;
+        private int peerCount;
+        private final Map<AcademicReportEvaluation.Dimension, AgreementScores> dimensions =
+                new EnumMap<>(AcademicReportEvaluation.Dimension.class);
+        private AgreementAccumulator() {
+            for (AcademicReportEvaluation.Dimension dimension : AcademicReportEvaluation.Dimension.values())
+                dimensions.put(dimension, new AgreementScores());
+        }
+        private void add(AcademicReportEvaluation primary, List<AcademicPeerEvaluation> peers) {
+            if (peers.isEmpty()) return;
+            cases++;
+            peerCount += peers.size();
+            List<AcademicReportEvaluation> evaluations = new ArrayList<>();
+            evaluations.add(primary);
+            peers.stream().map(value -> read(value.evaluation())).forEach(evaluations::add);
+            for (int first = 0; first < evaluations.size(); first++)
+                for (int second = first + 1; second < evaluations.size(); second++) {
+                    Map<AcademicReportEvaluation.Dimension, Integer> left = scores(evaluations.get(first));
+                    Map<AcademicReportEvaluation.Dimension, Integer> right = scores(evaluations.get(second));
+                    for (AcademicReportEvaluation.Dimension dimension : AcademicReportEvaluation.Dimension.values())
+                        dimensions.get(dimension).add(left.get(dimension), right.get(dimension));
+                }
+        }
+        private AgreementSummary view() {
+            List<DimensionAgreementSummary> values = dimensions.entrySet().stream()
+                    .map(entry -> entry.getValue().view(entry.getKey())).toList();
+            int comparisons = values.stream().mapToInt(DimensionAgreementSummary::comparisons).sum();
+            int matches = values.stream().mapToInt(DimensionAgreementSummary::exactMatches).sum();
+            return new AgreementSummary(cases, peerCount, comparisons, matches, percent(matches, comparisons), values);
+        }
+    }
+
+    private static final class AgreementScores {
+        private int comparisons;
+        private int matches;
+        private void add(Integer left, Integer right) {
+            if (left == null || right == null) return;
+            comparisons++;
+            if (left.equals(right)) matches++;
+        }
+        private DimensionAgreementSummary view(AcademicReportEvaluation.Dimension dimension) {
+            return new DimensionAgreementSummary(dimension, comparisons, matches, percent(matches, comparisons));
+        }
+    }
+
+    private static Map<AcademicReportEvaluation.Dimension, Integer> scores(AcademicReportEvaluation value) {
+        Map<AcademicReportEvaluation.Dimension, Integer> result = new EnumMap<>(AcademicReportEvaluation.Dimension.class);
+        value.dimensions().forEach(rating -> result.put(rating.dimension(), rating.score()));
+        return result;
+    }
+
+    private static BigDecimal percent(int value, int total) {
+        return total == 0 ? BigDecimal.ZERO : BigDecimal.valueOf(value * 100L)
+                .divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
+    }
+
     private record GroupKey(String promptVersion, String model) { }
     public record Summary(String protocolVersion, int totalCases, CountTotals totals, TimingSummary timings,
-                          LimitationSummary limitations, List<GroupSummary> groups) { }
+                          LimitationSummary limitations, AgreementSummary agreement, List<GroupSummary> groups) { }
     public record CountTotals(int expectedInformationMissing, int factualClaimsAnalyzed, int unsupportedClaims, int revisedSections) { }
     public record GroupSummary(String promptVersion, String model, int cases, List<DimensionSummary> dimensions, TimingSummary timings) { }
     public record TimingSummary(String timingVersion, int cases, BigDecimal averageManualActiveMillis,
                                 BigDecimal averageGenerationLatencyMillis, BigDecimal averageReviewActiveMillis) { }
     public record LimitationSummary(int finalizedAnalyses, int findings,
                                     Map<AcademicLimitationAnalysis.Category, Integer> findingsByCategory) { }
+    public record AgreementSummary(int cases, int peerEvaluations, int ratingComparisons, int exactMatches,
+                                   BigDecimal exactAgreementPercent, List<DimensionAgreementSummary> dimensions) { }
+    public record DimensionAgreementSummary(AcademicReportEvaluation.Dimension dimension, int comparisons,
+                                            int exactMatches, BigDecimal exactAgreementPercent) { }
     public record DimensionSummary(AcademicReportEvaluation.Dimension dimension, int cases, BigDecimal averageScore,
                                    int score0, int score1, int score2) { }
 }
