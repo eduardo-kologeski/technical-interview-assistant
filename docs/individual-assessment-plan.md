@@ -329,7 +329,7 @@ Principais riscos e mitigação:
 8. **Documentação e baseline runtime divergentes:** código é a evidência desta análise; confirmar containers, versão de imagem e migrations aplicadas antes da primeira alteração.
 9. **Comparação acadêmica inválida:** preservar original/final/prompt/contexto; definir protocolo antes de medir, sem afirmar que padronização equivale a qualidade.
 
-**Sequência atual:** IND-01 a IND-09 estão implementadas em `develop`. A próxima etapa é a IND-10, dedicada à reutilização de critérios pessoais e ao protocolo de acompanhamento acadêmico. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo local estarem disponíveis no host. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
+**Sequência atual:** IND-01 a IND-10 estão implementadas em `develop`. O smoke da IND-06 com Ollama real permanece pendente até o serviço e um modelo escolhido explicitamente estarem disponíveis no host; `scripts/smoke-ollama.ps1` automatiza a validação sem instalar ou baixar modelos. Usar o Docker local indicado pelo usuário, sem recriar volumes existentes.
 
 ## Decisão aprovada — Ollama local (06/09/2026)
 
