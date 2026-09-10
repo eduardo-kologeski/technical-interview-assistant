@@ -48,6 +48,8 @@ describe('personal assessment flow', () => {
     http.expectOne('/api/assessments/assessment-1/collection/complete').flush({ ...collection, status: 'COMPLETED' });
     service.report('assessment-1').subscribe();
     http.expectOne('/api/assessments/assessment-1/report').flush(report);
+    service.reportGenerations('assessment-1').subscribe();
+    http.expectOne('/api/assessments/assessment-1/report/generations').flush([]);
     service.generateReport('assessment-1', 4, 'generation-key').subscribe();
     const generate = http.expectOne('/api/assessments/assessment-1/report/generate');
     expect(generate.request.headers.get('Idempotency-Key')).toBe('generation-key'); generate.flush(report);
@@ -57,6 +59,9 @@ describe('personal assessment flow', () => {
     service.approveReport('assessment-1', 1, 'approval-key').subscribe();
     const approve = http.expectOne('/api/assessments/assessment-1/report/approve');
     expect(approve.request.headers.get('Idempotency-Key')).toBe('approval-key'); approve.flush({ ...report, status: 'APPROVED' });
+    service.regenerateReport('assessment-1', 'Testar nova versão', 'regeneration-key').subscribe();
+    const regeneration = http.expectOne('/api/assessments/assessment-1/report/regenerations');
+    expect(regeneration.request.headers.get('Idempotency-Key')).toBe('regeneration-key'); regeneration.flush({});
     service.delete('assessment-1').subscribe();
     expect(http.expectOne('/api/assessments/assessment-1').request.method).toBe('DELETE');
     service.copyRequirements('assessment-1', { title: 'Nova', personName: 'Outra pessoa', context: '' }).subscribe();
@@ -157,7 +162,7 @@ describe('personal assessment flow', () => {
     vi.useFakeTimers();
     const completed = { ...collection, status: 'COMPLETED' as const, version: 4, generationEligible: true };
     const service = {
-      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)), report: vi.fn(() => of(report)), study: vi.fn(() => throwError(() => ({ status: 404 }))),
+      get: vi.fn(() => of({ ...summary, status: 'COMPLETED', version: 4 })), collection: vi.fn(() => of(completed)), report: vi.fn(() => of(report)), reportGenerations: vi.fn(() => of([])), study: vi.fn(() => throwError(() => ({ status: 404 }))),
       saveReport: vi.fn((_id: string, _version: number, draft: ReportDraft, humanConclusion: string, reviewConfirmed: boolean) => of({ ...report, version: 1, draft, humanConclusion, reviewConfirmed })),
       approveReport: vi.fn(() => of({ ...report, status: 'APPROVED' as const, version: 2, humanConclusion: 'Conclusão humana', reviewConfirmed: true, approvedAt: '2026-09-07T01:00:00Z' })),
       generateReport: vi.fn(),
@@ -200,6 +205,7 @@ describe('personal assessment flow', () => {
       saveManualReport: vi.fn((_id: string, _assessmentVersion: number, _version: number, manualReport: typeof emptyManual) => of({ ...study, version: manualSaves++, manualReport })),
       finalizeManualReport: vi.fn(() => of({ ...study, version: 2, manualReport: { context: 'C', observedKnowledge: 'K', strengths: 'S', concerns: 'A', synthesis: 'R', conclusion: 'H' }, finalized: true, contextHash: 'a'.repeat(64), finalizedAt: summary.updatedAt })),
       generateReport: vi.fn(() => of(report)), saveReport: vi.fn(), approveReport: vi.fn(),
+      reportGenerations: vi.fn(() => of([])), regenerateReport: vi.fn(() => of({ id:'generation-2', assessmentId:'assessment-1', sequence:2, kind:'EXPERIMENTAL', justification:'Testar alteração controlada', promptVersion:'v1', model:'local-model', draft:reportDraft, generationLatencyMillis:100, createdAt:summary.updatedAt, replayed:false })),
       saveStudyEvaluation: vi.fn((_id: string, _version: number, evaluation: unknown) => of({ ...study, version: 3, finalized: true, evaluation })),
       finalizeStudyEvaluation: vi.fn(() => of({ ...study, version: 4, finalized: true, evaluation: null, evaluationFinalized: true })),
     };
@@ -226,6 +232,11 @@ describe('personal assessment flow', () => {
     expect(fixture.componentInstance.evaluationComplete()).toBe(true);
     fixture.componentInstance.saveEvaluation();
     expect(service.saveStudyEvaluation).toHaveBeenCalledWith('assessment-1',2,expect.objectContaining({dimensions:expect.any(Array)}));
+    fixture.componentInstance.finalizeEvaluation();
+    expect(service.finalizeStudyEvaluation).toHaveBeenCalledWith('assessment-1',3);
+    fixture.componentInstance.regenerationReason.set('Testar alteração controlada');
+    fixture.componentInstance.regenerateExperimental();
+    expect(service.regenerateReport).toHaveBeenCalledWith('assessment-1','Testar alteração controlada',expect.any(String));
   });
 
   it('counts focused active time and excludes idle or hidden intervals', () => {

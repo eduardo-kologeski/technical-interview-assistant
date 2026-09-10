@@ -90,6 +90,20 @@ public class PersonalAssessmentController {
     @GetMapping("/{id}/report")
     ReportResponse report(@PathVariable UUID id) { return ReportResponse.from(reports.get(id)); }
 
+    @GetMapping("/{id}/report/generations")
+    java.util.List<PersonalReportService.GenerationView> reportGenerations(@PathVariable UUID id) {
+        return reports.generations(id);
+    }
+
+    @PostMapping("/{id}/report/regenerations")
+    ResponseEntity<PersonalReportService.GenerationView> regenerateReport(
+            @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+            @Valid @RequestBody RegenerateReportCommand command) {
+        PersonalReportService.GenerationView generation = reports.regenerate(id, idempotencyKey, command.justification());
+        return ResponseEntity.status(generation.replayed() ? HttpStatus.OK : HttpStatus.CREATED).body(generation);
+    }
+
     @PutMapping("/{id}/report")
     ReportResponse saveReport(@PathVariable UUID id, @Valid @RequestBody SaveReportCommand command) {
         return ReportResponse.from(reports.saveReview(id, command.version(), command.draft(),
@@ -140,6 +154,7 @@ public class PersonalAssessmentController {
                                     boolean reviewConfirmed, @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
     public record ApproveReportCommand(@NotNull @PositiveOrZero Long version,
                                        @PositiveOrZero @Max(604800000) Long reviewActiveMillis) { }
+    public record RegenerateReportCommand(@NotBlank @Size(min = 10, max = 2000) String justification) { }
     public record SaveManualCommand(@NotNull @PositiveOrZero Long assessmentVersion,
                                     @NotNull @PositiveOrZero Long version, @NotNull ManualReport manualReport,
                                     @PositiveOrZero @Max(604800000) Long manualActiveMillis) { }

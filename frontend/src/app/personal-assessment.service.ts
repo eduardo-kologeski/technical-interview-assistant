@@ -65,6 +65,7 @@ export interface PersonalAssessmentReport {
   humanConclusion: string | null; reviewConfirmed: boolean; createdAt: string; updatedAt: string;
   approvedAt: string | null; generationLatencyMillis: number | null; reviewActiveMillis: number; replayed: boolean;
 }
+export interface ReportGenerationExecution { id: string; assessmentId: string; sequence: number; kind: 'ORIGINAL'|'EXPERIMENTAL'; justification: string|null; promptVersion: string; model: string; draft: ReportDraft; generationLatencyMillis: number|null; createdAt: string; replayed: boolean; }
 export interface ManualReport { context: string; observedKnowledge: string; strengths: string; concerns: string; synthesis: string; conclusion: string; }
 export type AcademicDimension = 'PRESENCE' | 'CORRESPONDENCE' | 'SUPPORT' | 'INSUFFICIENCY_HANDLING' | 'DECISION_SEPARATION';
 export interface AcademicDimensionRating { dimension: AcademicDimension; score: number | null; justification: string; sourceReferences: string[]; draftReferences: string[]; }
@@ -90,6 +91,7 @@ export class PersonalAssessmentService {
     return this.http.patch<PersonalAssessmentCollection>(`/api/assessments/${id}/collection/complete`, { version });
   }
   report(id: string) { return this.http.get<PersonalAssessmentReport>(`/api/assessments/${id}/report`); }
+  reportGenerations(id: string) { return this.http.get<ReportGenerationExecution[]>(`/api/assessments/${id}/report/generations`); }
   generateReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID()) {
     return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/generate`, { version }, { headers: { 'Idempotency-Key': idempotencyKey } });
   }
@@ -98,6 +100,9 @@ export class PersonalAssessmentService {
   }
   approveReport(id: string, version: number, idempotencyKey: string = crypto.randomUUID(), reviewActiveMillis?: number) {
     return this.http.post<PersonalAssessmentReport>(`/api/assessments/${id}/report/approve`, { version, reviewActiveMillis }, { headers: { 'Idempotency-Key': idempotencyKey } });
+  }
+  regenerateReport(id: string, justification: string, idempotencyKey: string = crypto.randomUUID()) {
+    return this.http.post<ReportGenerationExecution>(`/api/assessments/${id}/report/regenerations`, { justification }, { headers: { 'Idempotency-Key': idempotencyKey } });
   }
   study(id: string) { return this.http.get<AssessmentStudy>(`/api/assessments/${id}/study`); }
   saveManualReport(id: string, assessmentVersion: number, version: number, manualReport: ManualReport, manualActiveMillis?: number) {
