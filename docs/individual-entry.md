@@ -8,7 +8,7 @@ A criação explícita por `POST /api/companies` continua sendo o ponto que cria
 
 `CompanyContext` continua obrigatório nas APIs empresariais. Um usuário sem memberships recebe 403; múltiplas memberships sem seleção continuam exigindo seleção. A API pessoal ignora contexto empresarial e o interceptor Angular não envia `X-Company-Id` para `/api/assessments`.
 
-O guard considera a autenticação suficiente para entrar. O carregamento de empresas determina apenas o contexto funcional e uma falha nessa consulta não invalida a sessão. Sem empresa ativa, o shell mostra “Meu espaço” e oculta Empresa, Vagas e Entrevistas organizacionais. O dashboard pessoal lista as avaliações existentes e informa quando está vazio. A criação visual permanece para IND-04.
+O guard considera a autenticação suficiente para entrar. O carregamento de empresas determina apenas o contexto funcional e uma falha nessa consulta não invalida a sessão. Sem empresa ativa, o shell mostra “Meu espaço” e oculta Empresa, Vagas e Entrevistas organizacionais. O dashboard pessoal lista as avaliações existentes, informa quando está vazio e permite iniciar a criação visual entregue pela IND-04.
 
 Usuários com uma membership continuam entrando diretamente no dashboard organizacional. Com várias empresas, o seletor existente oferece “Meu espaço” e as empresas disponíveis, preparando uma futura troca explícita sem criar um novo deployment mode.
 

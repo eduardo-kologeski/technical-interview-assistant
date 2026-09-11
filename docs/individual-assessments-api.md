@@ -1,6 +1,6 @@
 # Avaliações pessoais, coleta estruturada e contrato de geração
 
-A API exige a sessão JWT existente. O proprietário é o usuário autenticado; `X-Company-Id` não participa dessa autorização. Cadastro e navegação ainda mantêm o comportamento anterior até a IND-02. Usuários sem membership também podem usar esta API.
+A API exige a sessão JWT existente. O proprietário é o usuário autenticado; `X-Company-Id` não participa dessa autorização. Desde a IND-02, cadastro e navegação pessoais não exigem empresa ou membership. Usuários com acesso organizacional continuam usando os fluxos legados sem misturar os dois escopos.
 
 ## Contrato
 

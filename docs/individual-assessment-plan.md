@@ -1,6 +1,6 @@
 # TIA — plano de evolução para avaliação individual
 
-Data: 06/09/2026. Baseline inicial: `92e93ef`. Plano aprovado; IND-01 a IND-04 foram integradas em `develop`, e a execução sequencial prosseguiu para IND-05. A decisão Ollama ao final deste documento integra o plano aprovado.
+Data: 06/09/2026. Baseline inicial: `92e93ef`. Plano aprovado; IND-01 a IND-10 estão integradas em `develop`. A decisão Ollama ao final deste documento integra o plano aprovado, e a ativação Enterprise permanece separada pelos gates externos da issue #113.
 
 ## 1. Diagnóstico e evidências
 
@@ -200,6 +200,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 
 ### IND-01 — P0 — Persistência e autorização de avaliação pessoal
 
+**Estado: implementada e validada em `develop`; avaliações pessoais pertencem ao usuário autenticado e permanecem isoladas do escopo organizacional.**
+
 - Objetivo/contexto: permitir agregado pertencente somente ao usuário, superando Company/vaga obrigatórias.
 - Escopo: migration de escopo exclusivo, título/contexto, repositório/policy pessoal, criar/listar/consultar via API pessoal com usuário autenticado existente; preservar legado.
 - Aceite: usuário sem membership cria sem vaga/candidato cadastrado; owner deriva da sessão; A não lê/lista registros de B; empresas existentes não perdem dados; constraints rejeitam ambos/nenhum escopo.
@@ -208,6 +210,8 @@ IDs abaixo são propostas locais. Em todas as issues: manter regressão organiza
 - Testes: PostgreSQL upgrade V20 e banco vazio; A/B e headers adulterados; regressão CompanyIsolation; criação sem Company.
 
 ### IND-02 — P0 — Cadastro e entrada individuais
+
+**Estado: implementada e validada em `develop`; cadastro, autenticação e dashboard pessoal não exigem empresa, membership ou subscription.**
 
 - Objetivo/contexto: eliminar provisionamento empresarial automático e bloqueio no guard.
 - Escopo: cadastro só User; guard/shell pessoais; contexto legado acessível aos usuários existentes; preservar política On-Premises.
