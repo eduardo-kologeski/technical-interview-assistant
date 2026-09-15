@@ -1,44 +1,103 @@
 import { Routes } from '@angular/router';
-import { AuthPageComponent } from './auth-page.component';
 import { authGuard } from './auth.guard';
-import { InterviewPage } from './app';
-import { JobPositionsComponent } from './job-positions.component';
-import { ShellComponent } from './shell.component';
-import { ProfileComponent } from './profile.component';
-import { InterviewersComponent } from './interviewers.component';
-import { LandingPageComponent } from './landing-page.component';
-import { InvitationPageComponent } from './invitation-page.component';
-import { CompanyAdminComponent } from './company-admin.component';
-import { InterviewsWorkspaceComponent } from './interviews-workspace.component';
-import { IdentityPageComponent } from './identity-page.component';
-import { SetupPageComponent } from './setup-page.component';
-import { HomeComponent } from './home.component';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', component: LandingPageComponent },
-  { path: 'setup', component: SetupPageComponent },
-  { path: 'invites/:token', component: InvitationPageComponent },
-  { path: 'verify-email/:token', component: IdentityPageComponent },
-  { path: 'reset-password/:token', component: IdentityPageComponent },
-  { path: 'auth/forgot-password', component: IdentityPageComponent },
-  { path: 'auth/login', component: AuthPageComponent },
-  { path: 'auth/register', component: AuthPageComponent },
   {
     path: '',
-    component: ShellComponent,
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./landing-page.component').then((module) => module.LandingPageComponent),
+  },
+  {
+    path: 'setup',
+    loadComponent: () =>
+      import('./setup-page.component').then((module) => module.SetupPageComponent),
+  },
+  {
+    path: 'invites/:token',
+    loadComponent: () =>
+      import('./invitation-page.component').then((module) => module.InvitationPageComponent),
+  },
+  {
+    path: 'verify-email/:token',
+    loadComponent: () =>
+      import('./identity-page.component').then((module) => module.IdentityPageComponent),
+  },
+  {
+    path: 'reset-password/:token',
+    loadComponent: () =>
+      import('./identity-page.component').then((module) => module.IdentityPageComponent),
+  },
+  {
+    path: 'auth/forgot-password',
+    loadComponent: () =>
+      import('./identity-page.component').then((module) => module.IdentityPageComponent),
+  },
+  {
+    path: 'auth/login',
+    loadComponent: () => import('./auth-page.component').then((module) => module.AuthPageComponent),
+  },
+  {
+    path: 'auth/register',
+    loadComponent: () => import('./auth-page.component').then((module) => module.AuthPageComponent),
+  },
+  {
+    path: '',
+    loadComponent: () => import('./shell.component').then((module) => module.ShellComponent),
     canActivate: [authGuard],
     children: [
-      { path: 'dashboard', component: HomeComponent },
-      { path: 'assessments/new', loadComponent: () => import('./personal-assessment-create.component').then(module => module.PersonalAssessmentCreateComponent) },
-      { path: 'assessments/:id/report', loadComponent: () => import('./personal-assessment-report.component').then(module => module.PersonalAssessmentReportComponent) },
-      { path: 'assessments/:id', loadComponent: () => import('./personal-assessment-collection.component').then(module => module.PersonalAssessmentCollectionComponent) },
-      { path: 'job-positions', component: JobPositionsComponent },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./home.component').then((module) => module.HomeComponent),
+      },
+      {
+        path: 'assessments/new',
+        loadComponent: () =>
+          import('./personal-assessment-create.component').then(
+            (module) => module.PersonalAssessmentCreateComponent,
+          ),
+      },
+      {
+        path: 'assessments/:id/report',
+        loadComponent: () =>
+          import('./personal-assessment-report.component').then(
+            (module) => module.PersonalAssessmentReportComponent,
+          ),
+      },
+      {
+        path: 'assessments/:id',
+        loadComponent: () =>
+          import('./personal-assessment-collection.component').then(
+            (module) => module.PersonalAssessmentCollectionComponent,
+          ),
+      },
+      {
+        path: 'job-positions',
+        loadComponent: () =>
+          import('./job-positions.component').then((module) => module.JobPositionsComponent),
+      },
       { path: 'interviewers', redirectTo: 'interviews' },
       { path: 'profile', redirectTo: 'interviews' },
-      { path: 'company', component: CompanyAdminComponent },
-      { path: 'interviews/new', component: InterviewPage },
-      { path: 'interviews/:id', component: InterviewPage },
-      { path: 'interviews', component: InterviewsWorkspaceComponent },
+      {
+        path: 'company',
+        loadComponent: () =>
+          import('./company-admin.component').then((module) => module.CompanyAdminComponent),
+      },
+      {
+        path: 'interviews/new',
+        loadComponent: () => import('./app').then((module) => module.InterviewPage),
+      },
+      {
+        path: 'interviews/:id',
+        loadComponent: () => import('./app').then((module) => module.InterviewPage),
+      },
+      {
+        path: 'interviews',
+        loadComponent: () =>
+          import('./interviews-workspace.component').then(
+            (module) => module.InterviewsWorkspaceComponent,
+          ),
+      },
     ],
   },
   { path: '**', redirectTo: '' },
