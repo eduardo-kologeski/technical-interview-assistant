@@ -28,7 +28,7 @@ Baseline auditada em 10/09/2026: a fundação SaaS B2B da Issue #99 e os increme
 | Backup/restore | DONE tecnicamente | scripts, guardas e runbook | Restore periódico continua responsabilidade operacional | Gate operacional |
 | CI/CD e release | DONE para baseline | verify/test/build/scans/imagens imutáveis | PostgreSQL/Testcontainers não executou localmente sem Docker | P0 (#104) |
 | Privacidade/LGPD | PARTIAL | data governance e logs minimizados | Retenção e base legal exigem decisão externa | EXTERNAL GOVERNANCE GATE |
-| Acessibilidade/performance | PARTIAL | testes a11y, budgets e load scripts | Budgets CSS em warning no PR #100 | P1 hardening |
+| Acessibilidade/performance | PARTIAL | testes a11y, load scripts e rotas carregadas sob demanda; bundle inicial reduzido de 581,48 kB para 314,73 kB e `app.scss` dentro do budget | O CSS do perfil/calendário permanece em 7,21 kB para budget de 6 kB | P1 hardening |
 
 ## Target architecture
 

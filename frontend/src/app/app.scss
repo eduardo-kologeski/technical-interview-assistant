@@ -6,20 +6,6 @@
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
-.participant-picker {
-  margin: 0;
-  padding: 16px;
-  border: 1px solid #d8e2e6;
-  border-radius: 10px;
-  background: #f8fbfb;
-  legend { padding: 0 6px; color: #263b44; font-weight: 800; }
-  > p { margin: 0 0 12px; color: #667780; font-size: 12px; }
-  > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
-  label { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #dce6e8; border-radius: 8px; background: #fff; cursor: pointer; }
-  input { width: auto; }
-  span, strong, small { display: block; }
-  small { margin-top: 2px; color: #76858c; }
-}
 button,
 textarea {
   font: inherit;
@@ -115,8 +101,7 @@ h1 {
 }
 .workspace > *,
 .review-grid > *,
-.interview-header > *,
-.skill-heading > * {
+.interview-header > * {
   min-width: 0;
 }
 .skills-panel > h2 {
@@ -129,77 +114,11 @@ h1 {
 .skills-panel > h2:first-child {
   margin-top: 0;
 }
-.skill-card,
 aside section {
   background: #fff;
   border: 1px solid #e0e6eb;
   border-radius: 10px;
   box-shadow: 0 2px 8px #192d3c09;
-}
-.skill-card {
-  margin-bottom: 10px;
-  padding: 20px;
-  transition: 0.2s;
-}
-.skill-card.active {
-  border-color: #2e8f8a;
-  box-shadow: 0 0 0 2px #2e8f8a1a;
-}
-.skill-heading {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-}
-.skill-heading > div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-h3 {
-  margin: 0;
-  font-size: 17px;
-}
-.tag {
-  padding: 3px 7px;
-  border-radius: 12px;
-  background: #edf1f4;
-  color: #65727d;
-  font-size: 10px;
-  font-weight: 700;
-}
-.tag.required {
-  background: #fff0e6;
-  color: #9a541c;
-}
-.expectation {
-  color: #6b7782;
-  font-size: 12px;
-}
-.rating {
-  display: flex;
-  gap: 7px;
-  margin: 17px 0;
-}
-.rating button {
-  width: 39px;
-  height: 36px;
-  border: 1px solid #d7dfe5;
-  border-radius: 7px;
-  background: #fff;
-  color: #41505c;
-  font-weight: 700;
-}
-.rating button:hover {
-  border-color: #278d83;
-}
-.rating button.selected {
-  color: #fff;
-  border-color: #19756f;
-  background: #19756f;
-}
-.rating .na {
-  width: 52px;
-  margin-left: 5px;
 }
 label {
   color: #566570;
@@ -221,20 +140,6 @@ textarea {
 textarea:focus {
   border-color: #278d83;
   box-shadow: 0 0 0 2px #278d831a;
-}
-.quick-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 9px;
-}
-.quick-tags button {
-  padding: 5px 9px;
-  border: 0;
-  border-radius: 5px;
-  background: #f0f4f6;
-  color: #5c6973;
-  font-size: 11px;
 }
 aside {
   position: sticky;
@@ -265,12 +170,10 @@ aside {
 .support-card .suggestion-label {
   margin: 6px 0 3px;
 }
-.compact-suggestions,
-.compact-selected {
+.compact-suggestions {
   gap: 4px;
 }
-.compact-suggestions button,
-.compact-selected button {
+.compact-suggestions button {
   min-height: 28px;
   padding: 3px 7px;
   border-radius: 999px;
@@ -344,20 +247,6 @@ aside section {
   color: #5c6973;
   font-size: 12px;
 }
-.stat {
-  display: flex;
-  justify-content: space-between;
-  padding: 11px 0;
-  border-top: 1px solid #edf0f2;
-  color: #65727d;
-  font-size: 12px;
-}
-.stat strong {
-  color: #2e3b44;
-}
-.stat strong.attention {
-  color: #c56031;
-}
 @media (max-width: 860px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -380,13 +269,6 @@ aside section {
   main {
     padding: 16px 10px 48px;
   }
-  .nav-link {
-    display: none;
-  }
-  .skill-heading {
-    gap: 10px;
-    flex-direction: column;
-  }
   h1 { font-size: 23px; }
   .interview-header { gap: 14px; }
   .interview-header p { font-size: 12px; line-height: 1.45; }
@@ -401,13 +283,7 @@ aside section {
   .progress-row { margin: 16px 0 14px; padding: 12px; }
   .progress-label { align-items: start; flex-direction: column; gap: 4px; }
   .workspace { gap: 12px; }
-  .skill-card { padding: 13px; }
-  .rating { gap: 5px; margin: 12px 0; }
-  .rating button { width: 34px; height: 34px; }
-  .rating .na { width: 44px; margin-left: 0; }
-  .quick-tags,
   .compact-suggestions,
-  .compact-selected,
   .support-results {
     flex-wrap: nowrap;
     max-width: 100%;
@@ -416,14 +292,11 @@ aside section {
     overscroll-behavior-inline: contain;
     scrollbar-width: thin;
   }
-  .quick-tags button,
   .compact-suggestions button,
-  .compact-selected button,
   .support-results button { flex: 0 0 auto; }
   .support-panel { gap: 8px; }
   .support-panel .support-card { padding: 10px; }
-  .compact-suggestions button,
-  .compact-selected button { min-height: 26px; padding: 3px 6px; font-size: 9px; }
+  .compact-suggestions button { min-height: 26px; padding: 3px 6px; font-size: 9px; }
   .support-notes textarea,
   .feedback-notes-support textarea { min-height: 76px; height: 76px; }
   .review-grid { grid-template-columns: 1fr; gap: 12px; }
@@ -436,9 +309,6 @@ aside section {
   .pdf-preview-panel { width: 100%; height: 100%; border-radius: 0; }
   .pdf-preview-panel header { align-items: stretch; padding: 10px; flex-direction: column; }
   .pdf-preview-panel header > div:last-child { display: grid; grid-template-columns: 1fr 1fr; }
-  .rating {
-    flex-wrap: wrap;
-  }
   .session-actions .save {
     grid-column: 1 / -1;
     width: 100%;
@@ -447,27 +317,4 @@ aside section {
 
 @media (max-width: 360px) {
   main { padding-right: 8px; padding-left: 8px; }
-  .skill-card { padding: 11px; }
-  .rating { gap: 4px; }
-  .rating button { width: 31px; height: 32px; }
-  .rating .na { width: 41px; }
-}
-
-input[type='date']::selection,
-input[type='time']::selection,
-input[type='datetime-local']::selection,
-input[type='date']::-webkit-datetime-edit-day-field:focus,
-input[type='date']::-webkit-datetime-edit-month-field:focus,
-input[type='date']::-webkit-datetime-edit-year-field:focus,
-input[type='time']::-webkit-datetime-edit-hour-field:focus,
-input[type='time']::-webkit-datetime-edit-minute-field:focus,
-input[type='time']::-webkit-datetime-edit-second-field:focus,
-input[type='time']::-webkit-datetime-edit-ampm-field:focus,
-input[type='datetime-local']::-webkit-datetime-edit-day-field:focus,
-input[type='datetime-local']::-webkit-datetime-edit-month-field:focus,
-input[type='datetime-local']::-webkit-datetime-edit-year-field:focus,
-input[type='datetime-local']::-webkit-datetime-edit-hour-field:focus,
-input[type='datetime-local']::-webkit-datetime-edit-minute-field:focus {
-  color: inherit;
-  background: transparent;
 }
