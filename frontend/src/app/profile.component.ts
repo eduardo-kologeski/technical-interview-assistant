@@ -1,6 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
+import { MiniCalendarComponent } from './mini-calendar.component';
+import { MobileDayStripComponent } from './mobile-day-strip.component';
 import { OpenNativePickerDirective } from './open-native-picker.directive';
 import {
   Availability,
@@ -12,7 +14,12 @@ import {
 
 @Component({
   selector: 'app-profile',
-  imports: [FormsModule, OpenNativePickerDirective],
+  imports: [
+    FormsModule,
+    OpenNativePickerDirective,
+    MiniCalendarComponent,
+    MobileDayStripComponent,
+  ],
   template: `
     <section class="page">
       <header>
@@ -116,27 +123,15 @@ import {
             <span class="view-label">Semana de trabalho</span>
           </div>
           @if (miniCalendarOpen()) {
-            <section class="mini-calendar" aria-label="Escolher uma data">
-              <header>
-                <button class="icon" aria-label="Mês anterior" (click)="changeCalendarMonth(-1)">‹</button>
-                <strong>{{ calendarMonthLabel() }}</strong>
-                <button class="icon" aria-label="Próximo mês" (click)="changeCalendarMonth(1)">›</button>
-                <button class="minimize" (click)="toggleMiniCalendar()">Minimizar</button>
-              </header>
-              <div class="mini-weekdays" aria-hidden="true">
-                @for (day of miniWeekdays; track day) { <span>{{ day }}</span> }
-              </div>
-              <div class="mini-days">
-                @for (day of calendarDays(); track day.date) {
-                  <button
-                    [class.outside]="!day.currentMonth"
-                    [class.selected]="day.date === selectedDay()"
-                    [class.today-date]="day.today"
-                    (click)="selectCalendarDate(day.date)"
-                  >{{ day.number }}</button>
-                }
-              </div>
-            </section>
+            <app-mini-calendar
+              [monthLabel]="calendarMonthLabel()"
+              [days]="calendarDays()"
+              [selectedDate]="selectedDay()"
+              [weekdays]="miniWeekdays"
+              (monthChange)="changeCalendarMonth($event)"
+              (dateSelected)="selectCalendarDate($event)"
+              (dismissed)="toggleMiniCalendar()"
+            />
           }
           @if (error()) {
             <p class="error">{{ error() }}</p>
@@ -147,13 +142,11 @@ import {
               <button (click)="changeWeek(1)">Abrir próxima semana</button>
             </div>
           }
-          <div class="mobile-day-strip" aria-label="Dias da semana">
-            @for (dayItem of weekDays(); track dayItem.date) {
-              <button [class.active]="dayItem.date === selectedDay()" (click)="selectDay(dayItem.date)">
-                <span>{{ dayItem.day }}</span><b>{{ dayItem.dateNumber }}</b>
-              </button>
-            }
-          </div>
+          <app-mobile-day-strip
+            [days]="weekDays()"
+            [selectedDate]="selectedDay()"
+            (dateSelected)="selectDay($event)"
+          />
           @if (editingDate) {
             <div class="availability-editor">
               <div><small>{{ editingAvailabilityId ? 'EDITAR DISPONIBILIDADE' : 'HORÁRIOS SELECIONADOS' }}</small><strong>{{ editingDateLabel() }}</strong></div>
@@ -273,8 +266,7 @@ import {
         font-size: 21px;
       }
       .section-title button,
-      .skill-add button,
-      .week-navigation > button {
+      .skill-add button {
         padding: 10px 14px;
         border: 0;
         border-radius: 8px;
@@ -360,8 +352,6 @@ import {
         margin-top: 20px;
       }
       .calendar-toolbar button,
-      .mini-calendar button,
-      .mobile-day-strip button,
       .schedule-grid button {
         font: inherit;
       }
@@ -400,54 +390,6 @@ import {
         font-size: 12px;
         font-weight: 750;
       }
-      .mini-calendar {
-        width: 300px;
-        margin-top: 10px;
-        padding: 14px;
-        border: 1px solid #d4dfe3;
-        border-radius: 10px;
-        background: #fff;
-        box-shadow: 0 10px 28px #1737451f;
-      }
-      .mini-calendar header {
-        display: grid;
-        grid-template-columns: auto 1fr auto auto;
-        align-items: center;
-        gap: 5px;
-      }
-      .mini-calendar header strong { text-align: center; font-size: 13px; }
-      .minimize {
-        border: 0;
-        background: transparent;
-        color: #176b66;
-        font-size: 11px !important;
-      }
-      .mini-weekdays,
-      .mini-days {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 2px;
-      }
-      .mini-weekdays { margin: 12px 0 4px; }
-      .mini-weekdays span {
-        color: #708087;
-        font-size: 9px;
-        font-weight: 800;
-        text-align: center;
-      }
-      .mini-days button {
-        aspect-ratio: 1;
-        border: 0;
-        border-radius: 50%;
-        background: transparent;
-        color: #263d46;
-        font-size: 11px;
-      }
-      .mini-days button:hover { background: #edf5f4; }
-      .mini-days button.outside { color: #a8b2b7; }
-      .mini-days button.today-date { outline: 1px solid #176b66; }
-      .mini-days button.selected { background: #176b66; color: #fff; }
-      .mobile-day-strip { display: none; }
       .past-week-notice {
         display: flex;
         align-items: center;
@@ -609,26 +551,6 @@ import {
         .calendar-toolbar { flex-wrap: wrap; }
         .date-trigger { order: -1; width: 100%; justify-content: space-between; background: #f4f7f7; }
         .view-label { display: none; }
-        .mini-calendar { width: 100%; box-sizing: border-box; }
-        .mobile-day-strip {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          margin-top: 14px;
-          border-bottom: 1px solid #dce5e8;
-        }
-        .mobile-day-strip button {
-          display: grid;
-          place-items: center;
-          gap: 4px;
-          padding: 9px 2px;
-          border: 0;
-          border-bottom: 3px solid transparent;
-          background: transparent;
-          color: #63747c;
-        }
-        .mobile-day-strip span { font-size: 9px; font-weight: 850; }
-        .mobile-day-strip b { font-size: 15px; }
-        .mobile-day-strip button.active { border-bottom-color: #176b66; color: #176b66; }
         .availability-editor { grid-template-columns: 1fr 1fr; }
         .availability-editor > div { grid-column: 1 / -1; }
         .schedule-scroll { max-height: 530px; margin-top: 10px; }
