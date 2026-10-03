@@ -5,6 +5,8 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "build:cloudflare": "ng build --configuration production && node scripts/cloudflare-config.mjs",
+    "test:cloudflare": "node --test scripts/cloudflare-config.test.mjs",
     "e2e": "playwright test",
     "e2e:local-compose": "playwright test --config playwright.local-compose.config.ts",
     "e2e:install": "playwright install --with-deps chromium",
