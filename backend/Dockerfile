@@ -2,6 +2,7 @@ FROM eclipse-temurin:21-jdk@sha256:85f00967bcc624fc19fa9c2cf124ea426a5363898e267
 WORKDIR /workspace
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
+RUN chmod +x mvnw
 RUN ./mvnw -B dependency:go-offline
 COPY src src
 RUN ./mvnw -B package -DskipTests
@@ -20,6 +21,6 @@ COPY --from=build /workspace/target/*.jar app.jar
 USER appuser
 EXPOSE 8081
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-  CMD curl --fail --silent --show-error http://127.0.0.1:8081/actuator/health > /dev/null || exit 1
+  CMD curl --fail --silent --show-error http://127.0.0.1:${PORT:-${SERVER_PORT:-8081}}/actuator/health > /dev/null || exit 1
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 

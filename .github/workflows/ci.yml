@@ -66,7 +66,17 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
       - run: npm test -- --watch=false
+      - run: npm run test:cloudflare
       - run: npm run build
+      - name: Validate Cloudflare production artifact
+        env:
+          API_URL: https://api.example.test
+        run: |
+          npm run build:cloudflare
+          test -f dist/frontend/browser/index.html
+          test -f dist/frontend/browser/runtime-config.js
+          test -f dist/frontend/browser/_redirects
+          test -f dist/frontend/browser/_headers
 
   e2e:
     runs-on: ubuntu-latest
