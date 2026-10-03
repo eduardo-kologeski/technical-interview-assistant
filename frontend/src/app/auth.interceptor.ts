@@ -5,6 +5,7 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
+  if (!request.url.startsWith('/api/')) return next(request);
   const auth = inject(AuthService);
   const router = inject(Router);
   const withToken = (token: string | null) => {

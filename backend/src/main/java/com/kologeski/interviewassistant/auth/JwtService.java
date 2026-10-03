@@ -17,7 +17,10 @@ public class JwtService {
 
     public JwtService(@Value("${app.jwt.secret}") String secret,
                       @Value("${app.jwt.access-expiration}") Duration expiration) {
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        // Local runs without configuration use a fresh key on each restart.
+        // ProductionConfiguration rejects missing JWT_SECRET before beans are created.
+        this.key = secret.isBlank() ? Jwts.SIG.HS512.key().build()
+                : Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
         this.expiration = expiration;
     }
 
