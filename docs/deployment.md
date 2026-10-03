@@ -1,5 +1,9 @@
 # Deployment e operação
 
+Para a demonstração Cloudflare Pages → Koyeb → Neon, siga primeiro o
+[guia específico de deploy cloud](cloud-deployment.md). Os requisitos operacionais abaixo
+continuam relevantes para produção com dados reais. IA não é requisito desse deploy.
+
 Este runbook define o caminho mínimo para homologação e produção. O `docker-compose.yml` do repositório é destinado exclusivamente a desenvolvimento/homologação local e não substitui uma plataforma produtiva gerenciada.
 
 ## Ambientes
@@ -18,7 +22,8 @@ Produção deve iniciar com o profile Spring `prod`. Não usar H2, `ddl-auto=cre
 | `DATABASE_URL` | sim | URL JDBC PostgreSQL com TLS conforme provedor |
 | `DATABASE_USER` | sim | Usuário de aplicação com privilégio mínimo |
 | `DATABASE_PASSWORD` | sim | Secret manager; nunca arquivo versionado |
-| `SERVER_PORT` | não | Padrão interno da imagem: 8080 |
+| `PORT` | não | Porta do provedor; precede `SERVER_PORT`; padrão da imagem: 8081 |
+| `SERVER_PORT` | não | Compatibilidade local; padrão 8081 |
 | `SERVER_CONNECTION_TIMEOUT` | não | Conexão Tomcat; padrão `5s` |
 | `SERVER_KEEP_ALIVE_TIMEOUT` | não | Keep-alive Tomcat; padrão `20s` |
 | `SERVER_MAX_CONNECTIONS` | não | Limite Tomcat; padrão `200` |

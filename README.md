@@ -41,7 +41,14 @@ O Ollama não faz parte do Compose. Para habilitar a geração de minutas, insta
 
 O projeto está em construção. O desenho do produto, a arquitetura, o domínio e o backlog estão em [`docs/architecture.md`](docs/architecture.md).
 
-## Produção
+## Deploy
+
+Para demonstração pública com **Angular na Cloudflare Pages, Spring Boot no Koyeb e PostgreSQL
+no Neon**, siga o [guia de deploy](docs/cloud-deployment.md). Ele documenta builds, HTTPS,
+variáveis/secrets, CORS, healthcheck, limites gratuitos e configuração manual dos provedores.
+Esse deploy não requer IA ou Ollama; o ambiente local permanece disponível.
+
+### Prontidão para produção
 
 O estado atual é **NO-GO para produção**. Consulte a [auditoria de Production Readiness](docs/production-readiness.md), o [progresso de remediação](docs/production-readiness-remediation.md) e o [runbook de deployment, backup e rollback](docs/deployment.md) antes de utilizar dados reais.
 
